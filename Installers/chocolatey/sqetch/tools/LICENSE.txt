@@ -12,8 +12,9 @@ projects under two licences, so the distributed binaries are licensed as
     Public License, version 3 or (at your option) any later version
 
 The complete texts of both licences follow this statement. The licence mapping per project is in
-LICENSING.md (https://github.com/NDWX/Sqetch/blob/main/LICENSING.md) and the licences of the third-party
-packages and of the .NET runtime that the tool ships with are in the THIRD-PARTY-NOTICES.txt,
-DOTNET-LICENSE.txt and DOTNET-THIRD-PARTY-NOTICES.txt files that the installer places next to the tool.
+LICENSING.md (https://github.com/NDWX/Pug.Sqetch/blob/main/LICENSING.md) and the licences of the
+third-party packages and of the .NET runtime that the tool ships with are in the
+THIRD-PARTY-NOTICES.txt, DOTNET-LICENSE.txt and DOTNET-THIRD-PARTY-NOTICES.txt files that the
+installer places next to the tool.
 
-Source code: https://github.com/NDWX/Sqetch
+Source code: https://github.com/NDWX/Pug.Sqetch

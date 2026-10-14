@@ -6,9 +6,9 @@
 		<Company>Pug</Company>
 		<Authors>Pug</Authors>
 		<Product>Sqetch</Product>
-		<RepositoryUrl>https://github.com/NDWX/Sqetch</RepositoryUrl>
+		<RepositoryUrl>https://github.com/NDWX/Pug.Sqetch</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<PackageProjectUrl>https://github.com/NDWX/Sqetch</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/NDWX/Pug.Sqetch</PackageProjectUrl>
 		<IsPackable>false</IsPackable>
 
 		<!-- the version option prints the version a release was built as, not version+commit -->

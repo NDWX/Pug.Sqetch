@@ -22,7 +22,7 @@ section: database
 priority: optional
 maintainer: Pug
 vendor: Pug
-homepage: https://github.com/NDWX/Sqetch
+homepage: https://github.com/NDWX/Pug.Sqetch
 license: GPL-3.0-or-later AND AGPL-3.0-or-later
 description: "${SQETCH_DESCRIPTION}"
 

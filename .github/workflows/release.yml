@@ -84,7 +84,7 @@ jobs:
           overwrite: true
 
   # A signed build runs in the 'release' environment, whose name is the subject of the Azure
-  # federated credential (repo:NDWX/Sqetch:environment:release) and where approvals may be required.
+  # federated credential (repo:NDWX/Pug.Sqetch:environment:release) and where approvals may be required.
   # An unsigned one (pre-release tag, dry run) runs in the 'unsigned' environment instead, which has no
   # protection rules and uses no credential. The name is never empty, because GitHub's handling of an
   # empty environment name is not documented.

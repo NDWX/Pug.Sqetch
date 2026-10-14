@@ -8,10 +8,10 @@
 		<title>Sqetch Deploy</title>
 		<authors>Pug</authors>
 		<owners>Pug</owners>
-		<projectUrl>https://github.com/NDWX/Sqetch</projectUrl>
-		<projectSourceUrl>https://github.com/NDWX/Sqetch</projectSourceUrl>
-		<bugTrackerUrl>https://github.com/NDWX/Sqetch/issues</bugTrackerUrl>
-		<licenseUrl>https://github.com/NDWX/Sqetch/blob/main/LICENSING.md</licenseUrl>
+		<projectUrl>https://github.com/NDWX/Pug.Sqetch</projectUrl>
+		<projectSourceUrl>https://github.com/NDWX/Pug.Sqetch</projectSourceUrl>
+		<bugTrackerUrl>https://github.com/NDWX/Pug.Sqetch/issues</bugTrackerUrl>
+		<licenseUrl>https://github.com/NDWX/Pug.Sqetch/blob/main/LICENSING.md</licenseUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<copyright>Pug</copyright>
 		<tags>sqetch database schema migration deployment sql cli devops</tags>

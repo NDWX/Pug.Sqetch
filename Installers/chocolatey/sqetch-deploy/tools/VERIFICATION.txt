@@ -7,7 +7,7 @@ This package embeds the Windows x64 installer (MSI) of {{PRODUCT}} {{VERSION}}:
 
   tools\{{MSI}}
 
-The installer is built from the public source at https://github.com/NDWX/Sqetch by the repository's
+The installer is built from the public source at https://github.com/NDWX/Pug.Sqetch by the repository's
 release workflow (GitHub Actions) and is not modified in any way for this package: it is the same file
 that the workflow attaches to the GitHub release. Release builds are Authenticode-signed; the signature
 can be checked with Get-AuthenticodeSignature or on the file's Digital Signatures property tab.

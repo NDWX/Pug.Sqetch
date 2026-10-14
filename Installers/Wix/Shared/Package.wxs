@@ -37,7 +37,7 @@
 
 		<!-- nothing to modify: the one feature is the whole product -->
 		<Property Id="ARPNOMODIFY" Value="1" />
-		<Property Id="ARPURLINFOABOUT" Value="https://github.com/NDWX/Sqetch" />
+		<Property Id="ARPURLINFOABOUT" Value="https://github.com/NDWX/Pug.Sqetch" />
 
 		<!-- The Id has lower-case letters on purpose: Windows Installer treats an all-upper-case property
 		     as public, which a command line can set (INSTALLFOLDER=D:\elsewhere), so this one is private

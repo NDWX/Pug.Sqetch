@@ -90,7 +90,7 @@ GitHub OIDC, so no secret is stored in GitHub.
 
 1. An Authenticode code-signing certificate from a publicly trusted CA, in an Azure Key Vault.
 2. An Entra ID app registration with a federated credential for
-   `repo:NDWX/Sqetch:environment:release`.
+   `repo:NDWX/Pug.Sqetch:environment:release`.
 3. Its service principal gets the *Key Vault Certificate User* and *Key Vault Crypto User* roles on
    the vault.
 4. A GitHub environment named `release`, optionally with required reviewers. The Windows build job

@@ -20,7 +20,7 @@ $script:WixPlatforms = @{
 }
 
 $script:TimestampUrl = 'http://timestamp.acs.microsoft.com'
-$script:ProjectUrl = 'https://github.com/NDWX/Sqetch'
+$script:ProjectUrl = 'https://github.com/NDWX/Pug.Sqetch'
 
 function Invoke-PlatformSigning
 {
