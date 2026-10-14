@@ -3,7 +3,8 @@ name: Release
 # <product>-v<X.Y.Z>      signed release (Windows Authenticode through Azure Key Vault)
 # <product>-pre-v<X.Y.Z>  unsigned pre-release
 # workflow_dispatch       dry run: builds and smoke-tests, uploads workflow artifacts, releases nothing
-# where <product> is sqetch or sqetch_deploy. Everything but the plumbing lives in
+# where <product> is sqetch or sqetch_deploy. Both tag kinds push the dotnet tool package to nuget.org
+# (trusted publishing) and then create a draft GitHub release. Everything but the plumbing lives in
 # Installers/build/build.ps1.
 on:
   push:
@@ -30,8 +31,9 @@ concurrency:
 jobs:
   # What is being built, decided once so every job agrees: product, version (including the pre-release
   # timestamp) and whether the build is signed. A signed tag fails here, before anything is built,
-  # when the signing identifiers are not configured. Define them as repository variables: this job
-  # runs outside the 'release' environment, so variables defined only there are not visible to it.
+  # when the signing identifiers are not configured, and any tag does when NUGET_USER is not. Define
+  # them as repository variables: this job runs outside the 'release' environment, so variables
+  # defined only there are not visible to it.
   identify:
     runs-on: ubuntu-latest
     outputs:
@@ -53,6 +55,7 @@ jobs:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           SIGN_KEY_VAULT_URL: ${{ vars.SIGN_KEY_VAULT_URL }}
           SIGN_CERTIFICATE_NAME: ${{ vars.SIGN_CERTIFICATE_NAME }}
+          NUGET_USER: ${{ vars.NUGET_USER }}
         run: |
           $arguments = @{ Stage = 'identify'; Ref = $env:REF }
           if( $env:PRODUCT ) { $arguments.Product = $env:PRODUCT }
@@ -227,11 +230,41 @@ jobs:
           path: artifacts/dist
       - run: pwsh Installers/build/build.ps1 -Stage smoke-tool -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
-  # A draft GitHub release for the tag, holding every artifact and SHA256SUMS. It stays a draft: the
-  # maintainer reads it and publishes it by hand.
-  release:
+  # The tool package to nuget.org, through trusted publishing: NuGet/login trades the job's GitHub OIDC
+  # token for an API key that expires within the hour, so no key is stored in GitHub. The nuget.org
+  # policy names this repository and release.yml. A push cannot be undone (a version can only be
+  # unlisted), so it waits for every test and smoke job, and runs in the 'release' environment, where
+  # required reviewers can gate it.
+  nuget:
     if: github.event_name == 'push' && needs.identify.outputs.release == 'true'
     needs: [identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-tool
+          path: artifacts/dist
+      - id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Push to nuget.org
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: ./Installers/build/build.ps1 -Stage push-tool -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
+
+  # A draft GitHub release for the tag, holding every artifact and SHA256SUMS, created once the tool
+  # package is on nuget.org. It stays a draft: the maintainer reads it and publishes it by hand.
+  release:
+    if: github.event_name == 'push' && needs.identify.outputs.release == 'true'
+    needs: [identify, nuget]
     runs-on: ubuntu-latest
     permissions:
       contents: write

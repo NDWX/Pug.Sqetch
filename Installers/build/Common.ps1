@@ -36,18 +36,26 @@ $script:TagPattern = '^(?<product>sqetch|sqetch_deploy)(?<pre>-pre)?-v(?<version
 # the variables a signed build needs; identify fails fast on a release tag when any is missing
 $script:SigningVariables = @( 'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'SIGN_KEY_VAULT_URL', 'SIGN_CERTIFICATE_NAME' )
 
+# the variables every tag build needs to publish (the nuget.org profile trusted publishing logs in
+# as); identify fails fast on any tag, release or pre-release, when one is missing
+$script:PublishingVariables = @( 'NUGET_USER' )
+
+$script:NuGetSource = 'https://api.nuget.org/v3/index.json'
+
 $script:DockerViaSg = $false
 
 # Runs a native command and throws on a non-zero exit code. -Capture returns stdout as one string.
 # -PassThru instead returns the exit code and the combined output as a product invoker's result
 # ([pscustomobject]@{ ExitCode; Output }) and never throws on a non-zero code; the caller decides.
+# -Secret values are shown as *** where the command is echoed.
 function Invoke-Native
 {
 	param(
 		[Parameter( Mandatory )] [string] $FilePath,
 		[string[]] $Arguments = @(),
 		[switch] $Capture,
-		[switch] $PassThru
+		[switch] $PassThru,
+		[string[]] $Secret = @()
 	)
 
 	if( $PassThru )
@@ -57,7 +65,7 @@ function Invoke-Native
 		return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
 	}
 
-	Write-Host "> $FilePath $( $Arguments -join ' ' )"
+	Write-Host "> $FilePath $( ( $Arguments | ForEach-Object { $Secret -contains $_ ? '***' : $_ } ) -join ' ' )"
 
 	if( $Capture )
 	{
@@ -184,6 +192,16 @@ function Resolve-BuildIdentity
 		if( $missing )
 		{
 			throw "release tag '$tag' must be signed, but these signing variables are not set: $( $missing -join ', ' ). Use a <product>-pre-v<X.Y.Z> tag for an unsigned pre-release."
+		}
+	}
+
+	if( $tag )
+	{
+		$missing = @( $script:PublishingVariables | Where-Object { -not [Environment]::GetEnvironmentVariable( $_ ) } )
+
+		if( $missing )
+		{
+			throw "tag '$tag' publishes to nuget.org, but these variables are not set: $( $missing -join ', ' )"
 		}
 	}
 
@@ -520,6 +538,37 @@ function Test-ToolPackage
 	$invoke = New-LocalInvoker -Command $command -WorkingDirectory ( Join-Path $toolPath 'work' )
 
 	Test-ProductCommands -Context $Context -Invoke $invoke
+}
+
+# Pushes the tool package pack-tool made to nuget.org with the key in NUGET_API_KEY (in the release
+# workflow, the short-lived one trusted publishing issued). A version already there is skipped, so a
+# re-run after a push that succeeded completes the job instead of failing it; nuget.org cannot take
+# a version back, only unlist it. -DryRun prints the push and leaves the key unread.
+function Publish-ToolPackage
+{
+	param( [Parameter( Mandatory )] $Context, [switch] $DryRun )
+
+	$package = Join-Path $Context.DistDir "$( $Context.Product.PackageId ).$( $Context.Version ).nupkg"
+
+	if( -not ( Test-Path -LiteralPath $package ) )
+	{
+		throw "nothing to push: $package does not exist; run -Stage pack-tool first"
+	}
+
+	$arguments = @( 'nuget', 'push', $package, '--source', $script:NuGetSource, '--skip-duplicate', '--api-key' )
+
+	if( $DryRun )
+	{
+		Write-Host "[dry run] dotnet $( $arguments -join ' ' ) ***"
+		return
+	}
+
+	if( -not $env:NUGET_API_KEY )
+	{
+		throw 'stage push-tool needs NUGET_API_KEY in the environment'
+	}
+
+	Invoke-Native -FilePath 'dotnet' -Arguments ( $arguments + $env:NUGET_API_KEY ) -Secret $env:NUGET_API_KEY
 }
 
 function Write-Checksums

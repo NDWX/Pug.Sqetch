@@ -3,10 +3,10 @@
 The two CLIs, `sqetch` and `sqetch-deploy`, are versioned and released independently. Each
 carries its own `<Version>` in its project (`Pug.Sqetch.Cli`, `Pug.Sqetch.Deployment.Cli`), and a
 release is started by pushing a tag. The GitHub workflow builds every artifact, smoke-tests each one
-on its native platform, and attaches all of them to a **draft** GitHub release, which you publish
-yourself.
+on its native platform, pushes the dotnet tool package to **nuget.org**, and attaches every artifact
+to a **draft** GitHub release, which you publish yourself.
 
-Pushing to package managers (nuget.org, winget, Chocolatey, the Homebrew tap) is **not automated
+Pushing to the other package managers (winget, Chocolatey, the Homebrew tap) is **not automated
 yet**. The release already carries every file those channels need.
 
 ## Tags
@@ -22,6 +22,10 @@ yet**. The release already carries every file those channels need.
   they are, use pre-release tags.
 - A pre-release tag produces a draft marked *pre-release*. Tagging the same `X.Y.Z` again with
   `-pre-` gives a newer stamp, so pre-releases sort in build order and before the final `X.Y.Z`.
+- **Both kinds push the tool package to nuget.org**, a pre-release tag as a NuGet pre-release
+  (`dotnet tool install --prerelease`). The push waits for every test and smoke job, runs in the
+  `release` environment, and cannot be undone: nuget.org only unlists a version. Any tag fails in its
+  first job when `NUGET_USER` (below) is not configured.
 - `sqetch_deploy` uses an underscore so that no `sqetch-*` tag pattern can match it.
 
 ## Dry run
@@ -40,7 +44,7 @@ For each product, with `<v>` the full version:
 | Direct download | `<name>-<v>-win-{x64,arm64}.zip` |
 | Direct download, winget | `<name>-<v>-win-{x64,arm64}.msi` (per-user or per-machine; signed on release tags) |
 | Chocolatey | `<name>.<v>.nupkg`, which embeds the x64 MSI |
-| dotnet tool | `Pug.Sqetch.Cli.<v>.nupkg` / `Pug.Sqetch.Deployment.Cli.<v>.nupkg` (framework-dependent, needs .NET 10) |
+| dotnet tool, also pushed to nuget.org | `Pug.Sqetch.Cli.<v>.nupkg` / `Pug.Sqetch.Deployment.Cli.<v>.nupkg` (framework-dependent, needs .NET 10) |
 | apt / dnf | `<name>_<v>_{amd64,arm64}.deb`, `<name>-<v>.{x86_64,aarch64}.rpm` |
 | Verification | `SHA256SUMS` |
 
@@ -67,7 +71,8 @@ pwsh Installers/build/build.ps1 -Stage smoke   -Product sqetch-deploy -DockerVia
 
 Without `-Version`, a stage builds `X.Y.Z-dev.<stamp>`. When you run the stages one after another,
 pass the same `-Version` to each. Output goes to `artifacts/`. The MSI and Chocolatey packages build
-only on Windows; `.deb`/`.rpm` need Docker.
+only on Windows; `.deb`/`.rpm` need Docker. `identify` on a tag needs `NUGET_USER` set to anything,
+as it does in the workflow. `-Stage push-tool -DryRun` prints the nuget.org push without making it.
 
 ## Docker Hub login (one-time, before CI can pass)
 
@@ -81,6 +86,25 @@ pulls count against an account instead. In *Settings → Secrets and variables �
 
 Without them the login step fails with "Password required", in `ci.yml` and in the release
 workflow's `test` job, which calls it with `secrets: inherit`.
+
+## NuGet trusted publishing (one-time, before the first tag)
+
+The `nuget` job logs in to nuget.org with GitHub OIDC (`NuGet/login`), which issues an API key valid
+for an hour, so no NuGet key is stored in GitHub.
+
+1. On nuget.org, under *your profile → Trusted Publishing*, add a GitHub Actions policy:
+   - repository owner `NDWX`, repository `Pug.Sqetch`;
+   - workflow file `release.yml` (the file name only, without `.github/workflows/`);
+   - environment `release`, or leave it empty to accept the job from any environment;
+   - scopes allowing both new packages and new versions, for `Pug.Sqetch.Cli` and
+     `Pug.Sqetch.Deployment.Cli` (or the glob `Pug.Sqetch.*`): the first push of each creates it.
+
+   The policy's owner, you or an organization you belong to, owns the packages it publishes.
+2. The repository **variable** `NUGET_USER`: the nuget.org profile name (not the e-mail address).
+   It must be a repository variable, not an environment-only one, because the first job checks it
+   outside any environment.
+
+A re-run pushes with `--skip-duplicate`, so a version already on nuget.org is not an error.
 
 ## Signing setup (one-time, before the first release tag)
 
@@ -104,7 +128,6 @@ GitHub OIDC, so no secret is stored in GitHub.
 
 ## Not yet automated (distribution)
 
-- nuget.org push of the tool packages (trusted publishing).
 - winget manifests (`Pug.Sqetch`, `Pug.SqetchDeploy`) pointing at the release's MSIs.
 - `choco push` of the Chocolatey packages.
 - The Homebrew formulae in `NDWX/homebrew-tap`.

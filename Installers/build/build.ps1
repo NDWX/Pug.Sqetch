@@ -8,6 +8,7 @@
 #   build.ps1 -Stage package   -Product sqetch -Version 0.1.0 -Rid linux-x64 [-Sign]
 #   build.ps1 -Stage smoke     -Product sqetch -Version 0.1.0 [-Rid <host rid>]
 #   build.ps1 -Stage pack-tool | smoke-tool | checksums -Product sqetch -Version 0.1.0
+#   build.ps1 -Stage push-tool -Product sqetch -Version 0.1.0 [-DryRun]   (NUGET_API_KEY in the environment)
 #   build.ps1 -Stage release   -Product sqetch -Version 0.1.0 -Tag sqetch-v0.1.0 [-Prerelease] [-Title <text>] [-DryRun]
 #
 # Without -Version a stage builds <project version>-dev.<UTC stamp>. Artifacts land in
@@ -18,11 +19,15 @@
 # checksums first so SHA256SUMS is among it), through the gh CLI with GH_TOKEN set. A draft that
 # already exists is brought in line with dist/, its assets replaced; a published release is never
 # touched, because its assets are immutable. -DryRun prints what it would do and calls nothing.
+#
+# The push-tool stage pushes the tool package pack-tool left in dist/ to nuget.org. That cannot be
+# undone (a version can only be unlisted), so the release workflow runs it only after every smoke
+# test passed. -DryRun prints the push without making it.
 
 [CmdletBinding()]
 param(
 	[Parameter( Mandatory )]
-	[ValidateSet( 'identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'checksums', 'release' )]
+	[ValidateSet( 'identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'push-tool', 'checksums', 'release' )]
 	[string] $Stage,
 
 	[ValidateSet( 'sqetch', 'sqetch-deploy' )]
@@ -43,7 +48,7 @@ param(
 
 	[string] $Title,
 
-	# release stage: print the gh commands instead of running them
+	# release and push-tool stages: print the gh or dotnet nuget commands instead of running them
 	[switch] $DryRun,
 
 	[string] $ArtifactsDir,
@@ -235,6 +240,11 @@ switch( $Stage )
 	'smoke-tool'
 	{
 		Test-ToolPackage -Context $context
+	}
+
+	'push-tool'
+	{
+		Publish-ToolPackage -Context $context -DryRun:$DryRun
 	}
 
 	'checksums'

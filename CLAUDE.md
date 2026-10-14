@@ -264,6 +264,8 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   `New-SmokeBundle.ps1` whenever the manifest or journaling contract changes. The two CLIs release
   independently (`sqetch-v*`, `sqetch_deploy-v*`); the tag's `X.Y.Z` must equal the host project's
   `<Version>`. A `-pre-` tag builds `X.Y.Z-pre.<UTC stamp>` unsigned; a plain tag requires signing.
+  Both push the dotnet tool package to nuget.org (`push-tool`, NuGet trusted publishing, so no stored
+  key) once every smoke job passed, and only then create the draft GitHub release.
   Formats that cannot carry the suffix keep `X.Y.Z` (MSI ProductVersion) or translate it (deb/rpm
   `~pre…`, which sorts before the release), but every **file name** carries the full version as
   written, because GitHub rewrites `~` in asset names and `SHA256SUMS` must match them.
