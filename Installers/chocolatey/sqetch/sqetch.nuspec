@@ -15,10 +15,10 @@
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<copyright>Pug</copyright>
 		<tags>sqetch database schema migration sql cli devops</tags>
-		<summary>Sqetch: author database schema changes as plans, group them into releases and bundle them for deployment</summary>
+		<summary>Sqetch: author database schema changes as plans and group them into releases</summary>
 		<description>Sqetch is a DevOps database schema upgrader. A project contains plans (units of schema change), each plan contains steps with three SQL scripts (deploy, verify and rollback), and plans are grouped into releases that form a single linear lineage.
 
-This package installs the `sqetch` command line tool, which authors that project: it creates plans and steps, groups plans into releases, finalizes releases and produces deployment bundles. Bundles are deployed with the companion `sqetch-deploy` tool (package `sqetch-deploy`).
+This package installs the `sqetch` command line tool, which authors that project: it creates plans and steps, groups plans into releases, finalizes releases and sets the project's journaling SQL. The companion `sqetch-deploy` tool (package `sqetch-deploy`) bundles the project and deploys the bundles.
 
 The package embeds the Windows x64 installer (MSI) built and signed by the release pipeline and runs it silently for all users, which puts `sqetch` on the system PATH. A per-user installation (no administrator rights) is available from the MSI attached to each GitHub release.</description>
 	</metadata>

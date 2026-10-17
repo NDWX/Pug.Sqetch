@@ -4,10 +4,11 @@ DevOps database schema upgrader. A **project** contains **plans** (units of sche
 each plan contains **steps** with three SQL scripts (`deploy.sql`, `verify.sql`,
 `rollback.sql`). Plans are grouped into **releases** that form a single linear lineage: every
 release except the first names exactly one predecessor (`Dependency`), and a release may have
-at most one dependant. Finalizing a release freezes it and its plans. The `bundle` command
-packages deployable plans plus a manifest for deployment pipelines; the separate
-**sqetch-deploy** CLI consumes those bundles and deploys them to a database through
-pluggable database drivers, journaling through SQL the project maintainer authors.
+at most one dependant. Finalizing a release freezes it and its plans. The separate **sqetch-deploy** CLI owns
+everything downstream of authoring: its `bundle` command packages a project's deployable plans
+plus a manifest for deployment pipelines, and its `deploy` command consumes those bundles and
+deploys them to a database through pluggable database drivers, journaling through SQL the
+project maintainer authors.
 
 ## Commands
 
@@ -16,6 +17,7 @@ dotnet build                 # full solution
 dotnet test                  # all test projects; must be green before any commit
 dotnet run --project Pug.Sqetch.Cli -- <args>   # run the 'sqetch' CLI
 dotnet run --project Pug.Sqetch.Deployment.Cli -- <args>   # run the 'sqetch-deploy' CLI
+dotnet run --project Pug.Sqetch.Deployment.Cli -- bundle --project <dir> -o <bundle>
 dotnet run --project Pug.Sqetch.Deployment.Cli -- deploy <bundle> --driver sqlite --sqlite-file db
 dotnet run --project Pug.Sqetch.Deployment.Cli -- drivers parameters sqlite   # a driver's switches
 pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEASING.md
@@ -26,14 +28,14 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
 | Project | Role |
 |---|---|
 | `Pug.Sqetch.Models` (net8.0) | Plain records: definitions, criteria, `StepScripts`, `UserInfo` |
-| `Pug.Sqetch.Abstractions` (net8.0) | Every contract, grouped by folder: root — `IProject`/`IReadOnlyProject`, `IScriptsStore`, domain exceptions; `ProjectInfoStore/` — `IProjectInfoStore`; `Bundling/` — `Bundle` model, `IBundleType`/`IBundleWriter`/`IBundleLayout`, registry interfaces, bundling exceptions; `Deployment/` — `JournaledRelease`, deployment exceptions; `DatabaseDriver/` — `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, registry interface, driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`, so the driver contract does not depend on deployment) |
+| `Pug.Sqetch.Abstractions` (net8.0) | Every contract, grouped by folder: root — `IProject`/`IReadOnlyProject`, `IScriptsStore`, domain exceptions; `ProjectInfoStore/` — `IProjectInfoStore`; `Bundling/` — `Bundle` model, `BundleMetadata` (the `META-DATA` entry), `IBundleType`/`IBundleWriter`/`IBundleLayout`, registry interfaces, bundling exceptions; `Deployment/` — `JournaledRelease`, deployment exceptions; `DatabaseDriver/` — `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, registry interface, driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`, so the driver contract does not depend on deployment) |
 | `Pug.Sqetch` | The engine (`Project`): business rules, dependency ordering, semaphores |
 | `Pug.Sqetch.ProjectInfoStores.FileSystem` | Git-friendly file store: `ProjectPaths`, sharding, plan index, `NameRules` |
 | `Pug.Sqetch.Bundling.BundleTypes` | zip / tar / tar.gz / directory implementations + `RegisterBundleTypes()` |
 | `Pug.Sqetch.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()` |
-| `Pug.Sqetch.Bundling` | `BundleBuilder` orchestration + registry implementations |
+| `Pug.Sqetch.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations |
 | `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter` |
-| `Pug.Sqetch.Cli.Commands` (net10.0) | Every command of both CLIs and the helpers they use: `Authoring/` (ns `…Cli.Commands.Authoring`) for 'sqetch' — commands, `ProjectSession`, `NameValidation`, `OptionParsing`, `UserIdentity`, `Output/Rows`; `Deployment/` (ns `…Cli.Commands.Deployment`) for 'sqetch-deploy' — commands, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. The only layer touching `ProjectPaths` for output |
+| `Pug.Sqetch.Cli.Commands` (net10.0) | Every command of both CLIs and the helpers they use: `Authoring/` (ns `…Cli.Commands.Authoring`) for 'sqetch' — commands, `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `OptionParsing`, `UserIdentity`, `Output/Rows`; `Deployment/` (ns `…Cli.Commands.Deployment`) for 'sqetch-deploy' — commands (`bundle` included), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. The only layer touching `ProjectPaths` for output |
 | `Pug.Sqetch.Cli` | The 'sqetch' host: `Program`, the command tree (`SqetchApp.Configure`) and `CliErrors` |
 | `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, `BundleValidator`/`ValidatedBundle`, driver registry, `IDeploymentListener` |
 | `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`/`AdoDialect`: the ADO.NET half every provider driver inherits |
@@ -41,7 +43,7 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
 | `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()` |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, the only project referencing the concrete drivers), `TypeRegistrar` DI seam |
 | `Pug.Sqetch.Tests*` | xunit test projects, one per tier |
-| `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `smoke/` (bundle fixture + `New-SmokeBundle.ps1`) |
+| `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
 
 ## Architecture rules
 
@@ -52,6 +54,13 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   assignment; release → its shard on finalization). Only *finalized* releases are sharded;
   unfinalized ones live at `releases/<name>/`. `ReleaseDirectory` probes both locations —
   never scan `releases/` (the plan index and `EnumerateReleaseDirectories` exist for that).
+- **The project format is versioned**: `sqetch-project.json` starts with `format`
+  (`FileSystemProjectStores.Format`, absent = `1`), and opening a project of a higher or
+  non-positive format throws `UnsupportedProjectFormatException` — for reading and writing alike,
+  since a newer layout may keep things where an older store would never look or would write over
+  them. Raise it whenever an on-disk change would make an older store misread a project. It
+  matters because the two CLIs release independently and `sqetch-deploy` reads projects that
+  whichever `sqetch` each maintainer has wrote.
 - **Journaling statements are project-level and not frozen**: they live in `journaling/` at the
   project root, written atomically like every other store file, and — unlike step scripts — have no
   finalized-release guard, so they can change after a release is finalized while an already-built
@@ -63,7 +72,7 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   drivers): contracts in `Pug.Sqetch.Abstractions` (in the family's folder), implementations
   in sibling projects, a registry keyed by name (`OrdinalIgnoreCase`). Bundling and
   deployment registries ship **empty**; the host registers built-ins via the `Register*()`
-  extension methods (see `BundleCommand`, `SqetchDeployApp.CreateDefaultRegistrar`).
+  extension methods (see `SqetchDeployApp.CreateDefaultRegistrar`).
   Journaling is deliberately *not* a family:
   the SQL is the project's, so there is nothing to select at deploy time and no
   `--driver`/`--journal` pair to mismatch.
@@ -72,6 +81,20 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   translates its on-disk manifest schema to/from the layout-neutral `BundleManifest`
   (`ReadManifest`) and owns entry pathing (`ScriptPath`). Manifest array order IS the
   deployment order.
+- **Bundling belongs to `sqetch-deploy`**, the tool that reads bundles, so the writer and the
+  reader of the format are one program. `bundle --project <dir>` (default: the current
+  directory) opens the project **read-only** (`ProjectFactory.CreateReadOnly`, no `UserInfo`), so
+  a pipeline needs no `.sqetch-user`; a read-only `Project` refuses any write reached by casting it
+  back to `IProject`. The bundle stays a build-once artifact: deploying never builds one.
+- **Every bundle starts with `META-DATA`** (`BundleMetadata`), apart from the manifest so a
+  reader learns whether it can read the bundle before reading anything a layout owns: UTF-8
+  `key=value` lines (`#` comments and unknown keys ignored, known keys exactly once) carrying
+  `format`, `layout`, `bundler`, `bundler-version` and `bundled` (UTC, `yyyy-MM-ddTHH:mm:ssZ`).
+  Its name, place and syntax belong to no layout and must never change; `BundlePackager` writes it
+  before the layout writes anything, so no layout can forget it. `BundleValidator` reads it first,
+  resolves the layout by the name it gives, and refuses an unknown layout or a `format` above
+  `IBundleLayout.Format` (`UnsupportedBundleFormatException`). The compatibility gate is layout
+  plus format, **never the bundler version**, which is there for pinning and printed by `deploy`.
 - **Bundles carry the release lineage**: every manifest release records its `dependency` (the
   release it follows; empty starts the lineage), and a bundle's releases must form a
   contiguous chain — a manifest omitting `dependency` normalizes it to the preceding release,
@@ -136,7 +159,7 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   same transaction as the release's last plan. Neither the prepare nor the read commit is reported
   to `IDeploymentListener`: they are not deployment progress. On failure the open transaction rolls
   back — earlier commits stand.
-- **Rollback is compensating, not transactional** (`DeploymentRollbackMode`, `deploy --rollback`):
+- **Rollback is compensating, not transactional** (`RollbackTrigger`, `deploy --rollback`):
   `on-error` undoes what the run committed after a failure, `on-success` undoes a deployment that
   worked — for proving a bundle applies cleanly, usually a test bundle, though a bundle of
   finalized releases is not refused: what a caller wants to prove and then undo is its own
@@ -212,7 +235,7 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   other assemblies consume them. The CSV quoting, the JSON options and the interactive-vs-piped
   decision are exactly what drifts when duplicated. Both hosts reference `Pug.Sqetch.Cli.Commands`,
   which holds every command of both CLIs, so **'sqetch-deploy' ships the authoring assemblies too**
-  (engine, file-system store, bundle builder) — a deliberate trade for one commands project; the
+  (engine, file-system store, bundle builder) — which `bundle` now needs anyway; the
   hosts stay thin, and only `Pug.Sqetch.Deployment.Cli` references the concrete database drivers. **The machine formats
   are written with wrapping widened out of the way**: Spectre wraps to the profile width, which is
   80 whenever stdout is not a terminal — precisely when those formats are used — and a wrapped line
@@ -231,17 +254,22 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   deployed-then-undone alike — anything non-zero stops a `set -e` shell, and telling the three
   apart is the output's job. `10` is every command-line mistake, deliberately undivided: finer
   codes would mean parsing Spectre's message text or re-implementing its parser, and
-  `CommandParseException` carries no reason of its own. Then `21`/`22`/`23` missing / invalid /
-  incompatible bundle, `31`/`32`/`33` unknown driver / driver creation / database unreachable, `41`/`42`/`43` journal
+  `CommandParseException` carries no reason of its own. Then `21`/`22`/`23`/`24` missing / invalid /
+  incompatible / unsupported bundle (`24`: an unknown layout or a newer layout format — the remedy
+  is upgrading the tool, not fixing the bundle), `31`/`32`/`33` unknown driver / driver creation / database unreachable, `41`/`42`/`43` journal
   prepare / query / write, `51`/`52` deployment failed with the database unchanged / left partway,
-  `61` rollback failed, `91` not implemented. Two precedence rules carry the operational meaning:
+  `61` rollback failed, `71`/`72`/`73` for `bundle`: project unreadable (missing, damaged, newer
+  format) / not bundleable (unset journaling, missing scripts, a `--since` with nothing after it,
+  an unknown release) / output not writable (`BundleOutputException`, wrapped by the command so
+  no `IOException` elsewhere lands on it), `91` not implemented. Two precedence rules carry the operational meaning:
   a half-compensated database (`61`) outranks the failure that started the rollback, and a database
   left partway (`52`) outranks the cause of it — the cause stays in the message for whoever fixes
   it, the code tells a pipeline whether it may retry. `52` therefore needs to know whether anything
   committed, which only `DeployCommand` does, so **it returns its own code** and the central
   `SetExceptionHandler` sees only what was raised before the deployment began. `UnknownBundleType`
   is `10`, not `22` — the only bundle type name is the one `--bundle-type` carries; an unknown
-  *layout* is `1`, since that name is the host's own constant. `33` exists because a driver is
+  layout named by a bundle is `24`, and one asked for by `bundle` is `1`, since that name is the
+  host's own constant. `33` exists because a driver is
   configured without connecting: an unreachable server is not a creation failure and does not
   surface until the first transaction, so `AdoDatabaseDriver` turns a failed open into
   `DatabaseConnectionException` rather than letting a provider exception reach the handler as `1`.
@@ -260,8 +288,10 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   (`Test-ProductCommands`) against a *product invoker*, so the same checks run a binary directly,
   from PATH after an MSI install, or through `docker exec` inside the container a .deb/.rpm was
   installed into. `sqetch-deploy`'s smoke deploys the committed `Installers/smoke/bundle` to SQLite,
-  which is what proves the native `e_sqlite3` beside the single file loads; regenerate it with
-  `New-SmokeBundle.ps1` whenever the manifest or journaling contract changes. The two CLIs release
+  which is what proves the native `e_sqlite3` beside the single file loads, then bundles the
+  committed `Installers/smoke/project` (mounted read-only in the containers, and without a
+  `.sqetch-user`) and deploys that too; regenerate both with `New-SmokeBundle.ps1` whenever the
+  project format, the bundle format or the journaling contract changes. The two CLIs release
   independently (`sqetch-v*`, `sqetch_deploy-v*`); the tag's `X.Y.Z` must equal the host project's
   `<Version>`. A `-pre-` tag builds `X.Y.Z-pre.<UTC stamp>` unsigned; a plain tag requires signing.
   Both push the dotnet tool package to nuget.org (`push-tool`, NuGet trusted publishing, so no stored
@@ -286,7 +316,10 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
   switch the process-wide current directory — every test class that does so must join
   `[Collection( "cli" )]` to stay sequential. sqetch-deploy CLI tests instead pass absolute
   paths and inject fakes via the production `TypeRegistrar` (`CommandAppTester( registrar )`),
-  so they need no collection. Store/engine tests build on `TempProject`,
+  so they need no collection — except the one test of `bundle`'s default output name, which must
+  switch the current directory and runs alone in the `"cwd"` collection (`DisableParallelization`).
+  `bundle` tests build their projects through the engine (`BundleTestProjects`), not the 'sqetch'
+  CLI. Store/engine tests build on `TempProject`,
   `TestData` and `ShardingCases` from `Pug.Sqetch.Tests.Stores.FileSystem/TestSupport.cs`;
   git legibility is asserted with real `git` via the `Git` helper.
 - Verify changes with the full `dotnet test` plus, for user-visible behavior, a live CLI run

@@ -40,9 +40,9 @@ public class DeploymentSettings : CommandSettings
 	[Description( "Append timestamped progress lines to this log file" )]
 	public string? Log { get; init; }
 
-	internal DeploymentCommitLevel Level { get; private set; } = DeploymentCommitLevel.Release;
+	internal DeploymentCommitLevel EffectiveCommitLevel { get; private set; } = DeploymentCommitLevel.Release;
 
-	internal DeploymentRollbackMode RollbackMode { get; private set; } = DeploymentRollbackMode.None;
+	internal RollbackTrigger RollbackTrigger { get; private set; } = RollbackTrigger.None;
 
 	internal TimeSpan StepScriptTimeout
 		=> TimeoutSeconds == 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds( TimeoutSeconds );
@@ -56,24 +56,24 @@ public class DeploymentSettings : CommandSettings
 			return ValidationResult.Error( "--timeout must be zero or a positive number of seconds" );
 
 		if( string.Equals( CommitLevel, "plan", StringComparison.OrdinalIgnoreCase ) )
-			Level = DeploymentCommitLevel.Plan;
+			EffectiveCommitLevel = DeploymentCommitLevel.Plan;
 		else if( !string.Equals( CommitLevel, "release", StringComparison.OrdinalIgnoreCase ) )
 			return ValidationResult.Error( "--commit-level must be 'plan' or 'release'" );
 
 		switch( Rollback.ToLowerInvariant() )
 		{
 			case "none":
-				RollbackMode = DeploymentRollbackMode.None;
+				RollbackTrigger = RollbackTrigger.None;
 
 				break;
 
 			case "on-error":
-				RollbackMode = DeploymentRollbackMode.OnError;
+				RollbackTrigger = RollbackTrigger.OnError;
 
 				break;
 
 			case "on-success":
-				RollbackMode = DeploymentRollbackMode.OnSuccess;
+				RollbackTrigger = RollbackTrigger.OnSuccess;
 
 				break;
 

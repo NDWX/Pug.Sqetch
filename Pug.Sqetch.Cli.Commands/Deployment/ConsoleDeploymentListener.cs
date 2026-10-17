@@ -1,3 +1,5 @@
+using System.Globalization;
+using Pug.Sqetch.Bundling;
 using Pug.Sqetch.Deployment;
 using Spectre.Console;
 
@@ -36,6 +38,17 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 
 		_log = new StreamWriter( logPath, append: true );
 	}
+
+	/// <summary>
+	/// Says who built the bundle about to be deployed and when. Not part of
+	/// <see cref="IDeploymentListener"/>: the engine is handed a bundle already read and has no use
+	/// for it, so only the command that read it reports it.
+	/// </summary>
+	public void BundleRead( BundleMetadata metadata )
+		=> Report(
+			$"bundle built by {metadata.Bundler} {metadata.BundlerVersion} at "
+			+ $"{metadata.Bundled.ToString( "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture )} "
+			+ $"(layout {metadata.Layout}, format {metadata.Format})" );
 
 	public void ContinuingFrom( string release ) => Report( $"continuing from {Name( release )}" );
 

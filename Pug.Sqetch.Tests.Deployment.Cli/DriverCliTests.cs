@@ -125,6 +125,7 @@ public class DriverCliTests
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), _drivers );
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), new BundleTypeRegistry() );
 		registrar.RegisterInstance( typeof(IBundleLayoutRegistry), new BundleLayoutRegistry() );
+		registrar.RegisterInstance( typeof(BundlerIdentity), new BundlerIdentity( "sqetch-deploy", "0.1.0" ) );
 
 		CommandAppTester tester = new ( registrar );
 

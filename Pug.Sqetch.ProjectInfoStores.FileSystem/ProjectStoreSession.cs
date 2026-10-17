@@ -22,6 +22,13 @@ internal sealed class ProjectStoreSession
 
 		Project = JsonFiles.Read<ProjectDocument>( projectFile );
 
+		// checked before anything else is read, for reading and writing alike: a newer layout
+		// may keep things where this store would never look, or where it would write over them
+		int format = Project.Format ?? 1;
+
+		if( format < 1 || format > FileSystemProjectStores.Format )
+			throw new UnsupportedProjectFormatException( root, format, FileSystemProjectStores.Format );
+
 		Paths = new ProjectPaths( root, shardingStrategies.Create( Project.ReleaseSharding ) );
 	}
 

@@ -1,6 +1,5 @@
 using Pug.Sqetch.Bundling;
 using Pug.Sqetch.Bundling.BundleTypes;
-using Pug.Sqetch.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Spectre.Console;
@@ -21,11 +20,9 @@ public sealed class DeployCommand(
 
 		using IBundleReader reader = type.Open( settings.Bundle );
 
-		IBundleLayout layout = layouts.Create( DefaultBundleLayout.LayoutName );
-
-		// validation confirms the manifest, the journaling statements and every listed script
-		// before anything touches the database
-		ValidatedBundle validated = BundleValidator.Validate( reader, layout );
+		// validation reads the metadata, resolves the layout it names, and confirms the manifest, the
+		// journaling statements and every listed script before anything touches the database
+		ValidatedBundle validated = BundleValidator.Validate( reader, layouts );
 
 		IDatabaseDriverFactory factory = drivers.Create( settings.Driver! );
 
@@ -48,11 +45,13 @@ public sealed class DeployCommand(
 
 		using ConsoleDeploymentListener listener = new ( console, settings.Log );
 
+		listener.BundleRead( validated.Metadata );
+
 		try
 		{
 			new DeploymentEngine(
-					driver, validated.Journaling, reader, layout, settings.Level, listener,
-					settings.RollbackMode )
+					driver, validated.Journaling, reader, validated.Layout, settings.EffectiveCommitLevel, listener,
+					settings.RollbackTrigger )
 				.Deploy( validated.Manifest );
 		}
 		catch( Exception exception )

@@ -20,7 +20,7 @@ public class BundleBuilderTests
 
 		PopulateProject( temp, project );
 
-		Bundle bundle = Builder( stores, project ).Assemble( BundleSelection.Finalized );
+		Bundle bundle = Builder( project ).Assemble( BundleSelection.Finalized );
 
 		Assert.Equal( BundleSelection.Finalized, bundle.Selection );
 		Assert.Equal( "test-project", bundle.Project.Name );
@@ -45,7 +45,7 @@ public class BundleBuilderTests
 
 		PopulateProject( temp, project );
 
-		Bundle bundle = Builder( stores, project ).Assemble( BundleSelection.Test );
+		Bundle bundle = Builder( project ).Assemble( BundleSelection.Test );
 
 		Assert.Equal( ["2026.07", "2026.08"], bundle.Releases.Select( x => x.Name ).ToArray() );
 		Assert.Equal( [true, false], bundle.Releases.Select( x => x.Finalized ).ToArray() );
@@ -64,7 +64,7 @@ public class BundleBuilderTests
 
 		PopulateChainedFinalizedReleases( temp, project );
 
-		Bundle bundle = Builder( stores, project ).Assemble( BundleSelection.Finalized, since: "2026.07" );
+		Bundle bundle = Builder( project ).Assemble( BundleSelection.Finalized, since: "2026.07" );
 
 		Assert.Equal( ["2026.08"], bundle.Releases.Select( x => x.Name ).ToArray() );
 		Assert.Equal( "2026.07", bundle.Releases[0].Dependency );
@@ -84,7 +84,7 @@ public class BundleBuilderTests
 		// full chain rather than reporting it unknown - it just leaves no finalized
 		// releases after it, which is an empty bundle
 		Assert.Throws<EmptyBundleException>(
-			() => Builder( stores, project ).Assemble( BundleSelection.Finalized, since: "2026.08" ) );
+			() => Builder( project ).Assemble( BundleSelection.Finalized, since: "2026.08" ) );
 	}
 
 	[Fact]
@@ -97,7 +97,7 @@ public class BundleBuilderTests
 		PopulateChainedFinalizedReleases( temp, project );
 
 		UnknownReleaseException error = Assert.Throws<UnknownReleaseException>(
-			() => Builder( stores, project ).Assemble( BundleSelection.Finalized, since: "nope" ) );
+			() => Builder( project ).Assemble( BundleSelection.Finalized, since: "nope" ) );
 
 		Assert.Equal( "nope", error.ReleaseName );
 	}
@@ -112,7 +112,7 @@ public class BundleBuilderTests
 		PopulateChainedFinalizedReleases( temp, project );
 
 		Assert.Throws<EmptyBundleException>(
-			() => Builder( stores, project ).Assemble( BundleSelection.Finalized, since: "2026.08" ) );
+			() => Builder( project ).Assemble( BundleSelection.Finalized, since: "2026.08" ) );
 	}
 
 	[Fact]
@@ -122,8 +122,8 @@ public class BundleBuilderTests
 		using FileSystemProjectStores stores = temp.Open();
 		using IProject project = CreateProject( stores );
 
-		Assert.Throws<EmptyBundleException>( () => Builder( stores, project ).Assemble( BundleSelection.Finalized ) );
-		Assert.Throws<EmptyBundleException>( () => Builder( stores, project ).Assemble( BundleSelection.Test ) );
+		Assert.Throws<EmptyBundleException>( () => Builder( project ).Assemble( BundleSelection.Finalized ) );
+		Assert.Throws<EmptyBundleException>( () => Builder( project ).Assemble( BundleSelection.Test ) );
 	}
 
 	[Fact]
@@ -139,7 +139,7 @@ public class BundleBuilderTests
 			temp.Root, "releases", "2026.07", "plans", "table", "steps", "create", "verify.sql" ) );
 
 		MissingStepScriptsException missing = Assert.Throws<MissingStepScriptsException>(
-			() => Builder( stores, project ).Assemble( BundleSelection.Finalized ) );
+			() => Builder( project ).Assemble( BundleSelection.Finalized ) );
 
 		Assert.Equal( "table", missing.Plan );
 		Assert.Equal( ["verify"], missing.Scripts );
@@ -166,7 +166,7 @@ public class BundleBuilderTests
 		File.Delete( Path.Combine( temp.Root, "journaling", "GetLatestRelease.sql" ) );
 
 		MissingJournalingStatementsException missing = Assert.Throws<MissingJournalingStatementsException>(
-			() => Builder( stores, project ).Assemble( BundleSelection.Finalized ) );
+			() => Builder( project ).Assemble( BundleSelection.Finalized ) );
 
 		Assert.Equal(
 			[JournalingSlot.PlanDeployed, JournalingSlot.GetLatestRelease], missing.Slots );
@@ -177,8 +177,8 @@ public class BundleBuilderTests
 			stores.InfoStore, stores.ScriptsStore,
 			new ReleaseChainDependencyDeterminator( stores.InfoStore ), TestData.User );
 
-	private static BundleBuilder Builder( FileSystemProjectStores stores, IProject project )
-		=> new ( project, stores.InfoStore.GetDefinition() );
+	private static BundleBuilder Builder( IProject project )
+		=> new ( project );
 
 	/// <summary>
 	/// 'table' ← 'index' in finalized release 2026.07, 'cleanup' in open release 2026.08,

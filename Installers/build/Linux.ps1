@@ -171,6 +171,7 @@ function Test-LinuxPackage
 
 	$container = "sqetch-smoke-$( $Context.Name )-$( [Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ) )"
 	$bundle = Join-Path $Context.RepoRoot 'Installers/smoke/bundle'
+	$project = Join-Path $Context.RepoRoot 'Installers/smoke/project'
 
 	Write-Host "installing $( $Package.Name ) into $Image"
 
@@ -178,7 +179,7 @@ function Test-LinuxPackage
 	{
 		Invoke-Docker -Arguments @(
 			'run', '-d', '--name', $container,
-			'-v', "$( $Package.DirectoryName ):/packages:ro", '-v', "${bundle}:/smoke/bundle:ro",
+			'-v', "$( $Package.DirectoryName ):/packages:ro", '-v', "${bundle}:/smoke/bundle:ro", '-v', "${project}:/smoke/project:ro",
 			$Image, 'sleep', 'infinity' )
 
 		# the package manager, not dpkg/rpm, so the declared dependencies are resolved and fetched
@@ -197,7 +198,7 @@ function Test-LinuxPackage
 		}
 
 		$invoke = New-ContainerInvoker -Container $container -Command $Context.Name
-		Test-ProductCommands -Context $Context -Invoke $invoke -BundlePath '/smoke/bundle'
+		Test-ProductCommands -Context $Context -Invoke $invoke -BundlePath '/smoke/bundle' -ProjectPath '/smoke/project'
 	}
 	finally
 	{

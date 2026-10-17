@@ -10,15 +10,12 @@ namespace Pug.Sqetch.Bundling;
 public class BundleBuilder
 {
 	private readonly IReadOnlyProject _project;
-	private readonly ProjectDefinition _definition;
 
-	public BundleBuilder( IReadOnlyProject project, ProjectDefinition definition )
+	public BundleBuilder( IReadOnlyProject project )
 	{
 		ArgumentNullException.ThrowIfNull( project );
-		ArgumentNullException.ThrowIfNull( definition );
 
 		_project = project;
-		_definition = definition;
 	}
 
 	/// <summary>
@@ -57,7 +54,7 @@ public class BundleBuilder
 		_project.VerifyJournalingStatements();
 
 		return new Bundle(
-			_definition,
+			_project.GetDefinition(),
 			selection,
 			new JournalingStatements(
 				JournalingSlots.All.ToDictionary(
@@ -76,7 +73,7 @@ public class BundleBuilder
 		// releases follow them in chain order; 'since' needs the full chain too, so a
 		// '--since' naming an open release is diagnosable rather than reported as unknown
 		if( selection == BundleSelection.Test || since is not null )
-			releases.AddRange( _project.GetReleases( new ReleaseSearchCriteria() ) );
+			releases.AddRange( _project.GetReleases( new ReleaseSearchCriteria(Finalized: false) ) );
 
 		if( since is not null )
 		{

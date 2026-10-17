@@ -11,6 +11,8 @@ internal sealed class ProjectSession : IDisposable
 {
 	private IProject? _project;
 
+	private IReadOnlyProject? _readOnlyProject;
+
 	private ProjectSession( string root, FileSystemProjectStores stores )
 	{
 		Root = root;
@@ -29,16 +31,26 @@ internal sealed class ProjectSession : IDisposable
 			new ReleaseChainDependencyDeterminator( Stores.InfoStore ),
 			UserIdentity.Require( Root ) );
 
-	public static ProjectSession Open()
-	{
-		string root = Directory.GetCurrentDirectory();
+	/// <summary>
+	/// The project for reading only, which needs no project user. Reuses <see cref="Project"/>
+	/// when a command has already opened it, so one session never holds two engines over the
+	/// same stores.
+	/// </summary>
+	public IReadOnlyProject ReadOnlyProject
+		=> (IReadOnlyProject?)_project
+			?? ( _readOnlyProject ??= ProjectFactory.CreateReadOnly(
+					Stores.InfoStore, Stores.ScriptsStore,
+					new ReleaseChainDependencyDeterminator( Stores.InfoStore ) ) );
 
-		return new ProjectSession( root, FileSystemProjectStores.Open( root ) );
-	}
+	public static ProjectSession Open() => Open( Directory.GetCurrentDirectory() );
+
+	public static ProjectSession Open( string root )
+		=> new ( root, FileSystemProjectStores.Open( root ) );
 
 	public void Dispose()
 	{
 		_project?.Dispose();
+		_readOnlyProject?.Dispose();
 		Stores.Dispose();
 	}
 }

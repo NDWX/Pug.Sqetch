@@ -15,8 +15,8 @@
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<copyright>Pug</copyright>
 		<tags>sqetch database schema migration deployment sql cli devops</tags>
-		<summary>Sqetch deploy: deploy Sqetch bundles to a database through pluggable database drivers</summary>
-		<description>Sqetch is a DevOps database schema upgrader. Its authoring tool packages deployable plans and a manifest into a bundle; this tool, `sqetch-deploy`, consumes those bundles and deploys them to a database through pluggable database drivers (SQLite and PostgreSQL are included), journaling through SQL the project maintainer authors.
+		<summary>Sqetch deploy: bundle Sqetch projects and deploy the bundles to a database through pluggable database drivers</summary>
+		<description>Sqetch is a DevOps database schema upgrader. Its authoring tool, `sqetch`, maintains a project of plans and releases; this tool, `sqetch-deploy`, packages a project's deployable plans into a bundle and deploys bundles to a database through pluggable database drivers (SQLite and PostgreSQL are included), journaling through SQL the project maintainer authors.
 
 The package embeds the Windows x64 installer (MSI) built and signed by the release pipeline and runs it silently for all users, which puts `sqetch-deploy` on the system PATH. A per-user installation (no administrator rights) is available from the MSI attached to each GitHub release.</description>
 	</metadata>

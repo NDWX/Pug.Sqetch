@@ -262,4 +262,15 @@ public class CliTests : IDisposable
 		// unfinalized releases live unsharded directly under 'releases'
 		Assert.False( Directory.Exists( Path.Combine( _root, "releases", "2026.09" ) ) );
 	}
+
+	/// <summary>'bundle' moved to 'sqetch-deploy'; it is deliberately not left behind as a stub.</summary>
+	[Fact]
+	public void BundleIsNoLongerACommand()
+	{
+		InitializeProject();
+
+		CommandAppResult result = Run( "bundle" );
+
+		Assert.NotEqual( 0, result.ExitCode );
+	}
 }

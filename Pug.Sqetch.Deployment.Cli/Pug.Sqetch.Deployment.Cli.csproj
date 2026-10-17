@@ -15,7 +15,7 @@
         <PackAsTool>true</PackAsTool>
         <PackageId>Pug.Sqetch.Deployment.Cli</PackageId>
         <ToolCommandName>sqetch-deploy</ToolCommandName>
-        <Description>Sqetch deploy: deploy Sqetch bundles to a database through pluggable database drivers.</Description>
+        <Description>Sqetch deploy: bundle Sqetch projects and deploy the bundles to a database through pluggable database drivers.</Description>
         <PackageLicenseExpression>GPL-3.0-or-later AND AGPL-3.0-or-later</PackageLicenseExpression>
     </PropertyGroup>
 

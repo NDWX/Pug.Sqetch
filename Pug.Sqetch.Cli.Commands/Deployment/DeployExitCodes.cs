@@ -2,6 +2,7 @@ using Pug.Sqetch.Bundling;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Models;
+using Pug.Sqetch.ProjectInfoStores.FileSystem;
 using Spectre.Console.Cli;
 
 namespace Pug.Sqetch.Cli.Commands.Deployment;
@@ -44,6 +45,12 @@ public static class DeployExitCodes
 	public const int InvalidBundle = 22;
 	public const int IncompatibleBundle = 23;
 
+	/// <summary>
+	/// The bundle needs a newer sqetch-deploy: it names a layout this one does not know, or a newer
+	/// format of one it does. A pipeline's remedy is upgrading the tool, not fixing the bundle.
+	/// </summary>
+	public const int UnsupportedBundle = 24;
+
 	public const int DriverError = 30;
 	public const int UnknownDriver = 31;
 	public const int DriverCreationFailed = 32;
@@ -68,6 +75,20 @@ public static class DeployExitCodes
 
 	/// <summary>Compensation itself failed, so the database is neither deployed nor undone.</summary>
 	public const int RollbackFailed = 61;
+
+	public const int BundleBuildError = 70;
+
+	/// <summary>The project could not be opened: not a project directory, damaged, or written by a newer Sqetch.</summary>
+	public const int ProjectUnreadable = 71;
+
+	/// <summary>
+	/// The project was read but cannot be bundled as it stands: journaling statements unset, a
+	/// step script missing, '--since' naming a release the chain lacks, or nothing to bundle.
+	/// </summary>
+	public const int ProjectNotBundleable = 72;
+
+	/// <summary>The bundle was assembled but its output could not be written: the target exists, or the write failed.</summary>
+	public const int BundleOutputFailed = 73;
 
 	public const int NotSupported = 91;
 
@@ -95,11 +116,22 @@ public static class DeployExitCodes
 			// for whoever has to fix it; the code is for a pipeline deciding whether it may retry.
 			_ when databaseChanged => DeploymentFailedPartway,
 
+			// bundling failures sit above the bundle-reading arms below: EmptyBundleException is a
+			// BundlingException, and as such would otherwise earn InvalidBundle
+			ProjectStoreException => ProjectUnreadable,
+			MissingJournalingStatementsException or MissingStepScriptsException or UnknownReleaseException
+				or EmptyBundleException => ProjectNotBundleable,
+			BundleOutputException => BundleOutputFailed,
+
 			MissingBundleException => BundleNotFound,
 			IncompatibleBundleException => IncompatibleBundle,
 
-			// the layout name is this host's own constant, never the caller's, so an unknown one is
-			// a composition mistake rather than anything wrong with the bundle
+			// before the general BundlingException arm below, which would call it a damaged bundle
+			UnsupportedBundleFormatException => UnsupportedBundle,
+
+			// only 'bundle' asks the registry for a layout by name, and the name is this host's own
+			// constant there, so an unknown one is a composition mistake rather than anything wrong
+			// with the bundle; a layout name read out of a bundle never gets here, it is unsupported
 			UnknownBundleLayoutException => Unclassified,
 			InvalidBundleException or BundlingException => InvalidBundle,
 

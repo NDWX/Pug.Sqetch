@@ -11,15 +11,17 @@ public class BundleValidatorTests
 	private readonly DefaultBundleLayout _layout = new ();
 
 	[Fact]
-	public void CompleteBundlesPassAndReturnTheManifestAndJournaling()
+	public void CompleteBundlesPassAndReturnTheMetadataLayoutManifestAndJournaling()
 	{
 		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 
-		ValidatedBundle read = BundleValidator.Validate( reader, _layout );
+		ValidatedBundle read = BundleValidator.Validate( reader, Layouts() );
 
+		Assert.Equal( Metadata( _layout ), read.Metadata );
+		Assert.IsType<DefaultBundleLayout>( read.Layout );
 		Assert.Equal( "a", Assert.Single( read.Manifest.Plans ).Name );
 		Assert.Equal(
 			[FakeJournal.Marker( JournalingSlot.PrepareJournal )],
@@ -44,7 +46,7 @@ public class BundleValidatorTests
 		reader.Remove( "journaling/OnDeployingStep.sql" );
 
 		BundlingException error = Assert.Throws<BundlingException>(
-			() => BundleValidator.Validate( reader, _layout ) );
+			() => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "journaling/PrepareJournal.sql", error.Message );
 		Assert.Contains( "journaling/OnDeployingStep.sql", error.Message );
@@ -60,7 +62,7 @@ public class BundleValidatorTests
 		reader.Add( "journaling/GetDeployedPlans.sql", "select 1\n;;\nselect 2" );
 
 		BundlingException error = Assert.Throws<BundlingException>(
-			() => BundleValidator.Validate( reader, _layout ) );
+			() => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "GetDeployedPlans is a query", error.Message );
 	}
@@ -76,7 +78,7 @@ public class BundleValidatorTests
 		reader.Remove( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ) );
 
 		InvalidBundleException error = Assert.Throws<InvalidBundleException>(
-			() => BundleValidator.Validate( reader, _layout ) );
+			() => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "plans/a/steps/s1/rollback.sql", error.Message );
 		Assert.Contains( "plans/b/steps/s1/deploy.sql", error.Message );
@@ -86,7 +88,87 @@ public class BundleValidatorTests
 	public void MissingManifestSurfacesAsAnInvalidManifest()
 	{
 		Assert.Throws<InvalidBundleManifestException>(
-			() => BundleValidator.Validate( new InMemoryBundleReader(), _layout ) );
+			() => BundleValidator.Validate( new InMemoryBundleReader().Add( BundleMetadata.EntryName, Metadata( _layout ).ToText() ), Layouts() ) );
+	}
+
+	[Fact]
+	public void MissingMetadataIsRefusedBeforeAnythingElseIsRead()
+	{
+		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
+
+		reader.Add( "manifest.json", ManifestJson( manifest ) );
+		reader.Remove( BundleMetadata.EntryName );
+
+		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
+			() => BundleValidator.Validate( reader, Layouts() ) );
+
+		Assert.Contains( BundleMetadata.EntryName, error.Message );
+	}
+
+	[Fact]
+	public void MalformedMetadataIsRefused()
+	{
+		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
+
+		reader.Add( "manifest.json", ManifestJson( manifest ) );
+		reader.Add( BundleMetadata.EntryName, "format=1\nnonsense" );
+
+		Assert.Throws<InvalidBundleMetadataException>( () => BundleValidator.Validate( reader, Layouts() ) );
+	}
+
+	[Fact]
+	public void AnUnknownLayoutIsUnsupportedAndNamesTheKnownOnes()
+	{
+		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
+
+		reader.Add( "manifest.json", ManifestJson( manifest ) );
+		reader.Add( BundleMetadata.EntryName, Metadata( _layout ).ToText().Replace( "layout=default", "layout=quantum" ) );
+
+		UnsupportedBundleFormatException error = Assert.Throws<UnsupportedBundleFormatException>(
+			() => BundleValidator.Validate( reader, Layouts() ) );
+
+		Assert.Equal( "quantum", error.Layout );
+		Assert.Equal( 1, error.Format );
+		Assert.Null( error.Supported );
+		Assert.Contains( "'quantum'", error.Message );
+		Assert.Contains( "known: default", error.Message );
+		Assert.Contains( "upgrade", error.Message );
+	}
+
+	[Fact]
+	public void ANewerFormatOfAKnownLayoutIsUnsupported()
+	{
+		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
+
+		reader.Add( "manifest.json", ManifestJson( manifest ) );
+		reader.Add( BundleMetadata.EntryName, ( Metadata( _layout ) with { Format = _layout.Format + 1 } ).ToText() );
+
+		UnsupportedBundleFormatException error = Assert.Throws<UnsupportedBundleFormatException>(
+			() => BundleValidator.Validate( reader, Layouts() ) );
+
+		Assert.Equal( "default", error.Layout );
+		Assert.Equal( _layout.Format + 1, error.Format );
+		Assert.Equal( _layout.Format, error.Supported );
+		Assert.Contains( "upgrade", error.Message );
+	}
+
+	/// <summary>
+	/// The format gate runs before the manifest is read: a bundle of a newer format may well have a
+	/// manifest this reader cannot parse, and must be told apart from a damaged one.
+	/// </summary>
+	[Fact]
+	public void TheFormatIsCheckedBeforeTheManifestIsRead()
+	{
+		InMemoryBundleReader reader = new ();
+
+		reader.Add( BundleMetadata.EntryName, ( Metadata( _layout ) with { Format = 99 } ).ToText() );
+		reader.Add( "manifest.json", "not json at all" );
+
+		Assert.Throws<UnsupportedBundleFormatException>( () => BundleValidator.Validate( reader, Layouts() ) );
 	}
 
 	private string ManifestJson( BundleManifest manifest )

@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "name": "smoke",
+  "description": "Fixture for the installer smoke tests",
+  "engine": "",
+  "registration": {
+    "subject": {
+      "name": "Smoke Test",
+      "emailAddress": "smoke@example.com"
+    },
+    "timestamp": "2026-10-17T04:10:35.5870092+00:00"
+  },
+  "releaseSharding": {
+    "strategy": "flat",
+    "options": null
+  }
+}

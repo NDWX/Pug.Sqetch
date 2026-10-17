@@ -1,18 +1,26 @@
 #!/usr/bin/env pwsh
-# Regenerates Installers/smoke/bundle, the directory bundle every smoke test deploys with
-# 'sqetch-deploy deploy <bundle> --driver sqlite --sqlite-file smoke.db'. The fixture is committed
-# so a smoke test needs no 'sqetch' beside the 'sqetch-deploy' it checks, but it is a generated
-# file: rebuild it with this script whenever the manifest format changes, rather than editing it.
+# Regenerates the two smoke fixtures every installed 'sqetch-deploy' is checked against:
 #
-#   pwsh Installers/smoke/New-SmokeBundle.ps1 [-Sqetch <path to a sqetch executable>]
+#   Installers/smoke/project  a Sqetch project, which the smoke test bundles with
+#                             'sqetch-deploy bundle --project <project>'
+#   Installers/smoke/bundle   a directory bundle of that project, which the smoke test deploys with
+#                             'sqetch-deploy deploy <bundle> --driver sqlite --sqlite-file smoke.db'
 #
-# Without -Sqetch the script publishes Pug.Sqetch.Cli for this machine and uses that. The project is
-# built from scratch in a temporary directory with the real CLI, so the fixture is exactly what the
-# authoring commands produce.
+# Both are committed so a smoke test needs no 'sqetch' beside the 'sqetch-deploy' it checks, but they
+# are generated files: rebuild them with this script whenever the project format, the bundle format
+# or the journaling contract changes, rather than editing them.
+#
+#   pwsh Installers/smoke/New-SmokeBundle.ps1 [-Sqetch <sqetch executable>] [-SqetchDeploy <sqetch-deploy executable>]
+#
+# Without either path the script publishes that CLI for this machine and uses it. The project is
+# built from scratch in a temporary directory with the real 'sqetch', so the fixture is exactly what
+# the authoring commands produce; it is committed without its '.sqetch-user', since bundling needs
+# none, and the bundle is then built from the committed copy with the real 'sqetch-deploy'.
 
 [CmdletBinding()]
 param(
-	[string] $Sqetch
+	[string] $Sqetch,
+	[string] $SqetchDeploy
 )
 
 Set-StrictMode -Version Latest
@@ -20,19 +28,55 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '../..' ) ).Path
 $bundleDir = Join-Path $PSScriptRoot 'bundle'
+$projectDir = Join-Path $PSScriptRoot 'project'
 $scratch = Join-Path ( [IO.Path]::GetTempPath() ) "sqetch-smoke-$( [Guid]::NewGuid().ToString( 'N' ) )"
 $null = New-Item -ItemType Directory -Path $scratch
+
+function Invoke-Tool
+{
+	param( [Parameter( Mandatory )] [string] $Name, [Parameter( Mandatory )] [string] $Path, [Parameter( Mandatory )] [string[]] $Arguments )
+
+	Write-Host "> $Name $( $Arguments -join ' ' )"
+	& $Path @Arguments | Out-Host
+
+	if( $LASTEXITCODE -ne 0 )
+	{
+		throw "$Name exited with code $LASTEXITCODE"
+	}
+}
 
 function Invoke-Sqetch
 {
 	param( [Parameter( Mandatory )] [string[]] $Arguments )
 
-	Write-Host "> sqetch $( $Arguments -join ' ' )"
-	& $script:Sqetch @Arguments | Out-Host
+	Invoke-Tool -Name 'sqetch' -Path $script:Sqetch -Arguments $Arguments
+}
+
+# Publishes a CLI framework-dependent for this machine into the scratch directory; returns the executable.
+function Publish-Tool
+{
+	param( [Parameter( Mandatory )] [string] $Project, [Parameter( Mandatory )] [string] $Name )
+
+	$publishDir = Join-Path $scratch $Name
+	& dotnet publish ( Join-Path $repoRoot $Project ) -m:1 -nologo -c Release -o $publishDir | Out-Host
 
 	if( $LASTEXITCODE -ne 0 )
 	{
-		throw "sqetch exited with code $LASTEXITCODE"
+		throw "dotnet publish exited with code $LASTEXITCODE"
+	}
+
+	return Join-Path $publishDir ( $IsWindows ? "$Name.exe" : $Name )
+}
+
+# A rebuild replaces a fixture rather than merging into it. Only ever one of the two fixture
+# folders above, both built from $PSScriptRoot, never a path from outside.
+function Clear-Fixture
+{
+	param( [Parameter( Mandatory )] [ValidateScript( { $_ -eq $bundleDir -or $_ -eq $projectDir } )] [string] $Path )
+
+	if( Test-Path -LiteralPath $Path )
+	{
+		Remove-Item -Recurse -Force -LiteralPath $Path
 	}
 }
 
@@ -109,15 +153,12 @@ try
 {
 	if( -not $Sqetch )
 	{
-		$publishDir = Join-Path $scratch 'sqetch-cli'
-		& dotnet publish ( Join-Path $repoRoot 'Pug.Sqetch.Cli/Pug.Sqetch.Cli.csproj' ) -m:1 -nologo -c Release -o $publishDir | Out-Host
+		$Sqetch = Publish-Tool -Project 'Pug.Sqetch.Cli/Pug.Sqetch.Cli.csproj' -Name 'sqetch'
+	}
 
-		if( $LASTEXITCODE -ne 0 )
-		{
-			throw "dotnet publish exited with code $LASTEXITCODE"
-		}
-
-		$Sqetch = Join-Path $publishDir ( $IsWindows ? 'sqetch.exe' : 'sqetch' )
+	if( -not $SqetchDeploy )
+	{
+		$SqetchDeploy = Publish-Tool -Project 'Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj' -Name 'sqetch-deploy'
 	}
 
 	$script:Sqetch = $Sqetch
@@ -149,19 +190,22 @@ try
 
 		Invoke-Sqetch @( 'release', 'create', '-n', 'smoke-1', '-d', 'The only release of the smoke fixture', '--plans', 'create-greetings' )
 		Invoke-Sqetch @( 'release', 'finalize', '-n', 'smoke-1' )
-
-		# a rebuild replaces the fixture rather than merging into it; only ever this exact folder
-		if( Test-Path -LiteralPath $bundleDir )
-		{
-			Remove-Item -Recurse -Force -LiteralPath $bundleDir
-		}
-
-		Invoke-Sqetch @( 'bundle', '--finalized', '-t', 'directory', '-o', $bundleDir )
 	}
 	finally
 	{
 		Pop-Location
 	}
+
+	# the acting user is authoring's business; bundling must work without one, which the committed
+	# fixture proves by not carrying it
+	Remove-Item -Force -LiteralPath ( Join-Path $project '.sqetch-user' )
+
+	Clear-Fixture -Path $projectDir
+	Copy-Item -Recurse -LiteralPath $project -Destination $projectDir
+
+	Clear-Fixture -Path $bundleDir
+	Invoke-Tool -Name 'sqetch-deploy' -Path $SqetchDeploy -Arguments @(
+		'bundle', '--project', $projectDir, '--finalized', '-t', 'directory', '-o', $bundleDir )
 }
 finally
 {

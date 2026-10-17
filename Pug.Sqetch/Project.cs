@@ -63,23 +63,32 @@ public class Project : IProject
 									_releasesSemaphore = new ( 1, 1 ),
 									_journalingSemaphore = new ( 1, 1 );
 
-	private readonly UserInfo _userInfo;
+	// null for a project opened read-only, which has no user to record changes against
+	private readonly UserInfo? _userInfo;
 
-	internal Project( IProjectInfoStore infoStore, IScriptsStore scriptsStore, IReleaseDependencyDeterminator dependencyDeterminator, UserInfo userInfo )
+	internal Project( IProjectInfoStore infoStore, IScriptsStore scriptsStore, IReleaseDependencyDeterminator dependencyDeterminator, UserInfo? userInfo )
 	{
 		_infoStore = infoStore ?? throw new ArgumentNullException( nameof(infoStore) );
 		_scriptsStore = scriptsStore ?? throw new ArgumentNullException( nameof(scriptsStore) );
 		_releaseDependencyDeterminator = dependencyDeterminator ?? throw new ArgumentNullException( nameof(dependencyDeterminator) );
-		_userInfo = userInfo ?? throw new ArgumentNullException( nameof(userInfo) );
+		_userInfo = userInfo;
 	}
 
 	private ActionContext GetActionContext()
 	{
+		// only writes record an action context, and a read-only project is handed out as
+		// IReadOnlyProject, so reaching here without a user is a caller casting it back
+		if( _userInfo is null )
+			throw new InvalidOperationException( "The project was opened read-only and cannot record changes." );
+
 		return new ActionContext(
 				_userInfo,
 				DateTime.Now
 			);
 	}
+
+	// set once by initialization and never changed afterwards, so no semaphore or transaction
+	public ProjectDefinition GetDefinition() => _infoStore.GetDefinition();
 
 	private void EnsurePlanNotFinalized( ProjectPlan plan, SemaphoreSlim? semaphore )
 	{

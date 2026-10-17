@@ -4,6 +4,9 @@ namespace Pug.Sqetch;
 
 public interface IReadOnlyProject : IDisposable
 {
+	/// <summary>The project's name, description and engine, as set when it was initialized.</summary>
+	ProjectDefinition GetDefinition();
+
 	IEnumerable<ProjectPlan> GetDependants( string plan );
 	IEnumerable<ProjectPlan> GetDependencies( string plan );
 

@@ -4,11 +4,19 @@ namespace Pug.Sqetch.Bundling;
 
 /// <summary>
 /// Maps assembled bundle content onto bundle entries (manifest and script files). Custom
-/// layouts plug in through <see cref="BundleLayoutRegistry"/>.
+/// layouts plug in through <see cref="BundleLayoutRegistry"/>. A layout never writes the bundle's
+/// <see cref="BundleMetadata.EntryName"/> entry: the metadata names the layout, so it is written
+/// before the layout is asked to write anything.
 /// </summary>
 public interface IBundleLayout
 {
 	string Name { get; }
+
+	/// <summary>
+	/// The format version of this layout: what <see cref="Write"/> produces and the highest a reader
+	/// of this layout understands. A bundle declaring a higher one is refused rather than misread.
+	/// </summary>
+	int Format { get; }
 
 	void Write( Bundle bundle, IBundleWriter writer );
 

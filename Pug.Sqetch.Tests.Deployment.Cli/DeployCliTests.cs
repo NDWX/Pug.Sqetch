@@ -20,6 +20,8 @@ namespace Pug.Sqetch.Tests.Deployment.Cli;
 /// </summary>
 public class DeployCliTests : IDisposable
 {
+	private static readonly DateTime Bundled = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
+
 	private readonly string _root;
 	private readonly FakeDatabaseDriver _driver = new ();
 	private readonly FakeJournal _journal = new ();
@@ -57,6 +59,9 @@ public class DeployCliTests : IDisposable
 
 		Assert.Equal( 0, result.ExitCode );
 		Assert.Contains( "deployment complete", result.Output );
+		Assert.Contains(
+			"bundle built by sqetch-deploy 0.1.0 at 2026-10-17T03:15:42Z (layout default, format 1)",
+			result.Output );
 
 		Assert.Equal( TimeSpan.FromSeconds( 60 ), _factory.ReceivedTimeout );
 		Assert.Equal( "db1", _factory.ReceivedParameters!["host"] );
@@ -203,6 +208,9 @@ public class DeployCliTests : IDisposable
 		string empty = Path.Combine( _root, "empty" );
 		Directory.CreateDirectory( empty );
 		File.WriteAllText( Path.Combine( empty, "readme.txt" ), "no manifest here" );
+		File.WriteAllText(
+			Path.Combine( empty, BundleMetadata.EntryName ),
+			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ).ToText() );
 
 		CommandAppResult noManifest = Run( "deploy", empty, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
 
@@ -215,6 +223,91 @@ public class DeployCliTests : IDisposable
 
 		Assert.Equal( DeployExitCodes.InvalidBundle, missingScript.ExitCode );
 		Assert.Contains( "rollback.sql", missingScript.Output );
+		Assert.Empty( _driver.Events );
+	}
+
+	[Fact]
+	public void BundleReadLineNamesTheBuilderAndGoesToTheLogToo()
+	{
+		string log = Path.Combine( _root, "logs", "built.log" );
+
+		CommandAppResult result = Run(
+			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d", "--log", log );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains(
+			"bundle built by sqetch-deploy 0.1.0 at 2026-10-17T03:15:42Z (layout default, format 1)",
+			File.ReadAllLines( log )[0] );
+	}
+
+	[Fact]
+	public void BundleMissingItsMetadataIsInvalidAndNothingIsTouched()
+	{
+		string bundle = WriteBundle( "no-metadata", DirectoryBundleType.TypeName );
+
+		File.Delete( Path.Combine( bundle, BundleMetadata.EntryName ) );
+
+		CommandAppResult result = Run( "deploy", bundle, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+
+		Assert.Equal( DeployExitCodes.InvalidBundle, result.ExitCode );
+		Assert.Contains( BundleMetadata.EntryName, result.Output );
+		Assert.Empty( _driver.Events );
+	}
+
+	[Fact]
+	public void BundleWithMalformedMetadataIsInvalid()
+	{
+		string bundle = WriteBundle( "bad-metadata", DirectoryBundleType.TypeName );
+
+		File.WriteAllText( Path.Combine( bundle, BundleMetadata.EntryName ), "format=1\nthis is not a pair\n" );
+
+		CommandAppResult result = Run( "deploy", bundle, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+
+		Assert.Equal( DeployExitCodes.InvalidBundle, result.ExitCode );
+		Assert.Contains( "line 2", result.Output );
+		Assert.Empty( _driver.Events );
+	}
+
+	/// <summary>
+	/// A layout the registry lacks is not a malformed bundle and not the host's own mistake: the
+	/// bundle was made by something newer, and the pipeline's remedy is a newer sqetch-deploy.
+	/// </summary>
+	[Fact]
+	public void BundleOfAnUnknownLayoutNeedsANewerTool()
+	{
+		string bundle = WriteBundle( "alien", DirectoryBundleType.TypeName );
+		string file = Path.Combine( bundle, BundleMetadata.EntryName );
+
+		File.WriteAllText( file, File.ReadAllText( file ).Replace( "layout=default", "layout=quantum" ) );
+
+		CommandAppResult result = Run( "deploy", bundle, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+
+		Assert.Equal( DeployExitCodes.UnsupportedBundle, result.ExitCode );
+
+		string message = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Contains( "layout 'quantum'", message );
+		Assert.Contains( "known: default", message );
+		Assert.Contains( "upgrade", message );
+		Assert.Empty( _driver.Events );
+	}
+
+	[Fact]
+	public void BundleOfANewerFormatNeedsANewerTool()
+	{
+		string bundle = WriteBundle( "future", DirectoryBundleType.TypeName );
+		string file = Path.Combine( bundle, BundleMetadata.EntryName );
+
+		File.WriteAllText( file, File.ReadAllText( file ).Replace( "format=1", "format=2" ) );
+
+		CommandAppResult result = Run( "deploy", bundle, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+
+		Assert.Equal( DeployExitCodes.UnsupportedBundle, result.ExitCode );
+
+		string message = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Contains( "format 2 of layout 'default'", message );
+		Assert.Contains( "reads up to format 1", message );
 		Assert.Empty( _driver.Events );
 	}
 
@@ -462,6 +555,7 @@ public class DeployCliTests : IDisposable
 		BundleLayoutRegistry layouts = new ();
 		layouts.RegisterLayouts();
 		registrar.RegisterInstance( typeof(IBundleLayoutRegistry), layouts );
+		registrar.RegisterInstance( typeof(BundlerIdentity), new BundlerIdentity( "sqetch-deploy", "0.1.0" ) );
 
 		CommandAppTester tester = new ( registrar );
 
@@ -511,7 +605,7 @@ public class DeployCliTests : IDisposable
 		registry.RegisterBundleTypes();
 
 		using( IBundleWriter writer = registry.Create( type ).Create( path ) )
-			new DefaultBundleLayout().Write( bundle, writer );
+			BundlePackager.Write( bundle, new DefaultBundleLayout(), writer, "sqetch-deploy", "0.1.0", Bundled );
 
 		return path;
 	}

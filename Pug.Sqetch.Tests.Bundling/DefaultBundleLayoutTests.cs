@@ -85,6 +85,24 @@ public class DefaultBundleLayoutTests
 		Assert.Equal( "create", plans[1].GetProperty( "steps" )[0].GetProperty( "dependencies" )[0].GetString() );
 	}
 
+	/// <summary>
+	/// The metadata names the layout, so it is written ahead of the layout by the packager; a layout
+	/// that wrote it too would leave a bundle with two.
+	/// </summary>
+	[Fact]
+	public void TheLayoutLeavesTheMetadataEntryToThePackagerAndWritesNoGeneratedTimestamp()
+	{
+		RecordingWriter writer = new ();
+
+		new DefaultBundleLayout().Write(
+			new Bundle( new ProjectDefinition( "demo", "", "" ), BundleSelection.Finalized, Journaling(), [], [] ),
+			writer );
+
+		Assert.DoesNotContain( writer.Entries, x => x.Path == BundleMetadata.EntryName );
+		Assert.DoesNotContain( "generated", writer.Entries[0].Content );
+		Assert.Equal( 1, new DefaultBundleLayout().Format );
+	}
+
 	[Fact]
 	public void NullScriptStreamsAreSkippedButTheStepStaysInTheManifest()
 	{

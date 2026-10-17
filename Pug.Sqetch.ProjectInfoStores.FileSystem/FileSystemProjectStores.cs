@@ -10,6 +10,13 @@ namespace Pug.Sqetch.ProjectInfoStores.FileSystem;
 /// </summary>
 public sealed class FileSystemProjectStores : IDisposable
 {
+	/// <summary>
+	/// The project format this store writes and the highest it reads. Raise it whenever a
+	/// change to the on-disk layout would make an older store misread or damage a project, so
+	/// that the older store refuses the project instead.
+	/// </summary>
+	public const int Format = 1;
+
 	private readonly ProjectStoreSession _session;
 
 	private FileSystemProjectStores( ProjectStoreSession session )
@@ -58,6 +65,7 @@ public sealed class FileSystemProjectStores : IDisposable
 		JsonFiles.Write(
 			Path.Combine( root, FileNames.ProjectFile ),
 			new ProjectDocument(
+				Format,
 				definition.Name, definition.Description, definition.Engine,
 				ActionDocument.From( context ), sharding ) );
 

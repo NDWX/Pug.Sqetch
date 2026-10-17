@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text;
 using Pug.Sqetch.Bundling;
+using Pug.Sqetch.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Models;
@@ -381,15 +382,37 @@ public static class Manifests
 	public static BundleManifest Manifest(
 		IReadOnlyList<BundleManifestRelease> releases, IReadOnlyList<BundleManifestPlan> plans )
 		=> new ( new BundleManifestProject( "demo", "", "postgres" ), BundleSelection.Finalized,
-				DateTime.Now, releases, plans );
+				releases, plans );
 
 	/// <summary>Journaling SQL for every slot; see <see cref="FakeJournal.Statements"/>.</summary>
 	public static JournalingStatements Journaling() => FakeJournal.Statements();
 
-	/// <summary>A reader holding all three scripts for every step of the manifest.</summary>
+	/// <summary>The instant the in-memory bundles claim to have been built at.</summary>
+	public static DateTime Bundled { get; } = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
+
+	/// <summary>The metadata a bundle written through <paramref name="layout"/> would carry.</summary>
+	public static BundleMetadata Metadata( IBundleLayout layout )
+		=> new ( layout.Format, layout.Name, "sqetch-deploy", "0.1.0", Bundled );
+
+	/// <summary>A registry holding the built-in layouts, as the deployment host's does.</summary>
+	public static BundleLayoutRegistry Layouts()
+	{
+		BundleLayoutRegistry layouts = new ();
+
+		layouts.RegisterLayouts();
+
+		return layouts;
+	}
+
+	/// <summary>
+	/// A reader holding the metadata and all three scripts for every step of the manifest, plus the
+	/// journaling SQL — everything but the manifest itself, which a test adds in the shape it needs.
+	/// </summary>
 	public static InMemoryBundleReader ReaderFor( BundleManifest manifest, IBundleLayout layout )
 	{
 		InMemoryBundleReader reader = new ();
+
+		reader.Add( BundleMetadata.EntryName, Metadata( layout ).ToText() );
 
 		foreach( BundleManifestPlan plan in manifest.Plans )
 			foreach( BundleManifestStep step in plan.Steps )

@@ -6,7 +6,7 @@ namespace Pug.Sqetch.Deployment;
 /// <see cref="DeploymentCommitLevel"/>: at plan level the earlier plans are already durable, and
 /// no database transaction could take them back.
 /// </summary>
-public enum DeploymentRollbackMode
+public enum RollbackTrigger
 {
 	/// <summary>Leave whatever committed in place; a failure rolls back only its open transaction.</summary>
 	None,

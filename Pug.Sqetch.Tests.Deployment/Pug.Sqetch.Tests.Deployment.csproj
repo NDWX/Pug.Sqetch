@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pug.Sqetch.Bundling.Layouts\Pug.Sqetch.Bundling.Layouts.csproj" />
+    <ProjectReference Include="..\Pug.Sqetch.Bundling\Pug.Sqetch.Bundling.csproj" />
     <ProjectReference Include="..\Pug.Sqetch.Deployment\Pug.Sqetch.Deployment.csproj" />
   </ItemGroup>
 

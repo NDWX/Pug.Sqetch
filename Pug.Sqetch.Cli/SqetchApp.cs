@@ -104,8 +104,5 @@ public static class SqetchApp
 			journaling.AddCommand<JournalingSetCommand>( "set" )
 					.WithDescription( "Set one slot's SQL from an argument, --file or --stdin" );
 		} );
-
-		config.AddCommand<BundleCommand>( "bundle" )
-				.WithDescription( "Bundle plans and their steps into a deployment archive or directory" );
 	}
 }

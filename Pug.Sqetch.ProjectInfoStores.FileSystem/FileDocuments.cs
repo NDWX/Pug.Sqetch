@@ -21,7 +21,12 @@ internal sealed record ActionDocument( UserDocument Subject, DateTime Timestamp 
 	public ActionContext ToModel() => new ( Subject.ToModel(), Timestamp );
 }
 
+/// <summary>
+/// <paramref name="Format"/> is the on-disk format version, first so it is the first thing a
+/// reader meets; <c>null</c> in a project written before the field existed, which is format 1.
+/// </summary>
 internal sealed record ProjectDocument(
+	int? Format,
 	string Name,
 	string Description,
 	string Engine,

@@ -40,7 +40,7 @@ public class DeploymentEngine(
 	IBundleLayout layout,
 	DeploymentCommitLevel commitLevel,
 	IDeploymentListener listener,
-	DeploymentRollbackMode rollback = DeploymentRollbackMode.None )
+	RollbackTrigger rollback = RollbackTrigger.None )
 {
 	public void Deploy( BundleManifest manifest )
 	{
@@ -370,13 +370,13 @@ public class DeploymentEngine(
 			// the open transaction took its own plans back; only what committed needs compensating
 			pending.Clear();
 
-			if( rollback == DeploymentRollbackMode.OnError && committed.Count > 0 )
+			if( rollback == RollbackTrigger.OnError && committed.Count > 0 )
 				RollBack( journal, committed, $"deployment failed: {exception.Message}" );
 
 			throw;
 		}
 
-		if( rollback == DeploymentRollbackMode.OnSuccess && committed.Count > 0 )
+		if( rollback == RollbackTrigger.OnSuccess && committed.Count > 0 )
 			RollBack( journal, committed, "deployment succeeded; rolling back as requested" );
 	}
 

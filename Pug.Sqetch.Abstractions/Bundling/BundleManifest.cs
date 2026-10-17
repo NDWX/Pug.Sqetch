@@ -8,7 +8,6 @@ namespace Pug.Sqetch.Bundling;
 public sealed record BundleManifest(
 	BundleManifestProject Project,
 	BundleSelection Selection,
-	DateTime Generated,
 	IReadOnlyList<BundleManifestRelease> Releases,
 	IReadOnlyList<BundleManifestPlan> Plans );
 

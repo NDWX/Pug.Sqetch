@@ -19,14 +19,14 @@ $script:Products = [ordered]@{
 		TagName     = 'sqetch'
 		Project     = 'Pug.Sqetch.Cli/Pug.Sqetch.Cli.csproj'
 		PackageId   = 'Pug.Sqetch.Cli'
-		Description = 'Sqetch: author database schema changes as plans, group them into releases and bundle them for deployment'
+		Description = 'Sqetch: author database schema changes as plans and group them into releases'
 	}
 	'sqetch-deploy' = [pscustomobject]@{
 		Name        = 'sqetch-deploy'
 		TagName     = 'sqetch_deploy'
 		Project     = 'Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj'
 		PackageId   = 'Pug.Sqetch.Deployment.Cli'
-		Description = 'Sqetch deploy: deploy Sqetch bundles to a database through pluggable database drivers'
+		Description = 'Sqetch deploy: bundle Sqetch projects and deploy the bundles to a database through pluggable database drivers'
 	}
 }
 
@@ -439,14 +439,16 @@ function Assert-Invocation
 	return $result
 }
 
-# The checks every installed form of a product must pass. -BundlePath is the smoke bundle
-# fixture (Installers/smoke/bundle) as the product sees it, which differs inside a container.
+# The checks every installed form of a product must pass. -BundlePath and -ProjectPath are the
+# smoke fixtures (Installers/smoke/bundle and Installers/smoke/project) as the product sees them,
+# which differs inside a container, where both are mounted read-only.
 function Test-ProductCommands
 {
 	param(
 		[Parameter( Mandatory )] $Context,
 		[Parameter( Mandatory )] [scriptblock] $Invoke,
-		[string] $BundlePath = ( Join-Path $script:RepoRoot 'Installers/smoke/bundle' )
+		[string] $BundlePath = ( Join-Path $script:RepoRoot 'Installers/smoke/bundle' ),
+		[string] $ProjectPath = ( Join-Path $script:RepoRoot 'Installers/smoke/project' )
 	)
 
 	$null = Assert-Invocation -Invoke $Invoke -Arguments @( '--version' ) -Expect "^$( [regex]::Escape( $Context.Version ) )\s*$"
@@ -471,6 +473,13 @@ function Test-ProductCommands
 			$deploy = @( 'deploy', $BundlePath, '--driver', 'sqlite', '--sqlite-file', 'smoke.db' )
 			$null = Assert-Invocation -Invoke $Invoke -Arguments $deploy
 			$null = Assert-Invocation -Invoke $Invoke -Arguments $deploy
+
+			# bundling reads the committed project, which needs no project user, and what it writes
+			# deploys; the output name is fresh because a bundle refuses an existing target, and a
+			# working directory can outlive one run
+			$bundled = "smoke-bundle-$( [Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ) )"
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'bundle', '--project', $ProjectPath, '-t', 'directory', '-o', $bundled )
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'deploy', $bundled, '--driver', 'sqlite', '--sqlite-file', 'bundled.db' ) -Expect 'bundle built by sqetch-deploy'
 		}
 	}
 

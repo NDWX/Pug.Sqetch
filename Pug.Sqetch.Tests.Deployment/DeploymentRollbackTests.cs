@@ -24,7 +24,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.None ) );
+			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.None ) );
 
 		// a/s1 and b/s1 committed with r1 and stay; nothing is undone
 		Assert.Equal( ["-- deploy a/s1", "-- deploy b/s1"], _driver.AppliedScripts );
@@ -40,7 +40,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnError ) );
+			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
 
 		Assert.Equal(
 			["-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1"],
@@ -57,7 +57,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Plan, DeploymentRollbackMode.OnError ) );
+			() => Deploy( TwoReleases(), DeploymentCommitLevel.Plan, RollbackTrigger.OnError ) );
 
 		Assert.Equal(
 			["-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1"],
@@ -78,7 +78,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy b/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release, DeploymentRollbackMode.OnError ) );
+			() => Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
 
 		// the whole release shared one transaction, so nothing committed and nothing is undone
 		Assert.Empty( _driver.AppliedScripts );
@@ -88,7 +88,7 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void OnSuccessUndoesTheWholeDeployment()
 	{
-		Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnSuccess );
+		Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Equal(
 			[
@@ -103,7 +103,7 @@ public class DeploymentRollbackTests
 	{
 		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1", "s2", "s3" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release, DeploymentRollbackMode.OnSuccess );
+		Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Equal(
 			["-- rollback a/s3", "-- rollback a/s2", "-- rollback a/s1"],
@@ -117,7 +117,7 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void RollbackIsJournaledThroughItsOwnSlots()
 	{
-		Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnSuccess );
+		Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		List<string> journaled = _driver.Transactions.SelectMany( x => x.Journaled ).ToList();
 
@@ -136,7 +136,7 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void RollbackIsNarratedFromItsReasonToItsEnd()
 	{
-		Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnSuccess );
+		Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Contains( "rolling-back deployment succeeded; rolling back as requested", _listener.Events );
 		Assert.Equal(
@@ -151,7 +151,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnError ) );
+			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
 
 		Assert.Contains( _listener.Events, x => x.StartsWith( "rolling-back deployment failed:" ) );
 	}
@@ -167,7 +167,7 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- rollback b/s1" );
 
 		RollbackFailedException error = Assert.Throws<RollbackFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, DeploymentRollbackMode.OnError ) );
+			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
 
 		Assert.Equal( ( "r1", "b", "s1" ), (error.Release, error.Plan, error.Step) );
 		Assert.Contains( "partially rolled back", error.Message );
@@ -181,7 +181,7 @@ public class DeploymentRollbackTests
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release, DeploymentRollbackMode.OnSuccess );
+		Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Empty( _driver.AppliedScripts );
 		Assert.DoesNotContain( _listener.Events, x => x.StartsWith( "rolling-back" ) );
@@ -193,7 +193,7 @@ public class DeploymentRollbackTests
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
-	private void Deploy( BundleManifest manifest, DeploymentCommitLevel commitLevel, DeploymentRollbackMode rollback )
+	private void Deploy( BundleManifest manifest, DeploymentCommitLevel commitLevel, RollbackTrigger rollback )
 	{
 		_journal.Attach( _driver );
 

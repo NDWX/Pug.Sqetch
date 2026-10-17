@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Pug.Sqetch.Deployment.Cli\Pug.Sqetch.Deployment.Cli.csproj" />
     <ProjectReference Include="..\Pug.Sqetch.Tests.Deployment\Pug.Sqetch.Tests.Deployment.csproj" />
+    <ProjectReference Include="..\Pug.Sqetch.Tests.Stores.FileSystem\Pug.Sqetch.Tests.Stores.FileSystem.csproj" />
   </ItemGroup>
 
 </Project>

@@ -15,7 +15,7 @@
         <PackAsTool>true</PackAsTool>
         <PackageId>Pug.Sqetch.Cli</PackageId>
         <ToolCommandName>sqetch</ToolCommandName>
-        <Description>Sqetch: author database schema changes as plans, group them into releases and bundle them for deployment.</Description>
+        <Description>Sqetch: author database schema changes as plans and group them into releases.</Description>
         <PackageLicenseExpression>GPL-3.0-or-later AND AGPL-3.0-or-later</PackageLicenseExpression>
     </PropertyGroup>
 

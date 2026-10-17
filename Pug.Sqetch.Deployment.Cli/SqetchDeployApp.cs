@@ -1,3 +1,4 @@
+using System.Reflection;
 using Pug.Sqetch.Bundling;
 using Pug.Sqetch.Bundling.BundleTypes;
 using Pug.Sqetch.Bundling.Layouts;
@@ -39,9 +40,21 @@ public static class SqetchDeployApp
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), drivers );
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), bundleTypes );
 		registrar.RegisterInstance( typeof(IBundleLayoutRegistry), layouts );
+		registrar.RegisterInstance( typeof(BundlerIdentity), CreateBundlerIdentity() );
 
 		return registrar;
 	}
+
+	/// <summary>
+	/// What 'bundle' records as the tool that built a bundle: this host's name and the same
+	/// informational version '--version' prints.
+	/// </summary>
+	private static BundlerIdentity CreateBundlerIdentity()
+		=> new (
+			"sqetch-deploy",
+			typeof(SqetchDeployApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+				?.InformationalVersion
+			?? "unknown" );
 
 	public static void Configure( IConfigurator config )
 	{
@@ -85,6 +98,9 @@ public static class SqetchDeployApp
 						"Show a driver's --<driver>-<parameter> switches, and the parameter sets it requires "
 						+ "— any one of which must be supplied in full" );
 		} );
+
+		config.AddCommand<BundleCommand>( "bundle" )
+				.WithDescription( "Bundle a project's plans and their steps into a deployment archive or directory" );
 
 		config.AddCommand<RollbackCommand>( "rollback" )
 				.WithDescription( "Roll back deployed releases (not yet supported)" );

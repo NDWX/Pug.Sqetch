@@ -163,7 +163,7 @@ public sealed class RealDatabaseDeployment(
 		broken.Add( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ), "insert into nowhere ( id ) values ( 1 )" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: DeploymentRollbackMode.OnError ) );
+			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
 
 		// a was committed and is now compensated for; b never reached the database
 		Assert.Empty( StepTables() );
@@ -187,7 +187,7 @@ public sealed class RealDatabaseDeployment(
 	{
 		BundleManifest manifest = TwoReleases();
 
-		Deploy( manifest, Scripts( manifest ), rollback: DeploymentRollbackMode.OnSuccess );
+		Deploy( manifest, Scripts( manifest ), rollback: RollbackTrigger.OnSuccess );
 
 		Assert.Empty( StepTables() );
 
@@ -218,7 +218,7 @@ public sealed class RealDatabaseDeployment(
 		broken.Add( _layout.ScriptPath( "a", "s1", StepScriptKind.Rollback ), "drop table nowhere_at_all" );
 
 		RollbackFailedException error = Assert.Throws<RollbackFailedException>(
-			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: DeploymentRollbackMode.OnError ) );
+			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
 
 		Assert.Equal( ( "r1", "a", "s1" ), (error.Release, error.Plan, error.Step) );
 
@@ -231,7 +231,7 @@ public sealed class RealDatabaseDeployment(
 	private void Deploy(
 		BundleManifest manifest, IBundleReader reader,
 		DeploymentCommitLevel level = DeploymentCommitLevel.Release, RecordingListener? listener = null,
-		DeploymentRollbackMode rollback = DeploymentRollbackMode.None )
+		RollbackTrigger rollback = RollbackTrigger.None )
 	{
 		using IDatabaseDriver owned = driver();
 

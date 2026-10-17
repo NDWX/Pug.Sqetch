@@ -6,8 +6,10 @@ using Pug.Sqetch.Models;
 namespace Pug.Sqetch.Bundling.Layouts;
 
 /// <summary>
-/// Default bundle layout: 'manifest.json' first — so streaming consumers see it before the
-/// payload — then the project's journaling SQL as 'journaling/&lt;slot&gt;.sql', then
+/// Default bundle layout: 'META-DATA' first (written ahead of the layout by
+/// <c>BundlePackager</c>, so a streaming consumer learns the layout and its format before anything
+/// else), then 'manifest.json' — so streaming consumers see it before the payload — then the
+/// project's journaling SQL as 'journaling/&lt;slot&gt;.sql', then
 /// 'plans/&lt;plan&gt;/steps/&lt;step&gt;/{deploy,verify,rollback}.sql'.
 /// Journaling precedes the plans because a deployment needs it before it may run any script.
 /// Scripts live under 'plans/' so a plan named like the manifest file cannot collide with
@@ -16,6 +18,9 @@ namespace Pug.Sqetch.Bundling.Layouts;
 public sealed class DefaultBundleLayout : IBundleLayout
 {
 	public const string LayoutName = "default";
+
+	/// <summary>The only format of this layout so far; see <see cref="IBundleLayout.Format"/>.</summary>
+	public const int CurrentFormat = 1;
 
 	public const string ManifestEntry = "manifest.json";
 
@@ -27,6 +32,8 @@ public sealed class DefaultBundleLayout : IBundleLayout
 	};
 
 	public string Name => LayoutName;
+
+	public int Format => CurrentFormat;
 
 	public void Write( Bundle bundle, IBundleWriter writer )
 	{
@@ -122,7 +129,6 @@ public sealed class DefaultBundleLayout : IBundleLayout
 			new BundleManifestProject(
 				bundle.Project.Name, bundle.Project.Description, bundle.Project.Engine ),
 			bundle.Selection,
-			DateTime.Now,
 			bundle.Releases
 				.Select( release => new BundleManifestRelease(
 							release.Name, release.Description, release.Dependency, release.Finalized ) )
