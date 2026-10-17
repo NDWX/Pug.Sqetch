@@ -1,6 +1,7 @@
 name: Release
 
-# <product>-v<X.Y.Z>      signed release (Windows Authenticode through Azure Key Vault)
+# <product>-v<X.Y.Z>      release, Windows Authenticode-signed through Azure Key Vault when the signing
+#                         variables are set, unsigned (with a warning) when none is
 # <product>-pre-v<X.Y.Z>  unsigned pre-release
 # workflow_dispatch       dry run: builds and smoke-tests, uploads workflow artifacts, releases nothing
 # where <product> is sqetch or sqetch_deploy. Both tag kinds push the dotnet tool package to nuget.org
@@ -30,10 +31,10 @@ concurrency:
 
 jobs:
   # What is being built, decided once so every job agrees: product, version (including the pre-release
-  # timestamp) and whether the build is signed. A signed tag fails here, before anything is built,
-  # when the signing identifiers are not configured, and any tag does when NUGET_USER is not. Define
-  # them as repository variables: this job runs outside the 'release' environment, so variables
-  # defined only there are not visible to it.
+  # timestamp) and whether the build is signed. A release tag is signed when every signing variable
+  # is set and builds unsigned when none is; only some set fails here, before anything is built, as
+  # does any tag when NUGET_USER is not set. Define them as repository variables: this job runs
+  # outside the 'release' environment, so variables defined only there are not visible to it.
   identify:
     runs-on: ubuntu-latest
     outputs:
@@ -88,9 +89,9 @@ jobs:
 
   # A signed build runs in the 'release' environment, whose name is the subject of the Azure
   # federated credential (repo:NDWX/Pug.Sqetch:environment:release) and where approvals may be required.
-  # An unsigned one (pre-release tag, dry run) runs in the 'unsigned' environment instead, which has no
-  # protection rules and uses no credential. The name is never empty, because GitHub's handling of an
-  # empty environment name is not documented.
+  # An unsigned one (pre-release tag, dry run, release tag without signing configured) runs in the
+  # 'unsigned' environment instead, which has no protection rules and uses no credential. The name is
+  # never empty, because GitHub's handling of an empty environment name is not documented.
   windows:
     needs: identify
     runs-on: windows-latest
@@ -272,6 +273,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       PRERELEASE: ${{ needs.identify.outputs.prerelease }}
+      SIGNED: ${{ needs.identify.outputs.signed }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -284,4 +286,4 @@ jobs:
         run: |
           $common = @{ Product = '${{ needs.identify.outputs.product }}'; Version = '${{ needs.identify.outputs.version }}' }
           ./Installers/build/build.ps1 -Stage checksums @common
-          ./Installers/build/build.ps1 -Stage release @common -Tag '${{ needs.identify.outputs.tag }}' -Prerelease:($env:PRERELEASE -eq 'true')
+          ./Installers/build/build.ps1 -Stage release @common -Tag '${{ needs.identify.outputs.tag }}' -Prerelease:($env:PRERELEASE -eq 'true') -Sign:($env:SIGNED -eq 'true')

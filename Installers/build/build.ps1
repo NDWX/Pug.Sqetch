@@ -53,7 +53,8 @@ param(
 
 	[string] $ArtifactsDir,
 
-	# sign Windows executables and installers (Azure Key Vault; see Windows.ps1)
+	# publish and package stages: sign Windows executables and installers (Azure Key Vault; see
+	# Windows.ps1); release stage: the build was signed, so the notes carry no unsigned-build warning
 	[switch] $Sign,
 
 	# run docker through 'sg docker -c', for a shell started before joining the docker group
@@ -115,6 +116,13 @@ function Publish-GitHubRelease
 	}
 
 	$title = $Title ? $Title : "$( $Context.Name ) $( $Context.Version )"
+	$notes = "$title. Verify downloads against SHA256SUMS."
+
+	if( -not $Context.Sign )
+	{
+		$notes += "`n`nThe Windows executables and installers are not code-signed, so Windows SmartScreen may warn before running them."
+	}
+
 	$paths = @( $files | ForEach-Object FullName )
 
 	# the releases API lists drafts, which a lookup by tag does not reliably find; the tag is
@@ -136,7 +144,7 @@ function Publish-GitHubRelease
 
 		$null = Invoke-GitHub -Arguments ( @(
 			'release', 'create', $Tag, '--draft', '--verify-tag', '--title', $title,
-			'--notes', "$title. Verify downloads against SHA256SUMS." ) +
+			'--notes', $notes ) +
 			( $Prerelease ? @( '--prerelease' ) : @() ) + $paths )
 
 		return
@@ -145,7 +153,7 @@ function Publish-GitHubRelease
 	Write-Host "draft release $Tag exists; replacing its assets"
 
 	$null = Invoke-GitHub -Arguments ( @(
-		'release', 'edit', $Tag, '--title', $title, '--notes', "$title. Verify downloads against SHA256SUMS.",
+		'release', 'edit', $Tag, '--title', $title, '--notes', $notes,
 		"--prerelease=$( $Prerelease ? 'true' : 'false' )" ) )
 
 	# a re-run's pre-release version carries a new stamp, so its file names differ from the draft's

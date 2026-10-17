@@ -30,10 +30,13 @@ $script:Products = [ordered]@{
 	}
 }
 
-# <product>-v1.2.3 is a signed release; <product>-pre-v1.2.3 an unsigned pre-release
+# <product>-v1.2.3 is a release, signed when signing is configured; <product>-pre-v1.2.3 an unsigned
+# pre-release
 $script:TagPattern = '^(?<product>sqetch|sqetch_deploy)(?<pre>-pre)?-v(?<version>\d+\.\d+\.\d+)$'
 
-# the variables a signed build needs; identify fails fast on a release tag when any is missing
+# the variables a signed build needs: a release tag is signed when all are set and unsigned when none
+# is, and identify fails fast when only some are, since that is a broken configuration rather than a
+# choice
 $script:SigningVariables = @( 'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'SIGN_KEY_VAULT_URL', 'SIGN_CERTIFICATE_NAME' )
 
 # the variables every tag build needs to publish (the nuget.org profile trusted publishing logs in
@@ -169,7 +172,25 @@ function Resolve-BuildIdentity
 		}
 
 		$version = $prerelease ? "$baseVersion-pre.$( Get-BuildStamp )" : $baseVersion
-		$signed = -not $prerelease
+		$signed = $false
+
+		if( -not $prerelease )
+		{
+			$missing = @( $script:SigningVariables | Where-Object { -not [Environment]::GetEnvironmentVariable( $_ ) } )
+
+			if( $missing.Count -eq $script:SigningVariables.Count )
+			{
+				Write-BuildWarning "release tag '$tag' builds unsigned: no signing variables are set ($( $script:SigningVariables -join ', ' ))"
+			}
+			elseif( $missing )
+			{
+				throw "release tag '$tag' has a partial signing configuration; these signing variables are not set: $( $missing -join ', ' ). Set all of them to sign, or none to build unsigned."
+			}
+			else
+			{
+				$signed = $true
+			}
+		}
 	}
 	else
 	{
@@ -183,16 +204,6 @@ function Resolve-BuildIdentity
 		$version = "$baseVersion-dev.$( Get-BuildStamp )"
 		$prerelease = $true
 		$signed = $false
-	}
-
-	if( $signed )
-	{
-		$missing = @( $script:SigningVariables | Where-Object { -not [Environment]::GetEnvironmentVariable( $_ ) } )
-
-		if( $missing )
-		{
-			throw "release tag '$tag' must be signed, but these signing variables are not set: $( $missing -join ', ' ). Use a <product>-pre-v<X.Y.Z> tag for an unsigned pre-release."
-		}
 	}
 
 	if( $tag )
@@ -593,6 +604,21 @@ function Write-Checksums
 	[IO.File]::WriteAllText( $path, ( $sums -join "`n" ) + "`n" )
 
 	return $path
+}
+
+# A warning that a workflow run shows as an annotation on its summary page, not only in the job log.
+function Write-BuildWarning
+{
+	param( [Parameter( Mandatory )] [string] $Message )
+
+	if( $env:GITHUB_ACTIONS -eq 'true' )
+	{
+		Write-Host "::warning::$Message"
+	}
+	else
+	{
+		Write-Warning $Message
+	}
 }
 
 # Stage outputs for the workflow (GITHUB_OUTPUT), echoed for a local run.

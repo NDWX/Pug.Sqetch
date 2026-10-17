@@ -13,13 +13,14 @@ yet**. The release already carries every file those channels need.
 
 | Tag | Builds | Signing |
 |---|---|---|
-| `sqetch-v1.2.3` / `sqetch_deploy-v1.2.3` | version `1.2.3` | **required** (Windows Authenticode) |
+| `sqetch-v1.2.3` / `sqetch_deploy-v1.2.3` | version `1.2.3` | Windows Authenticode when configured, otherwise unsigned |
 | `sqetch-pre-v1.2.3` / `sqetch_deploy-pre-v1.2.3` | version `1.2.3-pre.<yyyyMMddHHmm>` (UTC build time) | skipped |
 
 - The tag's `X.Y.Z` must equal the project's `<Version>`; the workflow fails first thing otherwise.
   Bump `<Version>` in a commit, then tag that commit.
-- A release tag fails in its first job when the signing variables (below) are not configured. Until
-  they are, use pre-release tags.
+- A release tag is signed when every signing variable (below) is set, and builds unsigned when none
+  is: the run shows a warning annotation and the draft's notes say the Windows files are unsigned.
+  Setting only some of them fails the first job, since that is a broken configuration, not a choice.
 - A pre-release tag produces a draft marked *pre-release*. Tagging the same `X.Y.Z` again with
   `-pre-` gives a newer stamp, so pre-releases sort in build order and before the final `X.Y.Z`.
 - **Both kinds push the tool package to nuget.org**, a pre-release tag as a NuGet pre-release
@@ -42,7 +43,7 @@ For each product, with `<v>` the full version:
 |---|---|
 | Direct download, Homebrew | `<name>-<v>-{linux,osx}-{x64,arm64}.tar.gz` |
 | Direct download | `<name>-<v>-win-{x64,arm64}.zip` |
-| Direct download, winget | `<name>-<v>-win-{x64,arm64}.msi` (per-user or per-machine; signed on release tags) |
+| Direct download, winget | `<name>-<v>-win-{x64,arm64}.msi` (per-user or per-machine; signed on release tags when signing is configured) |
 | Chocolatey | `<name>.<v>.nupkg`, which embeds the x64 MSI |
 | dotnet tool, also pushed to nuget.org | `Pug.Sqetch.Cli.<v>.nupkg` / `Pug.Sqetch.Deployment.Cli.<v>.nupkg` (framework-dependent, needs .NET 10) |
 | apt / dnf | `<name>_<v>_{amd64,arm64}.deb`, `<name>-<v>.{x86_64,aarch64}.rpm` |
@@ -106,7 +107,11 @@ for an hour, so no NuGet key is stored in GitHub.
 
 A re-run pushes with `--skip-duplicate`, so a version already on nuget.org is not an error.
 
-## Signing setup (one-time, before the first release tag)
+## Signing setup (optional)
+
+Without it, release tags build unsigned Windows executables and MSIs, which SmartScreen may warn
+about until they build up reputation. Nothing else depends on it: nuget.org signs the tool package
+itself, and the Linux and macOS artifacts do not use this certificate.
 
 Windows executables and MSIs are signed with the .NET `sign` tool (pinned in
 `.config/dotnet-tools.json`) against a certificate in Azure Key Vault. The workflow logs in with
