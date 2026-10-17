@@ -170,7 +170,9 @@ jobs:
           overwrite: true
 
   # Smoke jobs install what the build jobs produced, on a runner of the architecture it is for.
-  # The checkout is for the smoke bundle fixture (Installers/smoke/bundle) and the scripts.
+  # The checkout is for the smoke bundle fixture (Installers/smoke/bundle) and the scripts. Each takes a
+  # few minutes; the timeout is there so that a hung installer fails the run instead of holding it for
+  # GitHub's six hours.
   smoke-linux:
     needs: [identify, linux]
     strategy:
@@ -178,6 +180,7 @@ jobs:
       matrix:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -194,6 +197,7 @@ jobs:
       matrix:
         runner: [windows-latest, windows-11-arm]
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -210,6 +214,7 @@ jobs:
       matrix:
         runner: [macos-latest, macos-15-intel]
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -222,6 +227,7 @@ jobs:
   smoke-tool:
     needs: [identify, tool]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup

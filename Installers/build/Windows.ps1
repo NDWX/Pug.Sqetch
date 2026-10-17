@@ -463,6 +463,139 @@ function Test-MsiScope
 	Write-Host "installer test passed: $name, $Scope scope"
 }
 
+# choco is started as a process rather than called, so that a hang fails the job with a diagnosis instead
+# of holding it until the job's timeout (a release run once sat in 'choco install' for 45 minutes without
+# choco printing a line). Its output goes to a file echoed as it grows; a call still running after
+# $TimeoutMinutes has the processes it started listed and then killed, and Chocolatey's log and the MSI
+# log printed. Chocolatey's log is printed on any failure too: it holds the debug detail
+# the console output leaves out.
+function Invoke-Chocolatey
+{
+	param(
+		[Parameter( Mandatory )] [string[]] $Arguments,
+		[string] $MsiLog,
+		[double] $TimeoutMinutes = 5
+	)
+
+	$choco = ( Get-Command 'choco' -CommandType Application -ErrorAction Stop | Select-Object -First 1 ).Source
+	$line = ( $Arguments | ForEach-Object { $_ -match '\s' ? "`"$_`"" : $_ } ) -join ' '
+	$output = Join-Path ( [IO.Path]::GetTempPath() ) "choco-$( [guid]::NewGuid() ).out"
+	$errors = "$output.err"
+
+	Write-Host "> choco $line"
+	$process = Start-Process -FilePath $choco -ArgumentList $line -NoNewWindow -PassThru `
+		-RedirectStandardOutput $output -RedirectStandardError $errors
+	# without the handle, a process started this way may report no exit code once it has exited
+	$null = $process.Handle
+
+	$deadline = [DateTime]::UtcNow.AddMinutes( $TimeoutMinutes )
+	$shown = 0
+	$finished = $false
+
+	while( -not $finished -and [DateTime]::UtcNow -lt $deadline )
+	{
+		$finished = $process.WaitForExit( 2000 )
+		$shown = Write-NewOutput -Path $output -Shown $shown -Final:$finished
+	}
+
+	if( Test-Path -LiteralPath $errors )
+	{
+		Get-Content -LiteralPath $errors | Out-Host
+	}
+
+	$failure = $null
+
+	if( -not $finished )
+	{
+		Write-Host "--- choco did not finish within $TimeoutMinutes minutes; the processes it started:"
+		Get-ProcessTree -Id $process.Id | Out-Host
+		$process.Kill( $true )
+		$failure = "choco $( $Arguments[0] ) did not finish within $TimeoutMinutes minutes"
+	}
+	elseif( $process.ExitCode -ne 0 )
+	{
+		$failure = "choco exited with code $( $process.ExitCode )"
+	}
+
+	Remove-Item -LiteralPath $output, $errors -Force -ErrorAction SilentlyContinue
+
+	if( $failure )
+	{
+		$chocolateyLog = Join-Path ( $env:ChocolateyInstall ?? "$env:ProgramData\chocolatey" ) 'logs\chocolatey.log'
+
+		foreach( $log in @( $chocolateyLog, $MsiLog ) | Where-Object { $_ -and ( Test-Path -LiteralPath $_ ) } )
+		{
+			Write-Host "--- tail of $log"
+			Get-Content -LiteralPath $log -Tail 80 | Out-Host
+		}
+
+		throw $failure
+	}
+}
+
+# Echoes the lines of a file another process is still writing that were not echoed yet, and returns how
+# many have been. Until -Final, a last line without its line break is left for the next call.
+function Write-NewOutput
+{
+	param( [Parameter( Mandatory )] [string] $Path, [int] $Shown, [switch] $Final )
+
+	if( -not ( Test-Path -LiteralPath $Path ) )
+	{
+		return $Shown
+	}
+
+	$stream = [IO.File]::Open( $Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite )
+
+	try
+	{
+		$text = [IO.StreamReader]::new( $stream ).ReadToEnd()
+	}
+	finally
+	{
+		$stream.Dispose()
+	}
+
+	$lines = $text -split "`r?`n"
+	# the text after the last line break: unfinished until -Final, and nothing at all when the text ends
+	# with one
+	$complete = $Final -and $lines[-1] ? $lines.Count : $lines.Count - 1
+
+	for( $i = $Shown; $i -lt $complete; $i++ )
+	{
+		Write-Host $lines[$i]
+	}
+
+	return [Math]::Max( $Shown, $complete )
+}
+
+# A process and everything it started, with the command lines, to show what a hung one is waiting on.
+function Get-ProcessTree
+{
+	param( [Parameter( Mandatory )] [int] $Id )
+
+	$all = @( Get-CimInstance -ClassName Win32_Process )
+	$ids = [Collections.Generic.HashSet[int]]::new()
+	$null = $ids.Add( $Id )
+	$grew = $true
+
+	while( $grew )
+	{
+		$grew = $false
+
+		foreach( $candidate in $all )
+		{
+			if( $ids.Contains( [int] $candidate.ParentProcessId ) -and $ids.Add( [int] $candidate.ProcessId ) )
+			{
+				$grew = $true
+			}
+		}
+	}
+
+	return $all |
+		Where-Object { $ids.Contains( [int] $_.ProcessId ) } |
+		Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, Name, CommandLine
+}
+
 # choco is given the directory with the package as its only source and the exact version.
 function Test-ChocolateyPackage
 {
@@ -481,21 +614,8 @@ function Test-ChocolateyPackage
 		throw "$expected exists already; uninstall $id before running the Chocolatey test"
 	}
 
-	try
-	{
-		$prerelease = $version.Contains( '-' ) ? @( '--prerelease' ) : @()
-		Invoke-Native -FilePath 'choco' -Arguments ( @( 'install', $id, '--source', $Context.DistDir, '--version', $version, '-y', '--no-progress', '--no-color' ) + $prerelease )
-	}
-	catch
-	{
-		if( Test-Path -LiteralPath $log )
-		{
-			Write-Host "--- tail of $log"
-			Get-Content -LiteralPath $log -Tail 80 | Out-Host
-		}
-
-		throw
-	}
+	$prerelease = $version.Contains( '-' ) ? @( '--prerelease' ) : @()
+	Invoke-Chocolatey -Arguments ( @( 'install', $id, '--source', $Context.DistDir, '--version', $version, '-y', '--no-progress', '--no-color' ) + $prerelease ) -MsiLog $log
 
 	$failed = $true
 	try
@@ -515,11 +635,11 @@ function Test-ChocolateyPackage
 	{
 		if( $failed )
 		{
-			try { Invoke-Native -FilePath 'choco' -Arguments @( 'uninstall', $id, '-y', '--no-color' ) } catch { Write-Warning "cleanup failed: $_" }
+			try { Invoke-Chocolatey -Arguments @( 'uninstall', $id, '-y', '--no-color' ) } catch { Write-Warning "cleanup failed: $_" }
 		}
 	}
 
-	Invoke-Native -FilePath 'choco' -Arguments @( 'uninstall', $id, '-y', '--no-color' )
+	Invoke-Chocolatey -Arguments @( 'uninstall', $id, '-y', '--no-color' )
 
 	if( Test-Path -LiteralPath $expected )
 	{
