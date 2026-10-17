@@ -116,6 +116,8 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+# but not a Sqetch project's releases folder: the installer smoke fixture is a committed project
+!Installers/smoke/project/releases/
 x64/
 x86/
 [Ww][Ii][Nn]32/

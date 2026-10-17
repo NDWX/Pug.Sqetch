@@ -1,0 +1,20 @@
+{
+  "name": "create-greetings",
+  "description": "Creates the greetings table",
+  "dependencies": [],
+  "release": "smoke-1",
+  "registration": {
+    "subject": {
+      "name": "Smoke Test",
+      "emailAddress": "smoke@example.com"
+    },
+    "timestamp": "2026-10-17T04:10:39.2599671+00:00"
+  },
+  "releaseAssignment": {
+    "subject": {
+      "name": "Smoke Test",
+      "emailAddress": "smoke@example.com"
+    },
+    "timestamp": "2026-10-17T04:10:39.7879679+00:00"
+  }
+}

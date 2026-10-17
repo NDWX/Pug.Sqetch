@@ -1,0 +1,12 @@
+{
+  "name": "greetings-table",
+  "description": "The greetings table",
+  "dependencies": [],
+  "registration": {
+    "subject": {
+      "name": "Smoke Test",
+      "emailAddress": "smoke@example.com"
+    },
+    "timestamp": "2026-10-17T04:10:39.5232281+00:00"
+  }
+}
