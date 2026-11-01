@@ -1,7 +1,5 @@
 using System.Data;
 using System.Text;
-using Pug.Sqetch.Deployment.Bundling;
-using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
@@ -223,38 +221,6 @@ public sealed class RecordingListener : IDeploymentListener
 	public void RolledBack() => Events.Add( "rolled-back" );
 }
 
-public sealed class InMemoryBundleReader : IBundleReader
-{
-	private readonly Dictionary<string, string> _entries = new ();
-
-	public InMemoryBundleReader Add( string path, string content )
-	{
-		_entries[path] = content;
-
-		return this;
-	}
-
-	public InMemoryBundleReader Remove( string path )
-	{
-		_entries.Remove( path );
-
-		return this;
-	}
-
-	public IEnumerable<string> Entries => _entries.Keys;
-
-	public bool Contains( string path ) => _entries.ContainsKey( path );
-
-	public Stream Open( string path )
-		=> _entries.TryGetValue( path, out string? content )
-			? new MemoryStream( Encoding.UTF8.GetBytes( content ) )
-			: throw new BundlingException( $"Bundle has no entry '{path}'." );
-
-	public void Dispose()
-	{
-	}
-}
-
 /// <summary>
 /// Stands in for a journal now that there is no journal-writer abstraction to fake. A deployment
 /// journals by running the project's SQL, so a test bundles marker statements —
@@ -369,61 +335,92 @@ public sealed class FakeJournal
 		=> DeployedPlans.TryGetValue( release, out List<string>? plans ) ? plans : DeployedPlans[release] = [];
 }
 
-public static class Manifests
+/// <summary>
+/// Step scripts for engine tests, without a bundle: every step has a marker deploy and rollback
+/// script ("-- deploy plan/step", "-- rollback plan/step") unless a test replaces one.
+/// </summary>
+public sealed class InMemoryScripts : IScriptContentReader
 {
-	public static BundleManifestStep Step( string name ) => new ( name, "", [] );
+	private readonly Dictionary<(string Plan, string Step, bool Rollback), string> _scripts = new ();
 
-	public static BundleManifestPlan Plan( string name, string release, params string[] steps )
-		=> new ( name, "", release, [], steps.Select( Step ).ToList() );
+	private readonly Func<string, string, string> _deploy;
 
-	public static BundleManifestRelease Release( string name, string dependency = "" )
-		=> new ( name, "", dependency, true );
+	private readonly Func<string, string, string> _rollback;
 
-	public static BundleManifest Manifest(
-		IReadOnlyList<BundleManifestRelease> releases, IReadOnlyList<BundleManifestPlan> plans )
-		=> new ( new BundleManifestProject( "demo", "", "postgres" ), BundleSelection.Finalized,
-				releases, plans );
-
-	/// <summary>Journaling SQL for every slot; see <see cref="FakeJournal.Statements"/>.</summary>
-	public static JournalingStatements Journaling() => FakeJournal.Statements();
-
-	/// <summary>The instant the in-memory bundles claim to have been built at.</summary>
-	public static DateTime Bundled { get; } = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
-
-	/// <summary>The metadata a bundle written through <paramref name="layout"/> would carry.</summary>
-	public static BundleMetadata Metadata( IBundleLayout layout )
-		=> new ( layout.Format, layout.Name, "sqetch-deploy", "0.1.0", Bundled );
-
-	/// <summary>A registry holding the built-in layouts, as the deployment host's does.</summary>
-	public static BundleLayoutRegistry Layouts()
+	public InMemoryScripts( Func<string, string, string>? deploy = null, Func<string, string, string>? rollback = null )
 	{
-		BundleLayoutRegistry layouts = new ();
-
-		layouts.RegisterLayouts();
-
-		return layouts;
+		_deploy = deploy ?? ( ( plan, step ) => $"-- deploy {plan}/{step}" );
+		_rollback = rollback ?? ( ( plan, step ) => $"-- rollback {plan}/{step}" );
 	}
 
-	/// <summary>
-	/// A reader holding the metadata and all three scripts for every step of the manifest, plus the
-	/// journaling SQL — everything but the manifest itself, which a test adds in the shape it needs.
-	/// </summary>
-	public static InMemoryBundleReader ReaderFor( BundleManifest manifest, IBundleLayout layout )
+	/// <summary>The releases asked about, one entry per script read, in order.</summary>
+	public List<string> Releases { get; } = [];
+
+	public InMemoryScripts Deploy( string plan, string step, string script )
 	{
-		InMemoryBundleReader reader = new ();
+		_scripts[(plan, step, false)] = script;
 
-		reader.Add( BundleMetadata.EntryName, Metadata( layout ).ToText() );
-
-		foreach( BundleManifestPlan plan in manifest.Plans )
-			foreach( BundleManifestStep step in plan.Steps )
-				foreach( StepScriptKind kind in Enum.GetValues<StepScriptKind>() )
-					reader.Add(
-						layout.ScriptPath( plan.Name, step.Name, kind ),
-						$"-- {kind.ToString().ToLowerInvariant()} {plan.Name}/{step.Name}" );
-
-		foreach( JournalingSlot slot in JournalingSlots.All )
-			reader.Add( $"journaling/{JournalingSlots.FileName( slot )}", FakeJournal.Marker( slot ) );
-
-		return reader;
+		return this;
 	}
+
+	public InMemoryScripts Rollback( string plan, string step, string script )
+	{
+		_scripts[(plan, step, true)] = script;
+
+		return this;
+	}
+
+	public string ReadDeployScript( string release, string plan, string step )
+	{
+		Releases.Add( release );
+
+		return _scripts.TryGetValue( (plan, step, false), out string? script ) ? script : _deploy( plan, step );
+	}
+
+	public string ReadRollbackScript( string release, string plan, string step )
+	{
+		Releases.Add( release );
+
+		return _scripts.TryGetValue( (plan, step, true), out string? script ) ? script : _rollback( plan, step );
+	}
+}
+
+/// <summary>
+/// Release groups for engine tests, written the way a manifest lists them — releases, then plans
+/// naming their release — so a test reads as the lineage it describes. Plans with an empty release
+/// become a trailing pseudo-release depending on the last real one. No lineage rule is checked here:
+/// that is the engine's job, and some tests hand it a broken lineage on purpose.
+/// </summary>
+public static class Lineages
+{
+	public sealed record ReleaseEntry( string Name, string Dependency );
+
+	public sealed record PlanEntry( string Release, DeployablePlan Plan );
+
+	public static ReleaseEntry Release( string name, string dependency = "" ) => new ( name, dependency );
+
+	public static PlanEntry Plan( string name, string release, params string[] steps )
+		=> new ( release, new DeployablePlan( name, "", steps.Select( step => new DeployableStep( step, "" ) ).ToList() ) );
+
+	public static IReadOnlyList<ReleaseGroup> Lineage(
+		IReadOnlyList<ReleaseEntry> releases, IReadOnlyList<PlanEntry> plans )
+	{
+		List<ReleaseGroup> groups = releases
+									.Select( release => new ReleaseGroup(
+												release.Name, "", release.Dependency,
+												plans.Where( plan => plan.Release == release.Name )
+													.Select( plan => plan.Plan )
+													.ToList() ) )
+									.ToList();
+
+		List<DeployablePlan> unreleased = plans.Where( plan => plan.Release.Length == 0 ).Select( plan => plan.Plan ).ToList();
+
+		if( unreleased.Count > 0 )
+			groups.Add( new ReleaseGroup( "", "", releases.Count > 0 ? releases[^1].Name : "", unreleased ) );
+
+		return groups;
+	}
+
+	/// <summary>The project name the engine tests deploy as.</summary>
+	public const string Project = "demo";
 }

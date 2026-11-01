@@ -1,11 +1,9 @@
 using System.Globalization;
-using Pug.Sqetch.Deployment.Bundling;
-using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Tests.Deployment;
-using static Pug.Sqetch.Tests.Deployment.Manifests;
+using static Pug.Sqetch.Tests.Deployment.Lineages;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
 
@@ -33,19 +31,17 @@ public sealed class RealDatabaseDeployment(
 	Func<IDatabaseDriver> driver, JournalingStatements journaling, Func<string, List<string>> query,
 	Func<List<string>> stepTables )
 {
-	private readonly DefaultBundleLayout _layout = new ();
-
 	/// <summary>Two releases, three plans, one step each; every step creates its own table.</summary>
-	private static BundleManifest TwoReleases()
-		=> Manifest(
+	private static IReadOnlyList<ReleaseGroup> TwoReleases()
+		=> Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
 	public void AWholeBundleIsAppliedAndJournaled()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( manifest, Scripts( manifest ) );
+		Deploy( releases,Scripts() );
 
 		Assert.Equal( ["a_s1", "b_s1", "c_s1"], StepTables() );
 
@@ -79,9 +75,9 @@ public sealed class RealDatabaseDeployment(
 	{
 		DateTime before = DateTime.UtcNow.AddSeconds( -5 );
 
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( manifest, Scripts( manifest ) );
+		Deploy( releases,Scripts() );
 
 		List<DateTime> instants = query( "select at_utc from sqetch_journal order by id" )
 									.Select(
@@ -98,15 +94,15 @@ public sealed class RealDatabaseDeployment(
 
 	public void RedeployingTheSameBundleDeploysNothing()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( manifest, Scripts( manifest ) );
+		Deploy( releases,Scripts() );
 
 		List<string> journaled = Journal();
 
 		RecordingListener second = new ();
 
-		Deploy( manifest, Scripts( manifest ), listener: second );
+		Deploy( releases,Scripts(), listener: second );
 
 		Assert.Contains( "nothing", second.Events );
 		Assert.Equal( journaled, Journal() );
@@ -118,13 +114,13 @@ public sealed class RealDatabaseDeployment(
 	/// </summary>
 	public void AFailedPlanIsResumedFromWhatTheJournalNames()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryBundleReader broken = Scripts( manifest );
+		InMemoryScripts broken =Scripts();
 
-		broken.Add( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ), "insert into nowhere ( id ) values ( 1 )" );
+		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
 
-		Assert.Throws<StepScriptFailedException>( () => Deploy( manifest, broken, DeploymentCommitLevel.Plan ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases,broken, DeploymentCommitLevel.Plan ) );
 
 		Assert.Equal(
 			[
@@ -135,7 +131,7 @@ public sealed class RealDatabaseDeployment(
 
 		RecordingListener second = new ();
 
-		Deploy( manifest, Scripts( manifest ), DeploymentCommitLevel.Plan, second );
+		Deploy( releases,Scripts(), DeploymentCommitLevel.Plan, second );
 
 		Assert.Contains( "skip-plan r1/a", second.Events );
 		Assert.DoesNotContain( "skip-plan r1/b", second.Events );
@@ -156,14 +152,14 @@ public sealed class RealDatabaseDeployment(
 	/// </summary>
 	public void OnErrorUndoesWhatTheRunAlreadyCommitted()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryBundleReader broken = Scripts( manifest );
+		InMemoryScripts broken =Scripts();
 
-		broken.Add( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ), "insert into nowhere ( id ) values ( 1 )" );
+		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
+			() => Deploy( releases,broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
 
 		// a was committed and is now compensated for; b never reached the database
 		Assert.Empty( StepTables() );
@@ -185,9 +181,9 @@ public sealed class RealDatabaseDeployment(
 	/// </summary>
 	public void OnSuccessUndoesTheWholeDeploymentInReverse()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( manifest, Scripts( manifest ), rollback: RollbackTrigger.OnSuccess );
+		Deploy( releases,Scripts(), rollback: RollbackTrigger.OnSuccess );
 
 		Assert.Empty( StepTables() );
 
@@ -210,15 +206,15 @@ public sealed class RealDatabaseDeployment(
 	/// </summary>
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 	{
-		BundleManifest manifest = TwoReleases();
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryBundleReader broken = Scripts( manifest );
+		InMemoryScripts broken =Scripts();
 
-		broken.Add( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ), "insert into nowhere ( id ) values ( 1 )" );
-		broken.Add( _layout.ScriptPath( "a", "s1", StepScriptKind.Rollback ), "drop table nowhere_at_all" );
+		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
+		broken.Rollback( "a", "s1","drop table nowhere_at_all" );
 
 		RollbackFailedException error = Assert.Throws<RollbackFailedException>(
-			() => Deploy( manifest, broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
+			() => Deploy( releases,broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
 
 		Assert.Equal( ( "r1", "a", "s1" ), (error.Release, error.Plan, error.Step) );
 
@@ -229,15 +225,15 @@ public sealed class RealDatabaseDeployment(
 	// ------------------------------------------------------------------ helpers
 
 	private void Deploy(
-		BundleManifest manifest, IBundleReader reader,
+		IReadOnlyList<ReleaseGroup> releases, IScriptContentReader scripts,
 		DeploymentCommitLevel level = DeploymentCommitLevel.Release, RecordingListener? listener = null,
 		RollbackTrigger rollback = RollbackTrigger.None )
 	{
 		using IDatabaseDriver owned = driver();
 
 		new DeploymentEngine(
-				owned, journaling, reader, _layout, level, listener ?? new RecordingListener(), rollback )
-			.Deploy( manifest );
+				owned, journaling, scripts, level, listener ?? new RecordingListener(), rollback )
+			.Deploy( Project, releases );
 	}
 
 	/// <summary>
@@ -245,21 +241,11 @@ public sealed class RealDatabaseDeployment(
 	/// rollback script that undoes it — which is what compensation runs, so it has to be real SQL
 	/// here rather than a marker.
 	/// </summary>
-	private InMemoryBundleReader Scripts( BundleManifest manifest )
+	private static InMemoryScripts Scripts()
 	{
-		InMemoryBundleReader reader = new ();
-
-		foreach( BundleManifestPlan plan in manifest.Plans )
-			foreach( BundleManifestStep step in plan.Steps )
-			{
-				reader.Add(
-					_layout.ScriptPath( plan.Name, step.Name, StepScriptKind.Deploy ),
-					$"create table {plan.Name}_{step.Name} ( id integer primary key )" );
-
-				reader.Add(
-					_layout.ScriptPath( plan.Name, step.Name, StepScriptKind.Rollback ),
-					$"drop table {plan.Name}_{step.Name}" );
-			}
+		InMemoryScripts reader = new (
+			( plan, step ) => $"create table {plan}_{step} ( id integer primary key )",
+			( plan, step ) => $"drop table {plan}_{step}" );
 
 		return reader;
 	}

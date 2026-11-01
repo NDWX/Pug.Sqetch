@@ -1,7 +1,5 @@
-using Pug.Sqetch.Deployment.Bundling;
-using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
-using static Pug.Sqetch.Tests.Deployment.Manifests;
+using static Pug.Sqetch.Tests.Deployment.Lineages;
 
 namespace Pug.Sqetch.Tests.Deployment;
 
@@ -24,7 +22,7 @@ namespace Pug.Sqetch.Tests.Deployment;
 /// </summary>
 public class DeploymentEngineTests
 {
-	private readonly DefaultBundleLayout _layout = new ();
+	private readonly InMemoryScripts _scripts = new ();
 	private readonly FakeDatabaseDriver _driver = new ();
 	private readonly RecordingListener _listener = new ();
 	private readonly FakeJournal _journal = new ();
@@ -34,11 +32,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void FreshDatabaseDeploysEveryPlanOfEveryRelease()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "alpha", "r1", "s1", "s2" ), Plan( "beta", "r1", "s1" ), Plan( "gamma", "r2", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal(
 			["-- deploy alpha/s1", "-- deploy alpha/s2", "-- deploy beta/s1", "-- deploy gamma/s1"],
@@ -53,14 +51,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ResumingAnIncompleteReleaseDeploysOnlyItsUndeployedPlansThenContinues()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r0" ), Release( "r1", "r0" ), Release( "r2", "r1" )],
 			[Plan( "p0", "r0", "s1" ), Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		// r0 is behind the resume point and r1/a is already deployed, so neither runs again
 		Assert.Equal( ["-- deploy b/s1", "-- deploy c/s1"], _driver.AppliedScripts );
@@ -76,14 +74,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void AResumedReleaseDoesNotHaveItsStartJournaledAgain()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["r2"], _journal.StartedReleases );
 	}
@@ -99,7 +97,7 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ResumeSkipsTheJournaledPlansWhereverTheBundleListsThem()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[
 				Plan( "c", "r1", "s1" ), Plan( "a", "r1", "s1" ),
@@ -112,7 +110,7 @@ public class DeploymentEngineTests
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a", "c"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy b/s1", "-- deploy d/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["a", "c", "b", "d"], Deployed( "r1" ) );
@@ -122,7 +120,7 @@ public class DeploymentEngineTests
 	[Fact]
 	public void AnIncompleteReleaseWithNoDeployedPlanDeploysFromItsFirstPlan()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" )] );
 
@@ -130,7 +128,7 @@ public class DeploymentEngineTests
 		// the deployment transaction can produce
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy a/s1", "-- deploy b/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["a"], Deployed( "r1" ) );
@@ -144,14 +142,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void AnIncompleteReleaseWhoseEveryPlanIsDeployedIsCompletedWithoutRunningAScript()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy b/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["a"], Deployed( "r1" ) );
@@ -161,14 +159,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ACompletelyDeployedReleaseHandsOverToTheReleaseDependingOnIt()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy b/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["r2"], _journal.StartedReleases );
@@ -185,14 +183,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ACompletedReleaseIsNotRevisitedEvenWhenTheBundleGainedPlansForIt()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Empty( _driver.AppliedScripts );
 		Assert.Equal( ["a"], Deployed( "r1" ) );
@@ -207,12 +205,12 @@ public class DeploymentEngineTests
 	[Fact]
 	public void RedeployingAnUnchangedBundleChangesNothingBeyondPreparingAndReadingTheJournal()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		AssertNothingWasDeployed( 2 );
 		Assert.Equal( new JournaledRelease( "r1", Completed: true ), _journal.Latest );
@@ -221,7 +219,7 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ContinuationBundleFollowingACompletelyDeployedReleaseIsDeployedWhole()
 	{
-		BundleManifest manifest = Manifest( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 
@@ -229,7 +227,7 @@ public class DeploymentEngineTests
 		// consulted: 'c' deploys even though the journal already claims it
 		_journal.DeployedPlans["r2"] = ["c"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy c/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["r2"], _journal.StartedReleases );
@@ -239,11 +237,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void UnreleasedPlansDeployLastAsThePseudoRelease()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "z", "", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy a/s1", "-- deploy z/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["r1", ""], _journal.StartedReleases );
@@ -254,14 +252,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void UnreleasedPlansAreReachedThroughTheDependencyChain()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "z", "", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		// the pseudo-release depends on the last real release, so it is what follows r1
 		Assert.Equal( ["-- deploy z/s1"], _driver.AppliedScripts );
@@ -272,14 +270,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ResumesInsideThePseudoRelease()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "y", "", "s1" ), Plan( "z", "", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "", Completed: false );
 		_journal.DeployedPlans[""] = ["y"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["-- deploy z/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["y", "z"], Deployed( "" ) );
@@ -295,13 +293,13 @@ public class DeploymentEngineTests
 	[Fact]
 	public void StepFailureLeavesTheJournalAtTheLastCommittedRelease()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" )] );
 
 		_driver.FailingScripts.Add( "-- deploy b/s1" );
 
-		Assert.Throws<StepScriptFailedException>( () => Deploy( manifest, DeploymentCommitLevel.Release ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Equal( ["-- deploy a/s1"], _driver.AppliedScripts );
 		Assert.Equal( ["r1"], _journal.StartedReleases );
@@ -315,7 +313,7 @@ public class DeploymentEngineTests
 	[Fact]
 	public void JournaledPlansMissingFromTheBundleAreRefused()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		// the bundle was rebuilt without plans the database has deployed, so it is not the same
 		// release and nothing in it can be resumed
@@ -323,7 +321,7 @@ public class DeploymentEngineTests
 		_journal.DeployedPlans["r1"] = ["a", "scrapped", "renamed"];
 
 		IncompatibleBundleException error = Assert.Throws<IncompatibleBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Contains( "deployed plans of release 'r1'", error.Message );
 		Assert.Contains( "'scrapped', 'renamed'", error.Message );
@@ -338,12 +336,12 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ADatabaseLeftAtThePseudoReleaseCannotBeFollowedByALineageStartingBundle()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "", Completed: true );
 
 		IncompatibleBundleException error = Assert.Throws<IncompatibleBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Contains( "pseudo", error.Message );
 		AssertNothingWasDeployed( 2 );
@@ -352,12 +350,12 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ContinuationBundleIsRefusedWhenThePredecessorIsOnlyPartiallyDeployed()
 	{
-		BundleManifest manifest = Manifest( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 
 		IncompatibleBundleException error = Assert.Throws<IncompatibleBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Contains( "release 'r1' is only partially deployed", error.Message );
 		Assert.Contains( "release 'r2'", error.Message );
@@ -368,10 +366,10 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ContinuationBundleIsRefusedOnAFreshDatabase()
 	{
-		BundleManifest manifest = Manifest( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
 
 		IncompatibleBundleException error = Assert.Throws<IncompatibleBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Contains( "continues from release 'r1'", error.Message );
 		Assert.Contains( "no deployed releases", error.Message );
@@ -382,12 +380,12 @@ public class DeploymentEngineTests
 	[Fact]
 	public void JournaledReleaseTheBundleNeitherContainsNorContinuesFromIsRefused()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r9", Completed: true );
 
 		IncompatibleBundleException error = Assert.Throws<IncompatibleBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Equal(
 			"database is at release 'r9', which this bundle neither contains nor continues from.",
@@ -396,32 +394,52 @@ public class DeploymentEngineTests
 		AssertNothingWasDeployed( 2 );
 	}
 
+	/// <summary>
+	/// The caller determines the groups, so a broken lineage is the caller's mistake and is refused
+	/// before the database is touched rather than deployed out of order.
+	/// </summary>
 	[Fact]
-	public void ReleasesThatDoNotFormAContiguousChainAreRefused()
+	public void GroupsThatDoNotFormAContiguousLineageAreRefused()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r0" ), Release( "r2", "r1" )],
 			[Plan( "a", "r0", "s1" ), Plan( "c", "r2", "s1" )] );
 
-		InvalidBundleException error = Assert.Throws<InvalidBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+		ArgumentException error = Assert.Throws<ArgumentException>(
+			() => Deploy( releases, DeploymentCommitLevel.Release ) );
 
-		Assert.Equal(
-			"Release 'r2' does not depend on 'r0', the release preceding it in the bundle.",
-			error.Message );
+		Assert.StartsWith( "Release 'r2' does not depend on 'r0', the release preceding it.", error.Message );
 		AssertNothingWasDeployed( 0 );
 	}
 
 	[Fact]
-	public void PlanReferencingAnUnlistedReleaseIsRefused()
+	public void AReleaseListedTwiceIsRefused()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r9", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
+			[Release( "r1" ), Release( "r1", "r1" )],
+			[Plan( "a", "r1", "s1" )] );
 
-		InvalidBundleException error = Assert.Throws<InvalidBundleException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+		ArgumentException error = Assert.Throws<ArgumentException>(
+			() => Deploy( releases, DeploymentCommitLevel.Release ) );
 
-		Assert.Contains( "'r9'", error.Message );
+		Assert.StartsWith( "Release 'r1' is listed more than once.", error.Message );
 		AssertNothingWasDeployed( 0 );
+	}
+
+	/// <summary>
+	/// The release is passed to the script reader, for a source that keeps scripts per release —
+	/// including the pseudo-release's empty name.
+	/// </summary>
+	[Fact]
+	public void TheScriptReaderIsToldWhichReleaseEachStepBelongsTo()
+	{
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
+			[Release( "r1" ), Release( "r2", "r1" )],
+			[Plan( "a", "r1", "s1", "s2" ), Plan( "b", "r2", "s1" ), Plan( "z", "", "s1" )] );
+
+		Deploy( releases, DeploymentCommitLevel.Release );
+
+		Assert.Equal( ["r1", "r1", "r2", ""], _scripts.Releases );
 	}
 
 	// ------------------------------------------------- what the transactions guarantee
@@ -429,11 +447,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ReleaseCommitLevelCommitsOncePerRelease()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "alpha", "r1", "s1" ), Plan( "beta", "r2", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		// the journal's schema and its two queries, then one transaction per release
 		Assert.Equal( 4, _driver.Transactions.Count );
@@ -454,11 +472,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void PlanCommitLevelCommitsBetweenPlansAndJournalsTheReleaseWithItsLastPlan()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "alpha", "r1", "s1" ), Plan( "beta", "r1", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Plan );
+		Deploy( releases,DeploymentCommitLevel.Plan );
 
 		// the journal's schema and its two queries, then one transaction per plan
 		Assert.Equal( 4, _driver.Transactions.Count );
@@ -474,14 +492,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void StepFailureRollsBackTheOpenTransactionAndKeepsEarlierCommits()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" )] );
 
 		_driver.FailingScripts.Add( "-- deploy b/s1" );
 
 		StepScriptFailedException error = Assert.Throws<StepScriptFailedException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Equal( ( "r2", "b", "s1" ), (error.Release, error.Plan, error.Step) );
 
@@ -501,11 +519,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void TheJournalIsPreparedThenReadThenInterleavedWithTheScripts()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "alpha", "r1", "s1", "s2" ), Plan( "beta", "r1", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal(
 			[
@@ -543,9 +561,9 @@ public class DeploymentEngineTests
 	[Fact]
 	public void PreparingTheJournalCommitsOnItsOwnBeforeTheQueriesRun()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["PrepareJournal"], _driver.Transactions[0].Journaled );
 		Assert.True( _driver.Transactions[0].Committed );
@@ -563,14 +581,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void BothJournalQueriesShareOneTransaction()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal(
 			["journal GetLatestRelease", "journal GetDeployedPlans"],
@@ -587,11 +605,11 @@ public class DeploymentEngineTests
 	[Fact]
 	public void DeploymentIsNarratedInFull()
 	{
-		BundleManifest manifest = Manifest( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		// a continuation is announced once — nothing is skipped, so it is the only indication of
 		// what the deployment builds on
@@ -612,14 +630,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ReleasesBehindTheResumePointAndAlreadyDeployedPlansAreReportedAsSkipped()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r0" ), Release( "r1", "r0" )],
 			[Plan( "p0", "r0", "s1" ), Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Contains( "skip-release r0", _listener.Events );
 		Assert.Contains( "skip-plan r1/a", _listener.Events );
@@ -632,14 +650,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void TheReleaseBeingResumedIntoIsNotReportedAsSkipped()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.DoesNotContain( "skip-release r1", _listener.Events );
 		Assert.Contains( "plan-done r1/b", _listener.Events );
@@ -652,14 +670,14 @@ public class DeploymentEngineTests
 	[Fact]
 	public void AResumedReleaseIsNotAnnouncedAsAContinuation()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: false );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.DoesNotContain( "continuing r1", _listener.Events );
 	}
@@ -667,12 +685,12 @@ public class DeploymentEngineTests
 	[Fact]
 	public void AnUpToDateDatabaseIsReportedAsNothingToDeploy()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release );
+		Deploy( releases,DeploymentCommitLevel.Release );
 
 		Assert.Equal( ["skip-release r1", "nothing"], _listener.Events );
 	}
@@ -680,9 +698,9 @@ public class DeploymentEngineTests
 	[Fact]
 	public void ARefusedBundleIsNotNarratedAtAll()
 	{
-		BundleManifest manifest = Manifest( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r2", "r1" )], [Plan( "c", "r2", "s1" )] );
 
-		Assert.Throws<IncompatibleBundleException>( () => Deploy( manifest, DeploymentCommitLevel.Release ) );
+		Assert.Throws<IncompatibleBundleException>( () => Deploy( releases,DeploymentCommitLevel.Release ) );
 
 		Assert.Empty( _listener.Events );
 	}
@@ -694,7 +712,7 @@ public class DeploymentEngineTests
 
 	/// <summary>
 	/// A refused bundle changes nothing: no script ran and the journal gained no release.
-	/// <paramref name="transactions"/> says how far the refusal got — 0 for a malformed manifest,
+	/// <paramref name="transactions"/> says how far the refusal got — 0 for a broken lineage,
 	/// refused before the database is touched at all, and 2 where the refusal depends on what the
 	/// journal says, which means the journal was necessarily prepared and read first.
 	/// </summary>
@@ -705,13 +723,11 @@ public class DeploymentEngineTests
 		Assert.Empty( _journal.StartedReleases );
 	}
 
-	private void Deploy( BundleManifest manifest, DeploymentCommitLevel commitLevel )
+	private void Deploy( IReadOnlyList<ReleaseGroup> releases, DeploymentCommitLevel commitLevel )
 	{
 		_journal.Attach( _driver );
 
-		new DeploymentEngine(
-				_driver, FakeJournal.Statements(), ReaderFor( manifest, _layout ), _layout, commitLevel,
-				_listener )
-			.Deploy( manifest );
+		new DeploymentEngine( _driver, FakeJournal.Statements(), _scripts, commitLevel, _listener )
+			.Deploy( Project, releases );
 	}
 }

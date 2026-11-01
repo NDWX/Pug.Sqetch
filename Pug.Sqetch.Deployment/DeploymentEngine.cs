@@ -1,20 +1,20 @@
-using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Deployment;
 
 /// <summary>
-/// Executes a bundle's deploy scripts in manifest order against a database, journaling every
-/// event through the project's own SQL — carried in the bundle as
-/// <see cref="JournalingStatements"/> and run by <see cref="StatementJournal"/> — and starting
-/// after whatever the journal says is already deployed. Where that start lies follows from the
-/// journal alone: nothing journaled
-/// deploys the bundle whole, an <em>incompletely</em> deployed release resumes inside itself
-/// (so the bundle must contain it), skipping the plans the journal already holds and deploying
-/// the rest in bundle order, and a <em>completely</em> deployed release hands over to
-/// whichever release depends on it — which may be a release the bundle does not contain,
-/// making this a continuation bundle.
+/// Deploys release groups, in the order given, against a database, journaling every event through
+/// the project's own SQL (<see cref="JournalingStatements"/>, run by <see cref="StatementJournal"/>)
+/// and starting after whatever the journal says is already deployed. The engine does not know where
+/// the groups or their scripts come from: the caller determines the groups (the 'sqetch-deploy' CLI
+/// reads them out of a bundle manifest) and supplies the SQL through an
+/// <see cref="IScriptContentReader"/>. Where deployment starts follows from the journal alone:
+/// nothing journaled deploys the groups whole, an <em>incompletely</em> deployed release resumes
+/// inside itself (so the groups must contain it), skipping the plans the journal already holds and
+/// deploying the rest in the given order, and a <em>completely</em> deployed release hands over to
+/// whichever group depends on it — which may be a release the groups do not contain, making this a
+/// continuation.
 ///
 /// A deployment opens three kinds of transaction, in order. First the journal's own schema, from
 /// the <see cref="JournalingSlot.PrepareJournal"/> slot, committed alone: it must exist before the
@@ -36,17 +36,26 @@ namespace Pug.Sqetch.Deployment;
 public class DeploymentEngine(
 	IDatabaseDriver driver,
 	JournalingStatements statements,
-	IBundleReader reader,
-	IBundleLayout layout,
+	IScriptContentReader scripts,
 	DeploymentCommitLevel commitLevel,
 	IDeploymentListener listener,
 	RollbackTrigger rollback = RollbackTrigger.None )
 {
-	public void Deploy( BundleManifest manifest )
+	/// <summary>
+	/// Deploys <paramref name="groups"/> of <paramref name="project"/> — the name every journaling
+	/// statement is given. The groups must form a contiguous lineage: unique names, each naming the
+	/// group before it as its dependency. That is checked before the database is touched, and a
+	/// violation is an <see cref="ArgumentException"/>, since it is the caller's grouping that is
+	/// wrong rather than anything about the database.
+	/// </summary>
+	public void Deploy( string project, IReadOnlyList<ReleaseGroup> groups )
 	{
-		List<ReleaseGroup> groups = Group( manifest );
+		ArgumentNullException.ThrowIfNull( project );
+		ArgumentNullException.ThrowIfNull( groups );
 
-		StatementJournal journal = new ( statements, manifest.Project.Name );
+		EnsureLineage( groups );
+
+		StatementJournal journal = new ( statements, project );
 
 		Prepare( journal );
 
@@ -102,7 +111,7 @@ public class DeploymentEngine(
 	/// Determine latest release (being) deployed, and include it's deployed plans if partially deployed.
 	/// </summary>
 	private (JournaledRelease? Latest, List<string>? DeployedPlans) Read(
-		StatementJournal journal, List<ReleaseGroup> groups )
+		StatementJournal journal, IReadOnlyList<ReleaseGroup> groups )
 	{
 		IDatabaseTransaction transaction = driver.BeginTransaction();
 
@@ -147,7 +156,7 @@ public class DeploymentEngine(
 	/// depending on it; neither starts at the bundle's first group.
 	/// <paramref name="latestJournaledRelease"/> is diagnostic context for refusals only.
 	/// </summary>
-	private void Deploy(List<ReleaseGroup> groups, StatementJournal journal,
+	private void Deploy(IReadOnlyList<ReleaseGroup> groups, StatementJournal journal,
 		JournaledRelease? latestJournaledRelease = null, IReadOnlyCollection<string>? deployedPlans = null)
 	{
 		IDatabaseTransaction? transaction = null;
@@ -160,7 +169,7 @@ public class DeploymentEngine(
 		// A plan moves from pending to committed only when its transaction commits: anything still
 		// pending when a transaction rolls back never reached the database and needs no compensation.
 		Stack<CommittedRelease> committed = new ();
-		List<(ReleaseGroup Release, BundleManifestPlan Plan)> pending = new ();
+		List<(ReleaseGroup Release, DeployablePlan Plan)> pending = new ();
 
 		IDatabaseTransaction Transaction() => transaction ??= driver.BeginTransaction();
 
@@ -176,13 +185,13 @@ public class DeploymentEngine(
 
 			// a transaction never spans releases — each release's deployment ends by committing —
 			// so these plans all belong to one release, and at most one frame is opened here
-			foreach( (ReleaseGroup release, BundleManifestPlan plan) in pending )
+			foreach( (ReleaseGroup release, DeployablePlan plan) in pending )
 			{
 				CommittedRelease? top = committed.Count > 0 ? committed.Peek() : null;
 
 				if( top is null || !string.Equals( top.Name, release.Name, StringComparison.Ordinal ) )
 				{
-					top = new CommittedRelease( release.Name, new Stack<BundleManifestPlan>() );
+					top = new CommittedRelease( release.Name, new Stack<DeployablePlan>() );
 
 					committed.Push( top );
 				}
@@ -320,7 +329,7 @@ public class DeploymentEngine(
 				// deploy pending plans for the release
 				for (int index = 0; index < release.Plans.Count; index++)
 				{
-					BundleManifestPlan plan = release.Plans[index];
+					DeployablePlan plan = release.Plans[index];
 						
 					if (plansToSkip.Contains(plan.Name))
 					{
@@ -339,7 +348,7 @@ public class DeploymentEngine(
 			{
 				for (int index = 0; index < release.Plans.Count; index++)
 				{
-					BundleManifestPlan plan = release.Plans[index];
+					DeployablePlan plan = release.Plans[index];
 					DeployPlan(release.Name, plan, journal, Transaction, listener);
 					pending.Add( (release, plan) );
 
@@ -416,21 +425,21 @@ public class DeploymentEngine(
 
 				while( release.Plans.Count > 0 )
 				{
-					BundleManifestPlan plan = release.Plans.Pop();
+					DeployablePlan plan = release.Plans.Pop();
 
 					listener.RollingBackPlan( release.Name, plan.Name );
 					journal.RollingBackPlan( release.Name, plan.Name, Transaction() );
 
-					// the steps are the bundle's own data, not this run's state, so they are
+					// the steps are the caller's data, not this run's state, so they are
 					// traversed backwards rather than consumed
-					foreach( BundleManifestStep step in plan.Steps.Reverse() )
+					foreach( DeployableStep step in plan.Steps.Reverse() )
 					{
 						journal.RollingBackStep( release.Name, plan.Name, step.Name, Transaction() );
 
 						try
 						{
 							Transaction().ExecuteStepScript(
-								ReadScript( plan.Name, step.Name, StepScriptKind.Rollback ) );
+								scripts.ReadRollbackScript( release.Name, plan.Name, step.Name ) );
 						}
 						catch( Exception exception )
 						{
@@ -461,6 +470,29 @@ public class DeploymentEngine(
 		listener.RolledBack();
 	}
 
+	/// <summary>
+	/// The resume and hand-over decisions only look at the first group's dependency and match the
+	/// journal by name, so groups that repeat a name or skip a link would be deployed out of lineage
+	/// rather than refused.
+	/// </summary>
+	private static void EnsureLineage( IReadOnlyList<ReleaseGroup> groups )
+	{
+		HashSet<string> names = new ( StringComparer.Ordinal );
+
+		for( int index = 0; index < groups.Count; index++ )
+		{
+			ReleaseGroup group = groups[index];
+
+			if( !names.Add( group.Name ) )
+				throw new ArgumentException( $"Release '{group.Name}' is listed more than once.", nameof(groups) );
+
+			if( index > 0 && !string.Equals( group.Dependency, groups[index - 1].Name, StringComparison.Ordinal ) )
+				throw new ArgumentException(
+					$"Release '{group.Name}' does not depend on '{groups[index - 1].Name}', the release preceding it.",
+					nameof(groups) );
+		}
+	}
+
 	private static void EnsureDeployedPlansAreInBundleRelease(JournaledRelease? journaledRelease,
 		IReadOnlyCollection<string> deployedPlans, ReleaseGroup bundlePlanGroup)
 	{
@@ -477,25 +509,25 @@ public class DeploymentEngine(
 		}
 	}
 
-	private void InformSkip( List<ReleaseGroup> groups, int upTo )
+	private void InformSkip( IReadOnlyList<ReleaseGroup> groups, int upTo )
 	{
 		for( int index = 0; index < upTo; index++ )
 			listener.SkippingRelease( groups[index].Name );
 	}
 
 	private void DeployPlan(
-		string release, BundleManifestPlan plan, StatementJournal journal,
+		string release, DeployablePlan plan, StatementJournal journal,
 		Func<IDatabaseTransaction> transaction, IDeploymentListener listener )
 	{
 		listener.DeployingPlan( release, plan.Name );
 		journal.DeployingPlan( release, plan.Name, plan.Description, transaction() );
 
-		foreach( BundleManifestStep step in plan.Steps )
+		foreach( DeployableStep step in plan.Steps )
 		{
 			listener.DeployingStep( release, plan.Name, step.Name );
 			journal.DeployingStep( release, plan.Name, step.Name, step.Description, transaction() );
 
-			string script = ReadScript( plan.Name, step.Name, StepScriptKind.Deploy );
+			string script = scripts.ReadDeployScript( release, plan.Name, step.Name );
 
 			try
 			{
@@ -514,80 +546,16 @@ public class DeploymentEngine(
 		listener.PlanDeployed( release, plan.Name );
 	}
 
-	private string ReadScript( string plan, string step, StepScriptKind kind )
-	{
-		using Stream entry = reader.Open( layout.ScriptPath( plan, step, kind ) );
-		using StreamReader content = new ( entry );
-
-		return content.ReadToEnd();
-	}
-
 	/// <summary>Renders a release name for a message; mirrors the CLI listener's wording.</summary>
 	private static string Describe( string release )
 		=> release.Length == 0 ? "the unreleased-plans pseudo-release" : $"release '{release}'";
 
 	/// <summary>
-	/// Releases in manifest order, each with its plans in manifest order; unreleased plans
-	/// (empty release name) form a trailing pseudo-release named "" which depends on the last
-	/// real release in the bundle, so it is a link in the chain like any other and a completed
-	/// release hands over to it. The real releases must form a contiguous chain: each names the
-	/// one preceding it in the bundle.
-	/// </summary>
-	private static List<ReleaseGroup> Group( BundleManifest manifest )
-	{
-		List<ReleaseGroup> groups = manifest.Releases
-											.Select( release => new ReleaseGroup(
-														release.Name, release.Description, release.Dependency, [] ) )
-											.ToList();
-
-		Dictionary<string, ReleaseGroup> byName = new ( StringComparer.Ordinal );
-
-		foreach( ReleaseGroup group in groups )
-			if( !byName.TryAdd( group.Name, group ) )
-				throw new InvalidBundleException(
-					$"Bundle manifest lists release '{group.Name}' more than once." );
-
-		for( int index = 1; index < groups.Count; index++ )
-			if( !string.Equals( groups[index].Dependency, groups[index - 1].Name, StringComparison.Ordinal ) )
-				throw new InvalidBundleException(
-					$"Release '{groups[index].Name}' does not depend on '{groups[index - 1].Name}', "
-					+ "the release preceding it in the bundle." );
-
-		ReleaseGroup? unreleased = null;
-
-		// empty when the bundle lists no release: then the unreleased plans start the lineage
-		string lastRelease = groups.Count > 0 ? groups[^1].Name : "";
-
-		foreach( BundleManifestPlan plan in manifest.Plans )
-			if( plan.Release.Length == 0 )
-				( unreleased ??= new ReleaseGroup( "", "", lastRelease, [] ) ).Plans.Add( plan );
-			else if( byName.TryGetValue( plan.Release, out ReleaseGroup? group ) )
-				group.Plans.Add( plan );
-			else
-				throw new InvalidBundleException(
-					$"Plan '{plan.Name}' references release '{plan.Release}' which the manifest does not list." );
-
-		if( unreleased is not null )
-			groups.Add( unreleased );
-
-		return groups;
-	}
-
-	/// <summary>
 	/// A release this run committed plans of, and those plans newest first. Only the name is kept:
-	/// rollback journals by name, and holding the whole group would tie the record to bundle data it
+	/// rollback journals by name, and holding the whole group would tie the record to caller data it
 	/// no longer needs.
 	/// </summary>
-	private sealed record CommittedRelease( string Name, Stack<BundleManifestPlan> Plans );
-
-	private sealed record ReleaseGroup(
-		string Name,
-		string Description,
-		string Dependency,
-		List<BundleManifestPlan> Plans)
-	{
-		public bool HasDependency => !string.IsNullOrEmpty( Dependency );
-	}
+	private sealed record CommittedRelease( string Name, Stack<DeployablePlan> Plans );
 
 	/// <summary>
 	/// The group deployment starts at and, when that group is being resumed, the names of its

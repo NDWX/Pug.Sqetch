@@ -43,9 +43,9 @@ The database drivers and the CLI presentation layer sit beside them.
 | `Pug.Sqetch.Deployment.Bundling.BundleTypes` | zip / tar / tar.gz / directory implementations + `RegisterBundleTypes()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations; the one bundling project that also references the planning contracts |
-| `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses). References nothing |
-| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, `BundleValidator`/`ValidatedBundle`, driver registry, `IDeploymentListener`. References the bundling, deployment and driver contracts but **not** the planning ones: deploying reads bundles, never projects |
-| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes` |
+| `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses). References nothing |
+| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, driver registry, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
+| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, the only project referencing the concrete drivers), `TypeRegistrar` DI seam |
 | **Database drivers** | |
 | `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
@@ -94,8 +94,18 @@ The database drivers and the CLI presentation layer sit beside them.
   translates its on-disk manifest schema to/from the layout-neutral `BundleManifest`
   (`ReadManifest`) and owns entry pathing (`ScriptPath`). Manifest array order IS the
   deployment order.
+- **The deployment engine knows no bundles**: `DeploymentEngine.Deploy( project, groups )` takes
+  `ReleaseGroup`s in lineage order and reads each step's SQL through an `IScriptContentReader`
+  (given the release, plan and step names), so a developer can deploy from a source of their own.
+  Determining the groups is the caller's job; the engine only checks the lineage it relies on —
+  unique names, each group depending on the one before — and refuses a broken one with
+  `ArgumentException` before touching the database. For bundles, the CLI does both halves:
+  `BundleValidator` groups the manifest through `BundleReleaseGroups.From` (a malformed one is
+  `InvalidBundleException`, exit code `22`, still before any driver exists) and `deploy` hands the
+  engine a `BundleScriptContentReader` over the open bundle and its layout.
 - **Bundling belongs to `sqetch-deploy`**, the tool that reads bundles, so the writer and the
-  reader of the format are one program. `bundle --project <dir>` (default: the current
+  reader of the format are one program — and it is a CLI concern: no deployment library references
+  the bundling projects. `bundle --project <dir>` (default: the current
   directory) opens the project **read-only** (`ProjectFactory.CreateReadOnly`, no `UserInfo`), so
   a pipeline needs no `.sqetch-user`; a read-only `Project` refuses any write reached by casting it
   back to `IProject`. The bundle stays a build-once artifact: deploying never builds one.
@@ -163,7 +173,9 @@ The database drivers and the CLI presentation layer sit beside them.
   release is never resumed into, so plans a bundle gained for one are not deployed — test
   databases are single-use. Re-deploying an unchanged bundle is `NothingToDeploy`, not an error.
   Mismatches are `IncompatibleBundleException` (the bundle is well formed but does not fit the
-  database's state); `InvalidBundleException` stays for malformed manifests.
+  database's state); `InvalidBundleException` stays for malformed manifests, which the CLI's
+  grouping now raises, not the engine. "Bundle" here reads as "the groups the engine was handed":
+  the exception names and messages predate the engine taking groups from any source.
 - **Transaction order** (`DeploymentEngine`): every deployment opens `PrepareJournal` in a
   transaction committed **alone** (the journal's schema must exist before it can be read, and DDL
   auto-commits on some engines), then **both** journal queries in one transaction (so the resume

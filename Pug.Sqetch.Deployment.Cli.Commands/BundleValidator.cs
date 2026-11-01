@@ -1,18 +1,19 @@
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Planning.Models;
 
-namespace Pug.Sqetch.Deployment;
+namespace Pug.Sqetch.Deployment.Cli.Commands;
 
 public static class BundleValidator
 {
 	/// <summary>
 	/// Reads the bundle's metadata first, resolves the layout it names from <paramref name="layouts"/>
 	/// and checks that this reader understands the format it declares; only then reads the manifest
-	/// and the project's journaling SQL, and confirms every step listed in the manifest has all three
-	/// scripts in the bundle. Throws <see cref="InvalidBundleMetadataException"/> for missing or
+	/// and the project's journaling SQL, confirms every step listed in the manifest has all three
+	/// scripts in the bundle, and groups the manifest into release groups
+	/// (<see cref="BundleReleaseGroups.From"/>). Throws <see cref="InvalidBundleMetadataException"/> for missing or
 	/// invalid metadata, <see cref="UnsupportedBundleFormatException"/> for a layout this reader does
 	/// not know or a format newer than it reads, <see cref="InvalidBundleException"/> naming every
-	/// missing entry, <see cref="InvalidBundleManifestException"/> for a missing or invalid manifest, or
+	/// missing entry or for releases that do not form a chain, <see cref="InvalidBundleManifestException"/> for a missing or invalid manifest, or
 	/// <see cref="BundlingException"/> when the journaling statements are missing or invalid.
 	/// Metadata comes before anything the layout owns because the layout is not known until it is read,
 	/// and a bundle of a newer format must be refused for that rather than misread as invalid.
@@ -48,6 +49,6 @@ public static class BundleValidator
 			throw new InvalidBundleException(
 				$"Bundle is missing entries listed in its manifest: {string.Join( ", ", missing )}." );
 
-		return new ValidatedBundle( manifest, journaling, metadata, layout );
+		return new ValidatedBundle( manifest, BundleReleaseGroups.From( manifest ), journaling, metadata, layout );
 	}
 }

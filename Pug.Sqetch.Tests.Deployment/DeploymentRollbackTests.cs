@@ -1,7 +1,5 @@
-using Pug.Sqetch.Deployment.Bundling;
-using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
-using static Pug.Sqetch.Tests.Deployment.Manifests;
+using static Pug.Sqetch.Tests.Deployment.Lineages;
 
 namespace Pug.Sqetch.Tests.Deployment;
 
@@ -13,7 +11,7 @@ namespace Pug.Sqetch.Tests.Deployment;
 /// </summary>
 public class DeploymentRollbackTests
 {
-	private readonly DefaultBundleLayout _layout = new ();
+	private readonly InMemoryScripts _scripts = new ();
 	private readonly FakeDatabaseDriver _driver = new ();
 	private readonly RecordingListener _listener = new ();
 	private readonly FakeJournal _journal = new ();
@@ -71,14 +69,14 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void APlanTheOpenTransactionTookBackIsNotCompensated()
 	{
-		BundleManifest manifest = Manifest(
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
 			[Release( "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
 
 		_driver.FailingScripts.Add( "-- deploy b/s1" );
 
 		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+			() => Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
 
 		// the whole release shared one transaction, so nothing committed and nothing is undone
 		Assert.Empty( _driver.AppliedScripts );
@@ -101,9 +99,9 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void StepsWithinAPlanAreUndoneInReverse()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1", "s2", "s3" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1", "s2", "s3" )] );
 
-		Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
+		Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Equal(
 			["-- rollback a/s3", "-- rollback a/s2", "-- rollback a/s1"],
@@ -176,30 +174,28 @@ public class DeploymentRollbackTests
 	[Fact]
 	public void NothingToDeployRollsBackNothing()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
 		_journal.DeployedPlans["r1"] = ["a"];
 
-		Deploy( manifest, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
+		Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Empty( _driver.AppliedScripts );
 		Assert.DoesNotContain( _listener.Events, x => x.StartsWith( "rolling-back" ) );
 	}
 
 	/// <summary>r1 holds 'a' then 'b', r2 holds 'c'; one step each.</summary>
-	private static BundleManifest TwoReleases()
-		=> Manifest(
+	private static IReadOnlyList<ReleaseGroup> TwoReleases()
+		=> Lineage(
 			[Release( "r1" ), Release( "r2", "r1" )],
 			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
 
-	private void Deploy( BundleManifest manifest, DeploymentCommitLevel commitLevel, RollbackTrigger rollback )
+	private void Deploy( IReadOnlyList<ReleaseGroup> releases, DeploymentCommitLevel commitLevel, RollbackTrigger rollback )
 	{
 		_journal.Attach( _driver );
 
-		new DeploymentEngine(
-				_driver, FakeJournal.Statements(), ReaderFor( manifest, _layout ), _layout, commitLevel,
-				_listener, rollback )
-			.Deploy( manifest );
+		new DeploymentEngine( _driver, FakeJournal.Statements(), _scripts, commitLevel, _listener, rollback )
+			.Deploy( Project, releases );
 	}
 }

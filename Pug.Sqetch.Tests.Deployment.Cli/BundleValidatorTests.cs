@@ -1,10 +1,12 @@
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
+using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Planning.Models;
-using static Pug.Sqetch.Tests.Deployment.Manifests;
+using Pug.Sqetch.Tests.Deployment;
+using static Pug.Sqetch.Tests.Deployment.Cli.Manifests;
 
-namespace Pug.Sqetch.Tests.Deployment;
+namespace Pug.Sqetch.Tests.Deployment.Cli;
 
 public class BundleValidatorTests
 {
@@ -23,6 +25,7 @@ public class BundleValidatorTests
 		Assert.Equal( Metadata( _layout ), read.Metadata );
 		Assert.IsType<DefaultBundleLayout>( read.Layout );
 		Assert.Equal( "a", Assert.Single( read.Manifest.Plans ).Name );
+		Assert.Equal( "a", Assert.Single( Assert.Single( read.Releases ).Plans ).Name );
 		Assert.Equal(
 			[FakeJournal.Marker( JournalingSlot.PrepareJournal )],
 			read.Journaling.Statements( JournalingSlot.PrepareJournal ) );

@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.Abstractions\Pug.Sqetch.Deployment.Bundling.Abstractions.csproj" />
+        <ProjectReference Include="..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj" />
         <ProjectReference Include="..\Pug.Sqetch.DatabaseDriver.Abstractions\Pug.Sqetch.DatabaseDriver.Abstractions.csproj" />
         <ProjectReference Include="..\Pug.Sqetch.Deployment.Abstractions\Pug.Sqetch.Deployment.Abstractions.csproj" />
     </ItemGroup>

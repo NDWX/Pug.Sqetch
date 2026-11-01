@@ -19,8 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj" />
-    <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj" />
     <ProjectReference Include="..\Pug.Sqetch.Deployment\Pug.Sqetch.Deployment.csproj" />
   </ItemGroup>
 

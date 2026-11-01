@@ -49,9 +49,9 @@ public sealed class DeployCommand(
 		try
 		{
 			new DeploymentEngine(
-					driver, validated.Journaling, reader, validated.Layout, settings.EffectiveCommitLevel, listener,
-					settings.RollbackTrigger )
-				.Deploy( validated.Manifest );
+					driver, validated.Journaling, new BundleScriptContentReader( reader, validated.Layout ),
+					settings.EffectiveCommitLevel, listener, settings.RollbackTrigger )
+				.Deploy( validated.Manifest.Project.Name, validated.Releases );
 		}
 		catch( Exception exception )
 		{
