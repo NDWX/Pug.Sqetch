@@ -3,7 +3,7 @@
 Every project in this repository is licensed under the
 [GNU Affero General Public License, version 3 or (at your option) any later
 version](LICENSE) (`AGPL-3.0-or-later`), with one exception: the command-line
-layer and the packaging sources are licensed under the
+layer, the packaging sources and the GitHub Actions are licensed under the
 [GNU General Public License, version 3 or (at your option) any later
 version](Installers/LICENSE) (`GPL-3.0-or-later`).
 
@@ -44,6 +44,7 @@ repository-root `LICENSE` is the AGPL text and applies to everything else.
 | `Pug.Sqetch.Tests.Planning.Cli` | GPL-3.0-or-later |
 | `Pug.Sqetch.Tests.Deployment.Cli` | GPL-3.0-or-later |
 | `Installers` (WiX, nfpm, Chocolatey, build scripts) | GPL-3.0-or-later |
+| `actions` (the GitHub Actions for installing the tools) | GPL-3.0-or-later |
 
 ## Distributed artifacts
 

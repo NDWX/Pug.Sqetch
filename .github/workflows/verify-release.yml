@@ -1,0 +1,184 @@
+name: Verify release
+
+# Installs a published release the ways the README tells users to, on every runner it supports: through
+# mise (the README's own mise.toml), through the install-sqetch-deploy action, and from the container
+# registries. Only a published release can be tested so: a draft's files cannot be downloaded
+# anonymously, and the image is public only once its package is made so. Runs when a release is
+# published, or by hand for a release tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to verify, such as sqetch_deploy-v0.1.0
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The product and full version, read from the release's own files: a pre-release tag names only
+  # X.Y.Z, and the build stamp exists only in the file names. Also the README's mise configuration,
+  # cut down to the product and pointed at this release.
+  identify:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.identify.outputs.tag }}
+      product: ${{ steps.identify.outputs.product }}
+      version: ${{ steps.identify.outputs.version }}
+      image: ${{ steps.identify.outputs.image }}
+      mise_toml: ${{ steps.identify.outputs.mise_toml }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: identify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^(sqetch|sqetch_deploy)(-pre)?-v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "::error::'$TAG' is not a release tag"; exit 1; }
+          tag_name="${BASH_REMATCH[1]}"
+          prerelease=$( [[ -n "${BASH_REMATCH[2]}" ]] && echo true || echo false )
+          base="${BASH_REMATCH[3]}"
+          product="${tag_name/_/-}"
+
+          assets=$( gh release view "$TAG" --json assets --jq '.assets[].name' )
+          version=$( sed -n "s/^${product}-\(.*\)-linux-x64\.tar\.gz\$/\1/p" <<< "$assets" )
+          [[ -n "$version" ]] || { echo "::error::release $TAG has no ${product}-<version>-linux-x64.tar.gz"; exit 1; }
+          grep -qxF "${product}-${version}.mise.toml" <<< "$assets" ||
+            { echo "::error::release $TAG has no ${product}-${version}.mise.toml"; exit 1; }
+
+          PRODUCT="$product" TAG_NAME="$tag_name" BASE_VERSION="$base" PRERELEASE="$prerelease" python3 - > mise.toml <<'EOF'
+          import os, re
+          product, tag_name = os.environ['PRODUCT'], os.environ['TAG_NAME']
+          pre = os.environ['PRERELEASE'] == 'true'
+          toml = re.search( r'```toml\n(.*?)```', open( 'README.md' ).read(), re.S ).group( 1 )
+          kept = []
+          for block in toml.strip().split( '\n\n' ):
+              head = block.split( '\n', 1 )[0]
+              if head == '[tool_alias]':
+                  kept.append( '\n'.join( line for line in block.split( '\n' )
+                                          if ' = ' not in line or line.startswith( f'{product} = ' ) ) )
+              elif head in ( f'[tools.{product}]', f'[tools.{product}.platforms]' ):
+                  block = re.sub( r'^version = ".*"$', f'version = "{os.environ["BASE_VERSION"]}"', block, flags = re.M )
+                  if pre:
+                      block = block.replace( f'version_prefix = "{tag_name}-v"', f'version_prefix = "{tag_name}-pre-v"' )
+                  kept.append( block )
+          config = '\n\n'.join( kept ) + '\n'
+          prefix = f'version_prefix = "{tag_name}{"-pre" if pre else ""}-v"'
+          assert prefix in config, f'the README mise configuration has no {prefix} for {product}'
+          print( config, end = '' )
+          EOF
+          cat mise.toml
+
+          {
+            echo "tag=$TAG"
+            echo "product=$product"
+            echo "version=$version"
+            echo "image=$( [[ "$product" == sqetch-deploy ]] && echo true || echo false )"
+            echo 'mise_toml<<MISE_TOML_END'
+            cat mise.toml
+            echo 'MISE_TOML_END'
+          } >> "$GITHUB_OUTPUT"
+
+  # Both ways the README offers, each in its own folder with its own mise data directory, so that one
+  # install cannot stand in for the other: the README's hand-written configuration, and the release's
+  # own mise file saved where the README says, by the URL it gives.
+  mise:
+    needs: identify
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      PRODUCT: ${{ needs.identify.outputs.product }}
+      VERSION: ${{ needs.identify.outputs.version }}
+    steps:
+      # mise alone; each way installs its tool below
+      - uses: jdx/mise-action@v5
+        with:
+          install: false
+          cache: false
+      - name: The README's configuration
+        shell: bash
+        env:
+          MISE_TOML: ${{ needs.identify.outputs.mise_toml }}
+          MISE_DATA_DIR: ${{ runner.temp }}/mise-readme
+        run: |
+          set -euo pipefail
+          mkdir readme && cd readme
+          printf '%s\n' "$MISE_TOML" > mise.toml
+          mise install
+          installed=$( mise exec -- "$PRODUCT" --version | tr -d '\r' )
+          [[ "$installed" == "$VERSION" ]] || { echo "::error::mise installed $PRODUCT '$installed', expected $VERSION"; exit 1; }
+      - name: The release's mise file
+        shell: bash
+        env:
+          URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.identify.outputs.tag }}
+          MISE_DATA_DIR: ${{ runner.temp }}/mise-release
+        run: |
+          set -euo pipefail
+          mkdir -p release/.config/mise/conf.d && cd release
+          curl -fsSL -o ".config/mise/conf.d/$PRODUCT.toml" "$URL/$PRODUCT-$VERSION.mise.toml"
+          mise install
+          installed=$( mise exec -- "$PRODUCT" --version | tr -d '\r' )
+          [[ "$installed" == "$VERSION" ]] || { echo "::error::mise installed $PRODUCT '$installed', expected $VERSION"; exit 1; }
+
+  action:
+    needs: identify
+    if: needs.identify.outputs.product == 'sqetch-deploy'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      # the action as it is at this workflow's ref
+      - uses: actions/checkout@v7
+      - id: install
+        uses: ./actions/install-sqetch-deploy
+        with:
+          version: ${{ needs.identify.outputs.version }}
+      - name: Run the installed tool from PATH
+        shell: bash
+        env:
+          VERSION: ${{ needs.identify.outputs.version }}
+          OUTPUT_VERSION: ${{ steps.install.outputs.version }}
+        run: |
+          installed=$( sqetch-deploy --version | tr -d '\r' )
+          [[ "$installed" == "$VERSION" && "$OUTPUT_VERSION" == "$VERSION" ]] ||
+            { echo "::error::the action installed '$installed' (output '$OUTPUT_VERSION'), expected $VERSION"; exit 1; }
+          sqetch-deploy deploy Installers/smoke/bundle --driver sqlite --sqlite-file smoke.db
+
+  # pulled anonymously, as a user would: a GHCR package that was never made public fails here
+  image:
+    needs: identify
+    if: needs.identify.outputs.image == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - name: Run the image from each registry
+        shell: bash
+        env:
+          VERSION: ${{ needs.identify.outputs.version }}
+          GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/sqetch-deploy
+          DOCKERHUB_IMAGE: docker.io/${{ vars.DOCKERHUB_IMAGE }}
+        run: |
+          set -euo pipefail
+          for image in "${GHCR_IMAGE,,}:$VERSION" "$DOCKERHUB_IMAGE:$VERSION"; do
+            installed=$( docker run --rm "$image" --version )
+            echo "$image: $installed"
+            [[ "$installed" == "$VERSION" ]] || { echo "::error::$image reports '$installed', expected $VERSION"; exit 1; }
+          done

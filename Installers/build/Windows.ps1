@@ -20,7 +20,6 @@ $script:WixPlatforms = @{
 }
 
 $script:TimestampUrl = 'http://timestamp.acs.microsoft.com'
-$script:ProjectUrl = 'https://github.com/NDWX/Pug.Sqetch'
 
 function Invoke-PlatformSigning
 {
@@ -225,30 +224,6 @@ function New-ChocolateyPackage
 		'--outputdirectory', $Context.DistDir, '--no-color' )
 
 	return Join-Path $Context.DistDir "$( $Context.Name ).$( Get-ChocolateyVersion -Context $Context ).nupkg"
-}
-
-# Where the workflow publishes a build's asset, from the tag scheme in Common.ps1; a development build
-# has no release.
-function Get-ReleaseAssetUrl
-{
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $FileName )
-
-	$prefix = $Context.Product.TagName
-
-	if( $Context.Version -eq $Context.BaseVersion )
-	{
-		$tag = "$prefix-v$( $Context.BaseVersion )"
-	}
-	elseif( $Context.Version -like '*-pre.*' )
-	{
-		$tag = "$prefix-pre-v$( $Context.BaseVersion )"
-	}
-	else
-	{
-		return '(a development build is not published)'
-	}
-
-	return "$script:ProjectUrl/releases/download/$tag/$FileName"
 }
 
 # --- smoke tests ----------------------------------------------------------------------------------------

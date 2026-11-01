@@ -138,24 +138,6 @@ function New-PlatformPackages
 	}
 }
 
-# A product invoker over 'docker exec': the command by its bare name, so PATH (and the /usr/bin
-# symlink the package installs) is what is under test, in a fresh working directory inside the container.
-function New-ContainerInvoker
-{
-	param( [Parameter( Mandatory )] [string] $Container, [Parameter( Mandatory )] [string] $Command )
-
-	$null = Invoke-Docker -Arguments @( 'exec', $Container, 'mkdir', '-p', '/smoke/work' )
-
-	# captured by value: a closure cannot see this file's script scope, but a function's scriptblock keeps its own
-	$docker = ${function:Invoke-Docker}
-
-	return {
-		param( [string[]] $Arguments )
-
-		return & $docker -PassThru -Arguments ( @( 'exec', '--workdir', '/smoke/work', $Container, $Command ) + $Arguments )
-	}.GetNewClosure()
-}
-
 # Installs one package into a fresh container of $Image, checks what the packager recorded about its
 # version, and runs the product checks against what was installed.
 function Test-LinuxPackage

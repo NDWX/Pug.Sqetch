@@ -12,7 +12,8 @@ $ErrorActionPreference = 'Stop'
 $script:RepoRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '../..' ) ).Path
 
 # Product name is what the binary, archives and packages are called; TagName is the tag prefix,
-# kept distinct so 'sqetch-v*' can never match a 'sqetch-deploy' tag.
+# kept distinct so 'sqetch-v*' can never match a 'sqetch-deploy' tag. Image says whether the product
+# also ships as a container image (Image.ps1).
 $script:Products = [ordered]@{
 	'sqetch' = [pscustomobject]@{
 		Name        = 'sqetch'
@@ -20,6 +21,7 @@ $script:Products = [ordered]@{
 		Project     = 'Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj'
 		PackageId   = 'Pug.Sqetch.Cli'
 		Description = 'Sqetch: author database schema changes as plans and group them into releases'
+		Image       = $false
 	}
 	'sqetch-deploy' = [pscustomobject]@{
 		Name        = 'sqetch-deploy'
@@ -27,6 +29,7 @@ $script:Products = [ordered]@{
 		Project     = 'Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj'
 		PackageId   = 'Pug.Sqetch.Deployment.Cli'
 		Description = 'Sqetch deploy: bundle Sqetch projects and deploy the bundles to a database through pluggable database drivers'
+		Image       = $true
 	}
 }
 
@@ -43,7 +46,23 @@ $script:SigningVariables = @( 'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'SIGN_KEY_VA
 # as); identify fails fast on any tag, release or pre-release, when one is missing
 $script:PublishingVariables = @( 'NUGET_USER' )
 
+# and what a tag of a product with a container image also needs: the Docker Hub repository it is
+# pushed to (GHCR's is derived from the GitHub repository)
+$script:ImagePublishingVariables = @( 'DOCKERHUB_IMAGE' )
+
 $script:NuGetSource = 'https://api.nuget.org/v3/index.json'
+
+$script:ProjectUrl = 'https://github.com/NDWX/Pug.Sqetch'
+
+# every RID a release has an archive for, and the platform mise calls it
+$script:MisePlatforms = [ordered]@{
+	'linux-x64'   = 'linux-x64'
+	'linux-arm64' = 'linux-arm64'
+	'osx-x64'     = 'macos-x64'
+	'osx-arm64'   = 'macos-arm64'
+	'win-x64'     = 'windows-x64'
+	'win-arm64'   = 'windows-arm64'
+}
 
 $script:DockerViaSg = $false
 
@@ -214,6 +233,16 @@ function Resolve-BuildIdentity
 		{
 			throw "tag '$tag' publishes to nuget.org, but these variables are not set: $( $missing -join ', ' )"
 		}
+
+		if( $product.Image )
+		{
+			$missing = @( $script:ImagePublishingVariables | Where-Object { -not [Environment]::GetEnvironmentVariable( $_ ) } )
+
+			if( $missing )
+			{
+				throw "tag '$tag' publishes a container image, but these variables are not set: $( $missing -join ', ' )"
+			}
+		}
 	}
 
 	return [pscustomobject]@{
@@ -225,6 +254,7 @@ function Resolve-BuildIdentity
 		Prerelease  = $prerelease
 		Release     = [bool] $tag
 		Tag         = $tag ?? ''
+		Image       = $product.Image
 	}
 }
 
@@ -396,9 +426,105 @@ function Get-ArchivePath
 	return Join-Path $Context.DistDir "$( $Context.Name )-$( $Context.Version )-$Rid.$extension"
 }
 
+# The tag the workflow releases a build under, from the tag scheme above; $null for a development
+# build, which is not released.
+function Get-ReleaseTag
+{
+	param( [Parameter( Mandatory )] $Context )
+
+	$prefix = $Context.Product.TagName
+
+	if( $Context.Version -eq $Context.BaseVersion )
+	{
+		return "$prefix-v$( $Context.BaseVersion )"
+	}
+
+	if( $Context.Version -like '*-pre.*' )
+	{
+		return "$prefix-pre-v$( $Context.BaseVersion )"
+	}
+
+	return $null
+}
+
+# Where the workflow publishes a build's asset; a development build has no release.
+function Get-ReleaseAssetUrl
+{
+	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $FileName )
+
+	$tag = Get-ReleaseTag -Context $Context
+
+	if( -not $tag )
+	{
+		return '(a development build is not published)'
+	}
+
+	return "$script:ProjectUrl/releases/download/$tag/$FileName"
+}
+
+# The release's mise configuration (https://mise.jdx.dev), <name>-<version>.mise.toml: every platform's
+# archive by its release URL and SHA-256, through mise's http backend. mise then needs neither the
+# GitHub API nor a pattern to find the file, and one committed copy pins the same files on every OS.
+# It is made where every platform's archive is at hand (the release job), before SHA256SUMS, which
+# then lists it too.
+function New-MiseConfig
+{
+	param( [Parameter( Mandatory )] $Context )
+
+	$tag = Get-ReleaseTag -Context $Context
+
+	if( -not $tag )
+	{
+		throw "a development build ($( $Context.Version )) is not released, so it has no download URLs for mise"
+	}
+
+	$archives = [ordered]@{}
+
+	foreach( $rid in $script:MisePlatforms.Keys )
+	{
+		$archives[$rid] = Get-ArchivePath -Context $Context -Rid $rid
+	}
+
+	$missing = @( $archives.Values | Where-Object { -not ( Test-Path -LiteralPath $_ ) } | Split-Path -Leaf )
+
+	if( $missing )
+	{
+		throw "the mise configuration needs every platform's archive; not in $( $Context.DistDir ): $( $missing -join ', ' )"
+	}
+
+	$tool = "`"http:$( $Context.Name )`""
+
+	$lines = @(
+		"# $( $Context.Name ) $( $Context.Version ) for mise (https://mise.jdx.dev), from the release"
+		"# $script:ProjectUrl/releases/tag/$tag"
+		'#'
+		"# Save it in a repository as .config/mise/conf.d/$( $Context.Name ).toml and run 'mise install'."
+		"# To change version, replace it with another release's file."
+		''
+		"[tools.$tool]"
+		"version = `"$( $Context.Version )`""
+		# each archive holds one <name>-<version> folder
+		'strip_components = 1'
+		''
+		"[tools.$tool.platforms]" )
+
+	foreach( $entry in $archives.GetEnumerator() )
+	{
+		$url = Get-ReleaseAssetUrl -Context $Context -FileName ( Split-Path -Leaf $entry.Value )
+		$hash = ( Get-FileHash -Algorithm SHA256 -LiteralPath $entry.Value ).Hash.ToLowerInvariant()
+
+		$lines += "$( $script:MisePlatforms[$entry.Key] ) = { url = `"$url`", checksum = `"sha256:$hash`" }"
+	}
+
+	$path = Join-Path $Context.DistDir "$( $Context.Name )-$( $Context.Version ).mise.toml"
+	[IO.File]::WriteAllText( $path, ( $lines -join "`n" ) + "`n" )
+
+	return $path
+}
+
 # A product invoker runs the installed product with arguments and returns its exit code and
 # output. Test-ProductCommands is written against invokers only, so the same checks run a binary
-# directly, from PATH, or inside a container (Linux.ps1 builds one over 'docker exec').
+# directly, from PATH, or inside a container (New-ContainerInvoker, over 'docker exec').
 #
 # The local invoker runs in a fresh working directory, which it creates.
 function New-LocalInvoker
@@ -422,6 +548,25 @@ function New-LocalInvoker
 		}
 
 		return [pscustomobject]@{ ExitCode = $code; Output = $output }
+	}.GetNewClosure()
+}
+
+# A product invoker over 'docker exec': the command by its bare name, so PATH (the /usr/bin symlink a
+# package installs, or the image's own) is what is under test, in a working directory inside the
+# container, as the container's user.
+function New-ContainerInvoker
+{
+	param( [Parameter( Mandatory )] [string] $Container, [Parameter( Mandatory )] [string] $Command )
+
+	$null = Invoke-Docker -Arguments @( 'exec', $Container, 'mkdir', '-p', '/smoke/work' )
+
+	# captured by value: a closure cannot see this file's script scope, but a function's scriptblock keeps its own
+	$docker = ${function:Invoke-Docker}
+
+	return {
+		param( [string[]] $Arguments )
+
+		return & $docker -PassThru -Arguments ( @( 'exec', '--workdir', '/smoke/work', $Container, $Command ) + $Arguments )
 	}.GetNewClosure()
 }
 

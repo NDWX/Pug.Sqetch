@@ -5,8 +5,8 @@ name: Release
 # <product>-pre-v<X.Y.Z>  unsigned pre-release
 # workflow_dispatch       dry run: builds and smoke-tests, uploads workflow artifacts, releases nothing
 # where <product> is sqetch or sqetch_deploy. Both tag kinds push the dotnet tool package to nuget.org
-# (trusted publishing) and then create a draft GitHub release. Everything but the plumbing lives in
-# Installers/build/build.ps1.
+# (trusted publishing), and sqetch-deploy's container image to GHCR and Docker Hub, and then create a
+# draft GitHub release. Everything but the plumbing lives in Installers/build/build.ps1.
 on:
   push:
     tags:
@@ -44,6 +44,7 @@ jobs:
       prerelease: ${{ steps.identify.outputs.prerelease }}
       release: ${{ steps.identify.outputs.release }}
       tag: ${{ steps.identify.outputs.tag }}
+      image: ${{ steps.identify.outputs.image }}
     steps:
       - uses: actions/checkout@v7
       - id: identify
@@ -57,6 +58,7 @@ jobs:
           SIGN_KEY_VAULT_URL: ${{ vars.SIGN_KEY_VAULT_URL }}
           SIGN_CERTIFICATE_NAME: ${{ vars.SIGN_CERTIFICATE_NAME }}
           NUGET_USER: ${{ vars.NUGET_USER }}
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
         run: |
           $arguments = @{ Stage = 'identify'; Ref = $env:REF }
           if( $env:PRODUCT ) { $arguments.Product = $env:PRODUCT }
@@ -189,6 +191,9 @@ jobs:
           name: dist-linux
           path: artifacts/dist
       - run: pwsh Installers/build/build.ps1 -Stage smoke -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
+      # the container image, built from the archives just tested, on each architecture natively
+      - if: needs.identify.outputs.image == 'true'
+        run: pwsh Installers/build/build.ps1 -Stage smoke-image -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
   smoke-windows:
     needs: [identify, windows]
@@ -267,11 +272,51 @@ jobs:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: ./Installers/build/build.ps1 -Stage push-tool -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
+  # The container image, for a product that has one, to GHCR (as ghcr.io/<owner>/<product>, through the
+  # job's own token) and to Docker Hub (DOCKERHUB_IMAGE, with a write-scoped token kept in the 'release'
+  # environment). Both architectures are built from the release archives and pushed as one
+  # multi-platform image; a release is also tagged 'latest'. Like the nuget.org push, it waits for every
+  # test and smoke job and runs in the 'release' environment.
+  image:
+    if: github.event_name == 'push' && needs.identify.outputs.release == 'true' && needs.identify.outputs.image == 'true'
+    needs: [identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-linux
+          path: artifacts/dist
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PUSH_TOKEN }}
+      - name: Push the image
+        shell: pwsh
+        env:
+          GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ needs.identify.outputs.product }}
+          DOCKERHUB_IMAGE: docker.io/${{ vars.DOCKERHUB_IMAGE }}
+        run: ./Installers/build/build.ps1 -Stage push-image -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}' -Image $env:GHCR_IMAGE.ToLowerInvariant(), $env:DOCKERHUB_IMAGE
+
   # A draft GitHub release for the tag, holding every artifact and SHA256SUMS, created once the tool
-  # package is on nuget.org. It stays a draft: the maintainer reads it and publishes it by hand.
+  # package is on nuget.org and the image, for a product with one, is pushed. It stays a draft: the
+  # maintainer reads it and publishes it by hand. The image job is skipped for a product without an
+  # image, which would skip this job too without the explicit condition.
   release:
-    if: github.event_name == 'push' && needs.identify.outputs.release == 'true'
-    needs: [identify, nuget]
+    if: >-
+      !cancelled() && github.event_name == 'push' && needs.identify.outputs.release == 'true' &&
+      needs.nuget.result == 'success' && contains( fromJSON( '["success", "skipped"]' ), needs.image.result )
+    needs: [identify, nuget, image]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -291,5 +336,7 @@ jobs:
         shell: pwsh
         run: |
           $common = @{ Product = '${{ needs.identify.outputs.product }}'; Version = '${{ needs.identify.outputs.version }}' }
+          # the first job holding every platform's archive; SHA256SUMS then lists the mise file too
+          ./Installers/build/build.ps1 -Stage mise-config @common
           ./Installers/build/build.ps1 -Stage checksums @common
           ./Installers/build/build.ps1 -Stage release @common -Tag '${{ needs.identify.outputs.tag }}' -Prerelease:($env:PRERELEASE -eq 'true') -Sign:($env:SIGNED -eq 'true')

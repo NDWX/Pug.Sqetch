@@ -8,8 +8,11 @@
 #   build.ps1 -Stage package   -Product sqetch -Version 0.1.0 -Rid linux-x64 [-Sign]
 #   build.ps1 -Stage smoke     -Product sqetch -Version 0.1.0 [-Rid <host rid>]
 #   build.ps1 -Stage pack-tool | smoke-tool | checksums -Product sqetch -Version 0.1.0
+#   build.ps1 -Stage mise-config -Product sqetch -Version 0.1.0   (every platform's archive in dist/)
 #   build.ps1 -Stage push-tool -Product sqetch -Version 0.1.0 [-DryRun]   (NUGET_API_KEY in the environment)
 #   build.ps1 -Stage release   -Product sqetch -Version 0.1.0 -Tag sqetch-v0.1.0 [-Prerelease] [-Title <text>] [-DryRun]
+#   build.ps1 -Stage smoke-image -Product sqetch-deploy -Version 0.1.0
+#   build.ps1 -Stage push-image  -Product sqetch-deploy -Version 0.1.0 -Image ghcr.io/owner/sqetch-deploy[,...] [-DryRun]
 #
 # Without -Version a stage builds <project version>-dev.<UTC stamp>. Artifacts land in
 # <repo>/artifacts (publish/, dist/, work/) unless -ArtifactsDir says otherwise; dist/ holds exactly
@@ -27,7 +30,7 @@
 [CmdletBinding()]
 param(
 	[Parameter( Mandatory )]
-	[ValidateSet( 'identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'push-tool', 'checksums', 'release' )]
+	[ValidateSet( 'identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'push-tool', 'checksums', 'release', 'smoke-image', 'push-image', 'mise-config' )]
 	[string] $Stage,
 
 	[ValidateSet( 'sqetch', 'sqetch-deploy' )]
@@ -48,7 +51,11 @@ param(
 
 	[string] $Title,
 
-	# release and push-tool stages: print the gh or dotnet nuget commands instead of running them
+	# push-image stage: the repositories the image is pushed to
+	[string[]] $Image,
+
+	# release, push-tool and push-image stages: print the gh, dotnet nuget or docker commands instead
+	# of running them
 	[switch] $DryRun,
 
 	[string] $ArtifactsDir,
@@ -65,6 +72,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 . ( Join-Path $PSScriptRoot 'Common.ps1' )
+. ( Join-Path $PSScriptRoot 'Image.ps1' )
 
 if( $IsWindows ) { . ( Join-Path $PSScriptRoot 'Windows.ps1' ) }
 elseif( $IsMacOS ) { . ( Join-Path $PSScriptRoot 'MacOS.ps1' ) }
@@ -179,6 +187,7 @@ if( $Stage -eq 'identify' )
 		prerelease   = $identity.Prerelease
 		release      = $identity.Release
 		tag          = $identity.Tag
+		image        = $identity.Image
 	} )
 
 	return
@@ -255,6 +264,11 @@ switch( $Stage )
 		Publish-ToolPackage -Context $context -DryRun:$DryRun
 	}
 
+	'mise-config'
+	{
+		$null = New-MiseConfig -Context $context
+	}
+
 	'checksums'
 	{
 		$null = Write-Checksums -Context $context
@@ -263,6 +277,17 @@ switch( $Stage )
 	'release'
 	{
 		Publish-GitHubRelease -Context $context
+	}
+
+	'smoke-image'
+	{
+		Test-ContainerImage -Context $context
+	}
+
+	'push-image'
+	{
+		$repositories = @( $Image | ForEach-Object { $_ -split ',' } | Where-Object { $_ } )
+		Publish-ContainerImage -Context $context -Repositories $repositories -DryRun:$DryRun
 	}
 }
 

@@ -1,0 +1,30 @@
+name: Install sqetch-deploy
+description: >-
+  Downloads a sqetch-deploy release for the runner, checks it against the release's SHA256SUMS and
+  puts it on PATH for the rest of the job.
+author: Pug
+
+inputs:
+  version:
+    description: >-
+      The sqetch-deploy version to install, as its release files name it: 0.1.0, or a pre-release
+      such as 0.1.0-pre.202610172239.
+    required: true
+
+outputs:
+  path:
+    description: The folder holding the sqetch-deploy executable, which is now on PATH.
+    value: ${{ steps.install.outputs.path }}
+  version:
+    description: The version installed.
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    # bash on every runner (Git Bash on Windows), because some arm64 runner images lack pwsh
+    - id: install
+      shell: bash
+      env:
+        SQETCH_DEPLOY_VERSION: ${{ inputs.version }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"

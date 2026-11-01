@@ -55,7 +55,8 @@ The database drivers and the CLI presentation layer sit beside them.
 | **Shared CLI** | |
 | `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present and open projects with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter`; `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `UserIdentity`, `Defaults`. The only layer touching `ProjectPaths` for output |
 | **Tests** | xunit, one project per tier: `Pug.Sqetch.Planning.Tests` (engine), `Pug.Sqetch.Tests.Planning.Stores.FileSystem`, `Pug.Sqetch.Tests.Planning.Cli`, `Pug.Sqetch.Tests.Deployment.Bundling`, `Pug.Sqetch.Tests.Deployment`, `Pug.Sqetch.Tests.DatabaseDrivers`, `Pug.Sqetch.Tests.Deployment.Cli`, `Pug.Sqetch.Tests.Cli.Common` |
-| `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
+| `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + `Image.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `docker/` (the `sqetch-deploy` image), `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
+| `actions/` | GitHub Actions for users (GPL): `install-sqetch-deploy` (composite; `install.sh` in bash, since some arm64 runner images lack pwsh) |
 
 ## Architecture rules
 
@@ -308,9 +309,14 @@ The database drivers and the CLI presentation layer sit beside them.
 
 - **Releases are tag-driven and all logic is PowerShell** (`RELEASING.md`): `.github/workflows/release.yml`
   holds only triggers, runners, permissions and artifact plumbing, and every job calls a
-  `build.ps1 -Stage` that runs the same on a workstation. `build.ps1` dot-sources `Common.ps1` and
-  exactly one platform file, each of which defines `Invoke-PlatformSigning`, `New-PlatformPackages`
-  and `Test-Installers`, so no stage branches on the platform. Smoke checks are written once
+  `build.ps1 -Stage` that runs the same on a workstation. `build.ps1` dot-sources `Common.ps1`,
+  `Image.ps1` and exactly one platform file, each of which defines `Invoke-PlatformSigning`,
+  `New-PlatformPackages` and `Test-Installers`, so no stage branches on the platform. `Image.ps1` is
+  no platform file — it needs Docker, not an OS — and serves products whose definition sets `Image`
+  (`sqetch-deploy`): `smoke-image` builds the host architecture's image from the archive in `dist/`
+  and runs the smoke checks in it as its non-root user; `push-image` builds amd64 and arm64 from both
+  Linux archives with no `RUN` step (so no emulation) and pushes one multi-platform image to GHCR and
+  Docker Hub (`DOCKERHUB_IMAGE`). The image is the archive's files, never a fresh publish. Smoke checks are written once
   (`Test-ProductCommands`) against a *product invoker*, so the same checks run a binary directly,
   from PATH after an MSI install, or through `docker exec` inside the container a .deb/.rpm was
   installed into. `sqetch-deploy`'s smoke deploys the committed `Installers/smoke/bundle` to SQLite,
@@ -323,7 +329,15 @@ The database drivers and the CLI presentation layer sit beside them.
   the signing variables are set, unsigned (with a warning, and a note in the draft) when none is, and
   refused when only some are.
   Both push the dotnet tool package to nuget.org (`push-tool`, NuGet trusted publishing, so no stored
-  key) once every smoke job passed, and only then create the draft GitHub release.
+  key) and, for `sqetch_deploy`, the image (`push-image`; a release is also `latest`) once every smoke
+  job passed, and only then create the draft GitHub release. `verify-release.yml` runs when a release
+  is published and installs it the ways the README documents — the README's own mise snippet, the
+  install action, both registries — on every supported runner, which no local run can; so the README's
+  first ```` ```toml ```` block must stay the mise configuration it parses. Every release also carries
+  `<name>-<v>.mise.toml` (`mise-config`, `New-MiseConfig`): mise's `http` backend with each
+  platform's archive URL and SHA-256, so it needs no GitHub API and works for pre-releases as is. It
+  is written in the `release` job, the first holding every platform's archive, before `checksums`
+  so `SHA256SUMS` lists it, and `verify-release.yml` installs from it too.
   Formats that cannot carry the suffix keep `X.Y.Z` (MSI ProductVersion) or translate it (deb/rpm
   `~pre…`, which sorts before the release), but every **file name** carries the full version as
   written, because GitHub rewrites `~` in asset names and `SHA256SUMS` must match them.
