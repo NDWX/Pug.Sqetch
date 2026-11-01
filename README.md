@@ -9,6 +9,95 @@ A database schema upgrader for DevOps pipelines, made of two command-line tools:
 
 The two tools are versioned and released separately.
 
+## Concepts
+
+A Sqetch **project** lives in your application's repository, beside the code whose schema it
+changes. It is plain folders and files, so its history is your repository's: changes are reviewed,
+merged and branched like the code. The project also holds its **journaling** SQL, the statements
+that record each deployment in a table of your choosing. Set them once with `sqetch journaling`;
+`sqetch-deploy bundle` refuses until they are all set.
+
+| Sqetch | What it is | In your development lifecycle |
+|---|---|---|
+| **Step** | One schema change, with three scripts: `deploy.sql`, `verify.sql` and `rollback.sql` | One reviewable change, about the size of a commit |
+| **Plan** | Steps in order; a plan can depend on other plans | A feature, ticket or pull request. It is *unreleased* while you work on it |
+| **Release** | Plans shipped together; each release builds on the one before it | A version, sprint or milestone. It is *open* while assembled and tested, and *finalized* when it ships |
+| **Bundle** | A deployable snapshot of the project, with the journaling SQL | The build artifact your CI produces once and promotes through environments |
+| **Deployment** | A bundle applied to one database and recorded in its journal | The CD stage that runs for each environment |
+
+### Through the lifecycle
+
+1. **Develop.** On your feature branch, create a plan and its steps, write the scripts the
+   commands print the paths of, and commit them with the code:
+
+   ```sh
+   sqetch plan create -n add-orders
+   sqetch plan add-step -p add-orders -n create-orders-table
+   ```
+
+   A plan that builds on another names it: `sqetch plan create -n add-customers --require-plans add-orders`.
+
+2. **Test.** In CI, bundle everything, including open releases and unreleased plans, and deploy it
+   to a fresh database. `--rollback on-success` proves the deploy scripts apply and the rollback
+   scripts undo them:
+
+   ```sh
+   sqetch-deploy bundle --test -o test-bundle.zip
+   sqetch-deploy deploy test-bundle.zip --driver sqlite --sqlite-file test.db --rollback on-success
+   ```
+
+   Use a fresh test database each time. Sqetch never deploys into a release it has already
+   completed on a database, so plans added to a release after it was deployed there would not
+   reach it.
+
+3. **Release.** Gather the plans into a release, then finalize it when it ships. Finalizing freezes
+   the release and its plans, so a fix after that is a new plan in the next release:
+
+   ```sh
+   sqetch release create -n 1.4 --all-unreleased        # or --plans add-orders,add-customers
+   sqetch release finalize -n 1.4
+   sqetch release create -n 1.5 --depends-on 1.4 --all-unreleased
+   ```
+
+   Every release after the first names the one it builds on with `--depends-on`.
+
+4. **Deploy.** Bundle the finalized releases, which is what `bundle` does by default, and deploy
+   the same bundle to each environment in turn:
+
+   ```sh
+   sqetch-deploy bundle -o release-1.4.zip
+   sqetch-deploy deploy release-1.4.zip --driver postgres --postgres-connection-string "$CONNECTION_STRING"
+   ```
+
+   Each database's journal decides where deployment starts. Releases already there are skipped, a
+   deployment that failed partway resumes where it stopped, and deploying an unchanged bundle
+   again does nothing. `bundle --since 1.4` makes a bundle holding only the releases after 1.4,
+   for databases that already have it.
+
+`verify.sql` is written and bundled with each step, but `sqetch-deploy` does not run it yet.
+
+### Getting help
+
+Both tools describe their own commands. Add `--help` (or `-h`) at any level, from the tool down to a
+single command:
+
+```sh
+sqetch --help                    # project, plan, release, journaling
+sqetch plan --help               # the plan commands
+sqetch plan create --help        # one command's options
+sqetch-deploy --help             # bundle, deploy, drivers
+sqetch-deploy deploy --help
+```
+
+A few commands answer questions that `--help` can't:
+
+- `sqetch-deploy drivers list` lists the database drivers, and `sqetch-deploy drivers parameters
+  <driver>` shows the options a driver takes, such as `--postgres-host`, and which of them are
+  required together.
+- `sqetch journaling parameters` lists the parameters each journaling statement can use, and
+  `sqetch journaling list` shows which statements the project has set.
+- `--version` prints either tool's version.
+
 ## Installing
 
 Every release on the [GitHub releases page](https://github.com/NDWX/Pug.Sqetch/releases) carries
