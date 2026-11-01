@@ -1,5 +1,5 @@
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Deployment;
 

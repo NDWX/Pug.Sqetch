@@ -1,8 +1,8 @@
 using System.Reflection;
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Bundling.BundleTypes;
-using Pug.Sqetch.Bundling.Layouts;
-using Pug.Sqetch.Cli.Commands.Deployment;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Bundling.BundleTypes;
+using Pug.Sqetch.Deployment.Bundling.Layouts;
+using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;

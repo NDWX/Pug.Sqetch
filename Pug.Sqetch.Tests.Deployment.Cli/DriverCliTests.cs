@@ -1,7 +1,6 @@
 using System.Text.Json;
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Bundling.Layouts;
-using Pug.Sqetch.Cli.Commands.Deployment;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.Deployment.Cli;
 using Pug.Sqetch.DatabaseDriver;

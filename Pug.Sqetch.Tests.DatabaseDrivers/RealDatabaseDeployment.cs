@@ -1,9 +1,9 @@
 using System.Globalization;
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Bundling.Layouts;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Tests.Deployment;
 using static Pug.Sqetch.Tests.Deployment.Manifests;
 

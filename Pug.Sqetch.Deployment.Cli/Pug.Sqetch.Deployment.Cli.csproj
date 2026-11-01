@@ -29,7 +29,7 @@
     <Import Project="..\Installers\Publish.props" />
 
     <ItemGroup>
-      <ProjectReference Include="..\Pug.Sqetch.Cli.Commands\Pug.Sqetch.Cli.Commands.csproj" />
+        <ProjectReference Include="..\Pug.Sqetch.Deployment.Cli.Commands\Pug.Sqetch.Deployment.Cli.Commands.csproj" />
       <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj" />
       <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj" />
     </ItemGroup>

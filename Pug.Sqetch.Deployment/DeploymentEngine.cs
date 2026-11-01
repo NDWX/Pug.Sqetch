@@ -1,6 +1,6 @@
-using Pug.Sqetch.Bundling;
+using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.DatabaseDriver;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Deployment;
 
@@ -99,9 +99,7 @@ public class DeploymentEngine(
 	}
 
 	/// <summary>
-	/// Reads where the database stands, both queries in one transaction so the two cannot disagree.
-	/// Returns the deployed plans only for a release that is incompletely deployed — nothing else
-	/// resumes into one, so nothing else needs them.
+	/// Determine latest release (being) deployed, and include it's deployed plans if partially deployed.
 	/// </summary>
 	private (JournaledRelease? Latest, List<string>? DeployedPlans) Read(
 		StatementJournal journal, List<ReleaseGroup> groups )
@@ -119,7 +117,7 @@ public class DeploymentEngine(
 				return (latest, null);
 			}
 
-			// an incompletely deployed release must finish before any later release, so a bundle that
+			// a partially deployed release must finish before any later release, so a bundle that
 			// does not contain it cannot be deployed at all; checked before its plans are queried,
 			// since a bundle that cannot be used is not worth the round trip
 			if( !groups.Any( group => string.Equals( group.Name, latest.Name, StringComparison.Ordinal ) ) )

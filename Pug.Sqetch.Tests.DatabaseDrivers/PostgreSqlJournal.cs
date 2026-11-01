@@ -1,4 +1,4 @@
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
 

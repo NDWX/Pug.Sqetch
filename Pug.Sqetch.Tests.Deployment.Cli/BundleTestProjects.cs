@@ -1,6 +1,7 @@
-using Pug.Sqetch.Models;
-using Pug.Sqetch.ProjectInfoStores.FileSystem;
-using Pug.Sqetch.Tests.Stores.FileSystem;
+using Pug.Sqetch.Planning;
+using Pug.Sqetch.Planning.Models;
+using Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
+using Pug.Sqetch.Tests.Planning.Stores.FileSystem;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;
 

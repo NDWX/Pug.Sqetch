@@ -1,10 +1,10 @@
 using System.Data;
 using System.Text;
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Bundling.Layouts;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Tests.Deployment;
 

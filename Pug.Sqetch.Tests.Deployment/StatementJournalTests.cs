@@ -1,10 +1,9 @@
 using System.Data;
 using Pug.Sqetch.Deployment;
-// JournalingSlot, JournalingSlots and JournalingStatements live in Pug.Sqetch.Models, namespace
+// JournalingSlot, JournalingSlots and JournalingStatements live in Pug.Sqetch.Planning.Models, namespace
 // Pug.Sqetch.
-using Pug.Sqetch;
 using Pug.Sqetch.DatabaseDriver;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Tests.Deployment;
 

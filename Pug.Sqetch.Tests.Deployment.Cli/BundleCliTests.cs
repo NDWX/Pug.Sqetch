@@ -3,11 +3,11 @@ using System.Reflection;
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Cli.Commands.Deployment;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Deployment.Cli;
-using Pug.Sqetch.Models;
-using Pug.Sqetch.Tests.Stores.FileSystem;
+using Pug.Sqetch.Planning.Models;
+using Pug.Sqetch.Tests.Planning.Stores.FileSystem;
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;

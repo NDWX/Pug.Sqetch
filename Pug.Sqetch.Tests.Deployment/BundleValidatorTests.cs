@@ -1,7 +1,7 @@
-using Pug.Sqetch.Bundling;
-using Pug.Sqetch.Bundling.Layouts;
+using Pug.Sqetch.Deployment.Bundling;
+using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment;
-using Pug.Sqetch.Models;
+using Pug.Sqetch.Planning.Models;
 using static Pug.Sqetch.Tests.Deployment.Manifests;
 
 namespace Pug.Sqetch.Tests.Deployment;
