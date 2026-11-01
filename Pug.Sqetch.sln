@@ -1,28 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning", "Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj", "{EBB0E727-3AA2-42FA-9D36-5BF6E0DCD401}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning", "src\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj", "{EBB0E727-3AA2-42FA-9D36-5BF6E0DCD401}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Cli", "Pug.Sqetch.Planning.Cli\Pug.Sqetch.Planning.Cli.csproj", "{8F0AE862-6763-4DE1-80BF-0A9CB21E5289}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Cli", "src\Cli\Planning\Pug.Sqetch.Planning.Cli\Pug.Sqetch.Planning.Cli.csproj", "{8F0AE862-6763-4DE1-80BF-0A9CB21E5289}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Abstractions", "Pug.Sqetch.Planning.Abstractions\Pug.Sqetch.Planning.Abstractions.csproj", "{2388F187-24E7-42C6-8547-78584A485838}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Abstractions", "src\Pug.Sqetch.Planning.Abstractions\Pug.Sqetch.Planning.Abstractions.csproj", "{2388F187-24E7-42C6-8547-78584A485838}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Models", "Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj", "{EB1C46A5-164B-405F-8705-69069A1C10B3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Models", "src\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj", "{EB1C46A5-164B-405F-8705-69069A1C10B3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.ProjectInfoStores.FileSystem", "Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj", "{CB22162B-2706-402D-8FF3-353F4CECA9E9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.ProjectInfoStores.FileSystem", "src\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj", "{CB22162B-2706-402D-8FF3-353F4CECA9E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Tests", "Pug.Sqetch.Planning.Tests\Pug.Sqetch.Planning.Tests.csproj", "{7AC8B27B-0FE0-4025-9346-950B830A2F51}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Planning.Tests", "src\Planning\Pug.Sqetch.Planning.Tests\Pug.Sqetch.Planning.Tests.csproj", "{7AC8B27B-0FE0-4025-9346-950B830A2F51}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Planning.Stores.FileSystem", "Pug.Sqetch.Tests.Planning.Stores.FileSystem\Pug.Sqetch.Tests.Planning.Stores.FileSystem.csproj", "{97B9F2C8-4A36-4BDD-A4AD-67A4A49C62E8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Planning.Stores.FileSystem", "src\ProjectInfoStores\Pug.Sqetch.Tests.Planning.Stores.FileSystem\Pug.Sqetch.Tests.Planning.Stores.FileSystem.csproj", "{97B9F2C8-4A36-4BDD-A4AD-67A4A49C62E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Planning.Cli", "Pug.Sqetch.Tests.Planning.Cli\Pug.Sqetch.Tests.Planning.Cli.csproj", "{DBE7AAB8-C937-4508-B83B-58FBC1E131ED}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Planning.Cli", "src\Cli\Planning\Pug.Sqetch.Tests.Planning.Cli\Pug.Sqetch.Tests.Planning.Cli.csproj", "{DBE7AAB8-C937-4508-B83B-58FBC1E131ED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling", "Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj", "{484CFEF4-944F-4736-9C6B-E0F58E9BCD7A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling", "src\Cli\Deployment\Bundling\Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj", "{484CFEF4-944F-4736-9C6B-E0F58E9BCD7A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment.Bundling", "Pug.Sqetch.Tests.Deployment.Bundling\Pug.Sqetch.Tests.Deployment.Bundling.csproj", "{57ECC74D-220E-4802-BC82-1F6372EDAEF4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment.Bundling", "src\Cli\Deployment\Bundling\Pug.Sqetch.Tests.Deployment.Bundling\Pug.Sqetch.Tests.Deployment.Bundling.csproj", "{57ECC74D-220E-4802-BC82-1F6372EDAEF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.BundleTypes", "Pug.Sqetch.Deployment.Bundling.BundleTypes\Pug.Sqetch.Deployment.Bundling.BundleTypes.csproj", "{F3143806-767F-4FE8-9AAF-23DA1DD76C97}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.BundleTypes", "src\Cli\Deployment\Bundling\Pug.Sqetch.Deployment.Bundling.BundleTypes\Pug.Sqetch.Deployment.Bundling.BundleTypes.csproj", "{F3143806-767F-4FE8-9AAF-23DA1DD76C97}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.Layouts", "Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj", "{53A9A0D3-0467-4C40-A316-C90A6DE17156}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.Layouts", "src\Cli\Deployment\Bundling\Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj", "{53A9A0D3-0467-4C40-A316-C90A6DE17156}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Cli", "Cli", "{AACCC7B7-950C-4FA4-93B4-7E906B456C68}"
 EndProject
@@ -32,27 +32,27 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProjectInfoStores", "Projec
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Deployment", "Deployment", "{A52CF40D-9ECD-4C2B-98A2-8E41E067E13B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment", "Pug.Sqetch.Deployment\Pug.Sqetch.Deployment.csproj", "{A06ACD02-8D65-4856-832C-4F22A8731A98}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment", "src\Deployment\Pug.Sqetch.Deployment\Pug.Sqetch.Deployment.csproj", "{A06ACD02-8D65-4856-832C-4F22A8731A98}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Cli", "Pug.Sqetch.Deployment.Cli\Pug.Sqetch.Deployment.Cli.csproj", "{BA37170E-35B3-4010-A25D-11972E9CE525}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Cli", "src\Cli\Deployment\Pug.Sqetch.Deployment.Cli\Pug.Sqetch.Deployment.Cli.csproj", "{BA37170E-35B3-4010-A25D-11972E9CE525}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment", "Pug.Sqetch.Tests.Deployment\Pug.Sqetch.Tests.Deployment.csproj", "{3E58D8EB-4E5E-4F24-A8E7-6DDC7BE0B1E5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment", "src\Deployment\Pug.Sqetch.Tests.Deployment\Pug.Sqetch.Tests.Deployment.csproj", "{3E58D8EB-4E5E-4F24-A8E7-6DDC7BE0B1E5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment.Cli", "Pug.Sqetch.Tests.Deployment.Cli\Pug.Sqetch.Tests.Deployment.Cli.csproj", "{0183DD36-9548-4385-A905-F74253C48FD9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Deployment.Cli", "src\Cli\Deployment\Pug.Sqetch.Tests.Deployment.Cli\Pug.Sqetch.Tests.Deployment.Cli.csproj", "{0183DD36-9548-4385-A905-F74253C48FD9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.Ado", "Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj", "{F63B7241-4287-4199-BB61-273EE23A20D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.Ado", "src\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj", "{F63B7241-4287-4199-BB61-273EE23A20D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.Sqlite", "Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj", "{681C8419-3B20-41DD-BC62-A4EFE8A9E023}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.Sqlite", "src\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj", "{681C8419-3B20-41DD-BC62-A4EFE8A9E023}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.PostgreSql", "Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj", "{2B1091B9-BDFD-4060-B920-BD908DB538CD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.PostgreSql", "src\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj", "{2B1091B9-BDFD-4060-B920-BD908DB538CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.DatabaseDrivers", "Pug.Sqetch.Tests.DatabaseDrivers\Pug.Sqetch.Tests.DatabaseDrivers.csproj", "{D3D94D61-F6BD-4E73-B481-F837136DDD6A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.DatabaseDrivers", "src\DatabaseDrivers\Pug.Sqetch.Tests.DatabaseDrivers\Pug.Sqetch.Tests.DatabaseDrivers.csproj", "{D3D94D61-F6BD-4E73-B481-F837136DDD6A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Cli.Common", "Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj", "{437E35CD-0DCB-4001-9DF3-3F97BCEEE5DE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Cli.Common", "src\Cli\Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj", "{437E35CD-0DCB-4001-9DF3-3F97BCEEE5DE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Cli.Common", "Pug.Sqetch.Tests.Cli.Common\Pug.Sqetch.Tests.Cli.Common.csproj", "{25527F14-4F2C-401C-A6D3-27D8E6DDCFE9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Cli.Common", "src\Cli\Pug.Sqetch.Tests.Cli.Common\Pug.Sqetch.Tests.Cli.Common.csproj", "{25527F14-4F2C-401C-A6D3-27D8E6DDCFE9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Cli.Commands", "Pug.Sqetch.Cli.Commands\Pug.Sqetch.Cli.Commands.csproj", "{2DDD65D4-1419-4777-A790-E20821FA3902}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Cli.Commands", "src\Cli\Planning\Pug.Sqetch.Cli.Commands\Pug.Sqetch.Cli.Commands.csproj", "{2DDD65D4-1419-4777-A790-E20821FA3902}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installers", "Installers", "{B25F8A4B-1ED2-46A4-93D7-62DEC0511723}"
 EndProject
@@ -60,13 +60,13 @@ Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "Sqetch", "Installers\Wix\Sq
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "SqetchDeploy", "Installers\Wix\SqetchDeploy\SqetchDeploy.wixproj", "{96D7EE91-9D51-4F41-A85B-2B2CD61FDFE5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Abstractions", "Pug.Sqetch.Deployment.Abstractions\Pug.Sqetch.Deployment.Abstractions.csproj", "{C92EF0CE-3B05-4ECD-B481-C64501A9B087}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Abstractions", "src\Pug.Sqetch.Deployment.Abstractions\Pug.Sqetch.Deployment.Abstractions.csproj", "{C92EF0CE-3B05-4ECD-B481-C64501A9B087}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Database Drivers", "Database Drivers", "{5701DFA7-30AF-4A14-B199-C28522888718}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DatabaseDrivers", "DatabaseDrivers", "{5701DFA7-30AF-4A14-B199-C28522888718}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDriver.Abstractions", "Pug.Sqetch.DatabaseDriver.Abstractions\Pug.Sqetch.DatabaseDriver.Abstractions.csproj", "{A75097D7-7E62-425A-B4C4-C35DD135428D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDriver.Abstractions", "src\Pug.Sqetch.DatabaseDriver.Abstractions\Pug.Sqetch.DatabaseDriver.Abstractions.csproj", "{A75097D7-7E62-425A-B4C4-C35DD135428D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.Abstractions", "Pug.Sqetch.Deployment.Bundling.Abstractions\Pug.Sqetch.Deployment.Bundling.Abstractions.csproj", "{59C2A461-3E29-4A9D-9937-336ADE294C5B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Bundling.Abstractions", "src\Cli\Deployment\Pug.Sqetch.Deployment.Bundling.Abstractions\Pug.Sqetch.Deployment.Bundling.Abstractions.csproj", "{59C2A461-3E29-4A9D-9937-336ADE294C5B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Deployment", "Deployment", "{6D27AC82-A82A-4790-88BE-E6A7C03150EE}"
 EndProject
@@ -74,7 +74,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Planning", "Planning", "{85
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Planning", "Planning", "{D44C182E-B092-43D5-AB0A-9B9708879A4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Cli.Commands", "Pug.Sqetch.Deployment.Cli.Commands\Pug.Sqetch.Deployment.Cli.Commands.csproj", "{A4B8B214-FBCA-4BF6-9537-7DE3016737A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Deployment.Cli.Commands", "src\Cli\Deployment\Pug.Sqetch.Deployment.Cli.Commands\Pug.Sqetch.Deployment.Cli.Commands.csproj", "{A4B8B214-FBCA-4BF6-9537-7DE3016737A2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj" />
+        <ProjectReference Include="..\..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj" />
+        <ProjectReference Include="..\Bundling\Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj" />
+        <ProjectReference Include="..\Bundling\Pug.Sqetch.Deployment.Bundling.BundleTypes\Pug.Sqetch.Deployment.Bundling.BundleTypes.csproj" />
+        <ProjectReference Include="..\Bundling\Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj" />
+        <ProjectReference Include="..\..\..\Deployment\Pug.Sqetch.Deployment\Pug.Sqetch.Deployment.csproj" />
+        <ProjectReference Include="..\..\Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
+    </ItemGroup>
+
+</Project>

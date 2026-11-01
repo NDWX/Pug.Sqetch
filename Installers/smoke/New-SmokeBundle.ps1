@@ -89,7 +89,7 @@ function Write-SqlFile
 }
 
 # The journaling SQL a maintainer could write for SQLite: one append-only row per event. It mirrors
-# Pug.Sqetch.Tests.DatabaseDrivers/SqliteJournal.cs, which runs the same shape against the engine.
+# src/DatabaseDrivers/Pug.Sqetch.Tests.DatabaseDrivers/SqliteJournal.cs, which runs the same shape against the engine.
 $table = 'sqetch_journal'
 
 # slot -> the parameters it carries beyond the project every slot has (JournalingSlots.ParameterNames)
@@ -153,12 +153,12 @@ try
 {
 	if( -not $Sqetch )
 	{
-		$Sqetch = Publish-Tool -Project 'Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj' -Name 'sqetch'
+		$Sqetch = Publish-Tool -Project 'src/Cli/Planning/Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj' -Name 'sqetch'
 	}
 
 	if( -not $SqetchDeploy )
 	{
-		$SqetchDeploy = Publish-Tool -Project 'Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj' -Name 'sqetch-deploy'
+		$SqetchDeploy = Publish-Tool -Project 'src/Cli/Deployment/Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj' -Name 'sqetch-deploy'
 	}
 
 	$script:Sqetch = $Sqetch

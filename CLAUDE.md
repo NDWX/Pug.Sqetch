@@ -15,11 +15,11 @@ project maintainer authors.
 ```sh
 dotnet build                 # full solution
 dotnet test                  # all test projects; must be green before any commit
-dotnet run --project Pug.Sqetch.Planning.Cli -- <args>   # run the 'sqetch' CLI
-dotnet run --project Pug.Sqetch.Deployment.Cli -- <args>   # run the 'sqetch-deploy' CLI
-dotnet run --project Pug.Sqetch.Deployment.Cli -- bundle --project <dir> -o <bundle>
-dotnet run --project Pug.Sqetch.Deployment.Cli -- deploy <bundle> --driver sqlite --sqlite-file db
-dotnet run --project Pug.Sqetch.Deployment.Cli -- drivers parameters sqlite   # a driver's switches
+dotnet run --project src/Cli/Planning/Pug.Sqetch.Planning.Cli -- <args>   # run the 'sqetch' CLI
+dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- <args>   # run the 'sqetch-deploy' CLI
+dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- bundle --project <dir> -o <bundle>
+dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- deploy <bundle> --driver sqlite --sqlite-file db
+dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- drivers parameters sqlite   # a driver's switches
 pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEASING.md
 ```
 
@@ -28,6 +28,14 @@ pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEAS
 The solution has two domains, each a family of projects named after it: **Planning** (authoring
 projects, the 'sqetch' CLI) and **Deployment** (bundling and deploying them, the 'sqetch-deploy' CLI).
 The database drivers and the CLI presentation layer sit beside them.
+
+Every project lives under `src/`, in the folder matching its solution folder: the four contract and
+model projects at `src/` itself, then `src/Planning`, `src/ProjectInfoStores`, `src/Deployment`,
+`src/DatabaseDrivers`, `src/Cli` (the shared CLI layer), `src/Cli/Planning` (the 'sqetch' commands
+and host), `src/Cli/Deployment` (the 'sqetch-deploy' commands, host and bundling contracts) and
+`src/Cli/Deployment/Bundling`. Each test project sits beside what it tests. A new project goes in
+the folder of its solution folder, and the two must stay the same. `Installers/`, `actions/` and the
+repository files (`Directory.Build.props`, `global.json`, licences) stay at the root.
 
 | Project | Role |
 |---|---|
@@ -363,7 +371,7 @@ The database drivers and the CLI presentation layer sit beside them.
   switch the current directory and runs alone in the `"cwd"` collection (`DisableParallelization`).
   `bundle` tests build their projects through the engine (`BundleTestProjects`), not the 'sqetch'
   CLI. Store/engine tests build on `TempProject`,
-  `TestData` and `ShardingCases` from `Pug.Sqetch.Tests.Planning.Stores.FileSystem/TestSupport.cs`;
+  `TestData` and `ShardingCases` from `src/ProjectInfoStores/Pug.Sqetch.Tests.Planning.Stores.FileSystem/TestSupport.cs`;
   git legibility is asserted with real `git` via the `Git` helper.
 - Verify changes with the full `dotnet test` plus, for user-visible behavior, a live CLI run
   in a temp directory (`project user`, `project init`, then the flow under test).
