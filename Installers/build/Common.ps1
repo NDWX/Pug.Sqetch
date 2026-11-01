@@ -17,7 +17,7 @@ $script:Products = [ordered]@{
 	'sqetch' = [pscustomobject]@{
 		Name        = 'sqetch'
 		TagName     = 'sqetch'
-		Project     = 'Pug.Sqetch.Cli/Pug.Sqetch.Cli.csproj'
+		Project     = 'Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj'
 		PackageId   = 'Pug.Sqetch.Cli'
 		Description = 'Sqetch: author database schema changes as plans and group them into releases'
 	}

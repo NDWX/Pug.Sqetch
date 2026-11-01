@@ -153,7 +153,7 @@ try
 {
 	if( -not $Sqetch )
 	{
-		$Sqetch = Publish-Tool -Project 'Pug.Sqetch.Cli/Pug.Sqetch.Cli.csproj' -Name 'sqetch'
+		$Sqetch = Publish-Tool -Project 'Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj' -Name 'sqetch'
 	}
 
 	if( -not $SqetchDeploy )

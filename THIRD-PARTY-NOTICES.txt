@@ -8,7 +8,7 @@ below in their runtime output. Test-only packages are not distributed and are
 not listed. Licence identifiers and copyright lines are taken from each
 package's NuGet metadata.
 
-Where the package is used: 'sqetch' (Pug.Sqetch.Cli) uses the Spectre.Console
+Where the package is used: 'sqetch' (Pug.Sqetch.Planning.Cli) uses the Spectre.Console
 packages only; 'sqetch-deploy' (Pug.Sqetch.Deployment.Cli) uses every package
 listed.
 

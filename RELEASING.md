@@ -1,7 +1,7 @@
 # Releasing
 
 The two CLIs, `sqetch` and `sqetch-deploy`, are versioned and released independently. Each
-carries its own `<Version>` in its project (`Pug.Sqetch.Cli`, `Pug.Sqetch.Deployment.Cli`), and a
+carries its own `<Version>` in its project (`Pug.Sqetch.Planning.Cli`, `Pug.Sqetch.Deployment.Cli`), and a
 release is started by pushing a tag. The GitHub workflow builds every artifact, smoke-tests each one
 on its native platform, pushes the dotnet tool package to **nuget.org**, and attaches every artifact
 to a **draft** GitHub release, which you publish yourself.
