@@ -263,9 +263,18 @@ function Test-Installers
 
 # msiexec is a GUI-subsystem program, so it is started and waited for rather than called. Arguments with
 # white space are quoted, the value of NAME=value ones included.
+# Like choco, it gets a deadline, because a release run once sat in an uninstall for the whole job timeout
+# and was killed without a line of diagnosis. A call still running after $TimeoutMinutes has every msiexec
+# process listed, then is killed and its log printed. Every msiexec, not only the one started here: the
+# installation itself runs in the Windows Installer service's own msiexec, and one waiting for another
+# installation to finish shows only there.
 function Invoke-Msiexec
 {
-	param( [Parameter( Mandatory )] [string[]] $Arguments, [Parameter( Mandatory )] [string] $Log )
+	param(
+		[Parameter( Mandatory )] [string[]] $Arguments,
+		[Parameter( Mandatory )] [string] $Log,
+		[double] $TimeoutMinutes = 5
+	)
 
 	$all = $Arguments + @( '/qn', '/norestart', '/l*v', $Log )
 	$line = ( $all | ForEach-Object {
@@ -275,10 +284,28 @@ function Invoke-Msiexec
 	} ) -join ' '
 
 	Write-Host "> msiexec $line"
-	$process = Start-Process -FilePath 'msiexec.exe' -ArgumentList $line -Wait -PassThru
+	$process = Start-Process -FilePath 'msiexec.exe' -ArgumentList $line -PassThru
+	# without the handle, a process started this way may report no exit code once it has exited
+	$null = $process.Handle
 
+	$failure = $null
+
+	if( -not $process.WaitForExit( [TimeSpan]::FromMinutes( $TimeoutMinutes ) ) )
+	{
+		Write-Host "--- msiexec did not finish within $TimeoutMinutes minutes; every msiexec process:"
+		Get-CimInstance -ClassName Win32_Process -Filter "Name = 'msiexec.exe'" |
+			Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, CreationDate, CommandLine |
+			Out-Host
+		$process.Kill( $true )
+		$failure = "msiexec $( $Arguments[0] ) did not finish within $TimeoutMinutes minutes"
+	}
 	# 3010: success, restart wanted; nothing here installs a driver or a service, but it is not a failure
-	if( $process.ExitCode -notin 0, 3010 )
+	elseif( $process.ExitCode -notin 0, 3010 )
+	{
+		$failure = "msiexec exited with code $( $process.ExitCode )"
+	}
+
+	if( $failure )
 	{
 		if( Test-Path -LiteralPath $Log )
 		{
@@ -286,7 +313,7 @@ function Invoke-Msiexec
 			Get-Content -LiteralPath $Log -Tail 80 | Out-Host
 		}
 
-		throw "msiexec exited with code $( $process.ExitCode )"
+		throw $failure
 	}
 }
 
