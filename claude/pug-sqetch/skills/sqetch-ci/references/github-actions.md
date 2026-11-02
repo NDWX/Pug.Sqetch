@@ -1,0 +1,142 @@
+# Sqetch in GitHub Actions
+
+A complete workflow for a PostgreSQL project in `db/`: test on pull requests, bundle on a release
+tag, deploy to staging and then production. Adapt the paths, tag pattern, versions and environment
+names to the repository; keep the shape.
+
+```yaml
+name: database
+
+on:
+  pull_request:
+    paths: ['db/**']
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: NDWX/Pug.Sqetch/actions/install-sqetch-deploy@sqetch_deploy-v0.1.0
+        with:
+          version: 0.1.0
+      - run: sqetch-deploy bundle --project db --test -o test.zip
+      - run: >-
+          sqetch-deploy deploy test.zip --driver postgres
+          --postgres-host localhost --postgres-database app --postgres-username postgres
+          --postgres-password-env PGPASSWORD --rollback on-success
+        env:
+          PGPASSWORD: postgres
+
+  bundle:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: NDWX/Pug.Sqetch/actions/install-sqetch-deploy@sqetch_deploy-v0.1.0
+        with:
+          version: 0.1.0
+      - run: sqetch-deploy bundle --project db -o db-bundle.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: db-bundle
+          path: db-bundle.zip
+
+  deploy-staging:
+    needs: bundle
+    uses: ./.github/workflows/database-deploy.yml
+    with:
+      environment: staging
+    secrets: inherit
+
+  deploy-production:
+    needs: deploy-staging
+    uses: ./.github/workflows/database-deploy.yml
+    with:
+      environment: production
+    secrets: inherit
+```
+
+The deployment itself, in `.github/workflows/database-deploy.yml`, is written once and called per
+environment:
+
+```yaml
+name: database-deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: database-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: db-bundle
+      - uses: NDWX/Pug.Sqetch/actions/install-sqetch-deploy@sqetch_deploy-v0.1.0
+        with:
+          version: 0.1.0
+      - run: >-
+          sqetch-deploy deploy db-bundle.zip --driver postgres
+          --postgres-host "$DB_HOST" --postgres-database "$DB_NAME" --postgres-username "$DB_USER"
+          --postgres-password-env DB_PASSWORD
+        env:
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+```
+
+- **Environments** (`staging`, `production`) hold each database's variables and secrets, and
+  production's required reviewers. Production runs only after staging succeeded, and
+  `concurrency` stops two deployments to one database overlapping.
+- **The artifact** uploaded by `bundle` is visible to the called workflow, since it runs in the
+  same workflow run.
+- **A SQLite project** needs no service: deploy the test bundle with
+  `--driver sqlite --sqlite-file test.db --rollback on-success`.
+- **The action's `@ref`** pins the action's code and `version` the tool. Bump both together when
+  asked to upgrade.
+
+## Installing another way
+
+If the repository pins the tools with mise, install from its own configuration instead of the action:
+
+```yaml
+      - uses: jdx/mise-action@v5
+      - run: sqetch-deploy --version
+```
+
+The release's mise file needs no token. A hand-written mise configuration reads the GitHub API, so
+give it `GITHUB_TOKEN: ${{ github.token }}` in `env`.
+
+If it pins them in a dotnet tool manifest:
+
+```yaml
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet tool restore
+      - run: dotnet sqetch-deploy --version
+```

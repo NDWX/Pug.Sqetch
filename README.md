@@ -316,7 +316,32 @@ dotnet tool install -g Pug.Sqetch.Deployment.Cli
 `dotnet tool install` skips pre-releases. Add `--prerelease` for the newest one, or pin one with
 `--version 0.1.0-pre.202610172239`.
 
+## Agent skills
+
+The `pug-sqetch` plugin teaches AI coding agents to use Sqetch:
+- installing the tools;
+- mapping plans, steps and releases onto tasks and software releases;
+- starting a project, with ready journaling SQL for SQLite and PostgreSQL;
+- bundling and deploying;
+- CI pipelines;
+- getting help from the CLIs.
+
+The skills follow the latest release. They tell the agent to work with the tool versions your
+repository pins.
+
+In Claude Code, add the Pug marketplace and install the plugin:
+
+```text
+/plugin marketplace add NDWX/claude-code-plugins
+/plugin install pug-sqetch@pug-claude-plugins
+```
+
+The skills are plain `SKILL.md` folders under [`claude/pug-sqetch/skills`](claude/pug-sqetch/skills),
+so other agents that read skills can use them too: copy the folders into that agent's skills
+directory. They are MIT-licensed, so they can go into any repository.
+
 ## Licence
 
-The command-line tools and packaging are GPL-3.0-or-later; everything else is AGPL-3.0-or-later.
+The command-line tools and packaging are GPL-3.0-or-later, the agent skills MIT, and everything else
+AGPL-3.0-or-later.
 See [LICENSING.md](LICENSING.md).

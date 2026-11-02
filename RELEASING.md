@@ -121,6 +121,12 @@ A draft cannot be tested this way, so this is the first check of the real downlo
 job fails until the GHCR package is public (below). Re-run it by hand with *Actions → Verify release →
 Run workflow* and the tag.
 
+Then move `main` to the released commit (merge or fast-forward it), and push it. `main` is what the
+`pug-claude-plugins` marketplace (`NDWX/claude-code-plugins`) installs the agent skills from, so
+this is the step that ships them to users. If the skills changed since the last release, check that
+`claude/pug-sqetch/.claude-plugin/plugin.json`'s `version` was bumped; otherwise Claude Code does
+not update installed copies.
+
 ## Container registries (one-time, before the first `sqetch_deploy` tag)
 
 The `image` job pushes to two registries.

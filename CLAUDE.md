@@ -34,8 +34,9 @@ model projects at `src/` itself, then `src/Planning`, `src/ProjectInfoStores`, `
 `src/DatabaseDrivers`, `src/Cli` (the shared CLI layer), `src/Cli/Planning` (the 'sqetch' commands
 and host), `src/Cli/Deployment` (the 'sqetch-deploy' commands, host and bundling contracts) and
 `src/Cli/Deployment/Bundling`. Each test project sits beside what it tests. A new project goes in
-the folder of its solution folder, and the two must stay the same. `Installers/`, `actions/` and the
-repository files (`Directory.Build.props`, `global.json`, licences) stay at the root.
+the folder of its solution folder, and the two must stay the same. `Installers/`, `actions/`,
+`claude/` and the repository files (`Directory.Build.props`, `global.json`, licences) stay at the
+root.
 
 | Project | Role |
 |---|---|
@@ -65,6 +66,7 @@ repository files (`Directory.Build.props`, `global.json`, licences) stay at the 
 | **Tests** | xunit, one project per tier: `Pug.Sqetch.Planning.Tests` (engine), `Pug.Sqetch.Tests.Planning.Stores.FileSystem`, `Pug.Sqetch.Tests.Planning.Cli`, `Pug.Sqetch.Tests.Deployment.Bundling`, `Pug.Sqetch.Tests.Deployment`, `Pug.Sqetch.Tests.DatabaseDrivers`, `Pug.Sqetch.Tests.Deployment.Cli`, `Pug.Sqetch.Tests.Cli.Common` |
 | `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + `Image.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `docker/` (the `sqetch-deploy` image), `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
 | `actions/` | GitHub Actions for users (GPL): `install-sqetch-deploy` (composite; `install.sh` in bash, since some arm64 runner images lack pwsh) |
+| `claude/pug-sqetch/` | The agent skills plugin for Sqetch's users (MIT): `sqetch` (entry point, concepts, versions, help), `sqetch-install`, `sqetch-new-project` (with tested journaling templates), `sqetch-plans-and-releases`, `sqetch-bundle-and-deploy`, `sqetch-ci`. Listed in the `pug-claude-plugins` marketplace (`NDWX/claude-code-plugins`) from this repository's `main` |
 
 ## Architecture rules
 
@@ -387,3 +389,14 @@ repository files (`Directory.Build.props`, `global.json`, licences) stay at the 
   git legibility is asserted with real `git` via the `Git` helper.
 - Verify changes with the full `dotnet test` plus, for user-visible behavior, a live CLI run
   in a temp directory (`project user`, `project init`, then the flow under test).
+- **The agent skills document the CLIs for their users** (`claude/pug-sqetch/skills`). A change to a
+  command, an option, an exit code, the journaling contract, the deploy semantics or the install
+  channels updates the skills **in the same commit**. A new feature is marked "since X.Y" there,
+  since users' repositories pin older versions, and the skills tell agents to trust the installed
+  tool's `--help` over them. Bump `version` in `claude/pug-sqetch/.claude-plugin/plugin.json`
+  whenever a skill changes: Claude Code updates an installed plugin only when that version
+  changes. The journaling templates in `sqetch-new-project/references` must stay correct after
+  rollbacks; re-run their scenarios (fresh, redeploy, `on-success` then redeploy, `on-error` at
+  plan level, partway then a partial rollback, continuation) on SQLite and PostgreSQL when they or
+  the deploy semantics change. Users get the skills from `main`, so they change for users only when
+  `main` moves to a release.

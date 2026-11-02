@@ -2,14 +2,16 @@
 
 Every project in this repository is licensed under the
 [GNU Affero General Public License, version 3 or (at your option) any later
-version](LICENSE) (`AGPL-3.0-or-later`), with one exception: the command-line
+version](LICENSE) (`AGPL-3.0-or-later`), with two exceptions: the command-line
 layer, the packaging sources and the GitHub Actions are licensed under the
 [GNU General Public License, version 3 or (at your option) any later
-version](Installers/LICENSE) (`GPL-3.0-or-later`).
+version](Installers/LICENSE) (`GPL-3.0-or-later`), and the agent skills under
+[the MIT licence](claude/pug-sqetch/LICENSE) (`MIT`), so that users can copy
+them into their own repositories.
 
 Copyright holder: Pug.
 
-Each GPL folder carries its own `LICENSE` file with the GPL text; the
+Each GPL or MIT folder carries its own `LICENSE` file with its text; the
 repository-root `LICENSE` is the AGPL text and applies to everything else.
 
 ## Licence by project
@@ -45,6 +47,7 @@ repository-root `LICENSE` is the AGPL text and applies to everything else.
 | `src/Cli/Deployment/Pug.Sqetch.Tests.Deployment.Cli` | GPL-3.0-or-later |
 | `Installers` (WiX, nfpm, Chocolatey, build scripts) | GPL-3.0-or-later |
 | `actions` (the GitHub Actions for installing the tools) | GPL-3.0-or-later |
+| `claude/pug-sqetch` (the agent skills plugin) | MIT |
 
 ## Distributed artifacts
 
