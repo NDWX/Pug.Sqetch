@@ -308,6 +308,18 @@ repository files (`Directory.Build.props`, `global.json`, licences) stay at the 
   configured without connecting: an unreachable server is not a creation failure and does not
   surface until the first transaction, so `AdoDatabaseDriver` turns a failed open into
   `DatabaseConnectionException` rather than letting a provider exception reach the handler as `1`.
+- **A release holds its plans' dependencies, or follows the releases that do**
+  (`Project.DetermineMissingDependencies`): a plan's dependency must be in the same release or an
+  earlier one in the lineage. `CreateRelease( definition, plans )`, `AddPlanToRelease` and
+  `Register` (a plan created into a release) refuse otherwise with
+  `MissingPlanDependenciesException`, which names each missing plan and its dependants. Checking
+  direct dependencies is enough, since a dependency already in a release was checked when it joined.
+  `Register` checks before storing the plan, because the file store does not take part in
+  `TransactionScope` and would keep a refused plan. `includeDependencies` (`--with-dependencies`)
+  brings along every unreleased plan the added one needs, transitively through unreleased plans
+  only; a dependency in a later release is refused, never moved, since moving it could strand
+  that release's own plans. `CreateRelease( definition, includeUnreleasedPlans )` needs no check: a
+  new release ends the lineage, and every unreleased plan joins it.
 - **Names** (`NameRules` in the FileSystem store, surfaced early via CLI `NameValidation`):
   letters, digits and `-_+()@#.`; must start with a letter or digit, must not end with `.`,
   max 128 chars. Names become path segments and git paths.

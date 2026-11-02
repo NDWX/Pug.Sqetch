@@ -147,6 +147,57 @@ public class CliTests : IDisposable
 	}
 
 	[Fact]
+	public void ReleaseCreateRefusesAPlanWithoutItsDependencies()
+	{
+		InitializeProject();
+
+		Run( "plan", "create", "--name", "table" );
+		Run( "plan", "create", "--name", "index", "--require-plans", "table" );
+
+		CommandAppResult refused = Run( "release", "create", "--name", "2026.07", "--plans", "index" );
+
+		Assert.Equal( 1, refused.ExitCode );
+		Assert.Contains( "'table' (unreleased; required by 'index')", refused.Output );
+		Assert.Contains( "--with-dependencies", refused.Output );
+		Assert.Contains( "(unreleased)", Run( "plan", "--name", "index" ).Output );
+	}
+
+	[Fact]
+	public void SetReleaseWithDependenciesAddsUnreleasedDependencies()
+	{
+		InitializeProject();
+
+		Run( "plan", "create", "--name", "table" );
+		Run( "plan", "create", "--name", "index", "--require-plans", "table" );
+		Run( "plan", "create", "--name", "report", "--require-plans", "index" );
+		Run( "release", "create", "--name", "2026.07" );
+
+		Assert.Equal( 1, Run( "plan", "set-release", "--plan", "report", "--release", "2026.07" ).ExitCode );
+
+		Assert.Equal(
+			0, Run( "plan", "set-release", "--plan", "report", "--release", "2026.07", "--with-dependencies" ).ExitCode );
+
+		Assert.Equal(
+			["index", "report", "table"],
+			Run( "plan", "list", "--release", "2026.07" ).Output.Split( '\n' ).Select( x => x.Split( '\t' )[0] ).Order().ToArray() );
+	}
+
+	[Fact]
+	public void PlanCreateInAReleaseAcceptsADependencyInAnEarlierRelease()
+	{
+		InitializeProject();
+
+		Run( "plan", "create", "--name", "table" );
+		Run( "release", "create", "--name", "2026.07", "--plans", "table" );
+		Run( "release", "create", "--name", "2026.08", "--depends-on", "2026.07" );
+
+		CommandAppResult created = Run( "plan", "create", "--name", "index", "--require-plans", "table", "--release", "2026.08" );
+
+		Assert.Equal( 0, created.ExitCode );
+		Assert.Contains( "2026.08", Run( "plan", "--name", "index" ).Output );
+	}
+
+	[Fact]
 	public void OutputFormatsRenderJsonAndCsv()
 	{
 		InitializeProject();

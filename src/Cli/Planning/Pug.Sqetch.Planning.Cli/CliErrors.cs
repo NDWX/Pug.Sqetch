@@ -1,3 +1,4 @@
+using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 
 namespace Pug.Sqetch.Planning.Cli;
@@ -23,8 +24,29 @@ internal static class CliErrors
 				$"release '{dependantExists.Dependency}' already has dependant release '{dependantExists.Dependant}'; releases form a single lineage — depend on the latest release instead",
 			AbandonedPlanDependantsException =>
 				"other plans in the release depend on this plan (use --with-dependants to remove them too)",
+			MissingPlanDependenciesException missing => DescribeMissingDependencies( missing ),
 			IncompleteDefinitionException => "the definition is missing a name",
 			ProjectStoreException store => store.Message,
 			_ => exception.Message
 		};
+
+	// names every missing plan with the plans needing it; an unreleased one can come along, one in
+	// a later release has to be moved by hand first
+	private static string DescribeMissingDependencies( MissingPlanDependenciesException missing )
+	{
+		IEnumerable<string> plans = missing.MissingDependencies
+			.OrderBy( x => x.Key, StringComparer.OrdinalIgnoreCase )
+			.Select( x =>
+			{
+				ProjectPlan dependency = x.Value.Item1;
+				ICollection<string> dependants = x.Value.Item2;
+				string where = string.IsNullOrEmpty( dependency.Release ) ? "unreleased" : $"in later release '{dependency.Release}'";
+
+				return $"'{x.Key}' ({where}; required by {string.Join( ", ", dependants.Select( d => $"'{d}'" ) )})";
+			} );
+
+		return "a plan's dependencies must be in its release or an earlier one; missing " +
+			string.Join( ", ", plans ) +
+			". Include unreleased dependencies in --plans, or add the plan with 'plan set-release --with-dependencies'";
+	}
 }

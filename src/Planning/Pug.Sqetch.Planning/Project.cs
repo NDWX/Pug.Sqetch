@@ -116,30 +116,26 @@ public class Project : IProject
 		if( _infoStore.PlanExists( plan.Name ) )
 			throw new DuplicatePlanNameException();
 
-		if( plan.Dependencies.Count != 0 )
-		{
-			IEnumerable<string> dependablePlans = _infoStore.GetPlans( releaseName ).Values.Select( x => x.Definition.Name);
+		if( releaseName is not null && _infoStore.GetRelease( releaseName ) is null )
+			throw new UnknownReleaseException( releaseName );
 
-			foreach( string dependency in plan.Dependencies )
-			{
-				if( !dependablePlans.Contains( dependency ) )
-					throw new UnknownPlanException( dependency );
-			}
+		// A dependency may be any existing plan; a plan meant for a release also needs each one in
+		// that release or an earlier one. Both are checked before the plan is stored, since the
+		// file store does not take part in the transaction and would keep a refused plan.
+		Dictionary<string, (ProjectPlan, ICollection<string>)> missingDependencies = new ( StringComparer.OrdinalIgnoreCase );
+
+		foreach( string dependencyName in plan.Dependencies )
+		{
+			ProjectPlan dependency = _infoStore.GetPlan( dependencyName ) ?? throw new UnknownPlanException( dependencyName );
+
+			if( releaseName is not null && IsMissingFrom( releaseName, dependency ) )
+				missingDependencies.TryAdd( dependency.Definition.Name, (dependency, new List<string> { plan.Name }) );
 		}
 
+		if( missingDependencies.Count != 0 )
+			throw new MissingPlanDependenciesException( missingDependencies );
+
 		_infoStore.AddPlan( plan, plan.Dependencies, GetActionContext() );
-
-		if( releaseName is null )
-			return;
-
-		ProjectRelease? release = _infoStore.GetRelease( releaseName );
-
-		if( release is null )
-			throw new UnknownReleaseException(releaseName);
-
-		IEnumerable<ProjectElement> existingPlans = _infoStore.GetReleasePlans( releaseName );
-
-		EnsureNoMissingDependencies( existingPlans.Select( x => x.Definition.Name ).Append( plan.Name ), releaseName );
 	}
 
 	public void Add( PlanDefinition plan, string? release = null )
@@ -424,46 +420,81 @@ public class Project : IProject
 		return plan;
 	}
 
+	/// <summary>
+	/// The dependencies <paramref name="includedPlans"/> would lack in <paramref name="release"/>:
+	/// each one not among them that is either unreleased or in a release after it, keyed by name
+	/// with the included plans needing it. Direct dependencies are enough: every included plan's
+	/// own dependencies are checked, and a dependency outside the set sits in this release or an
+	/// earlier one, where it was checked when it joined. A release being created ends the lineage,
+	/// so for it only unreleased dependencies count.
+	/// </summary>
 	private IDictionary<string, (ProjectPlan, ICollection<string>)> DetermineMissingDependencies( IEnumerable<string> includedPlans, string release )
 	{
-		List<ProjectPlan> requiredPlans = [];
-		Dictionary<string, (ProjectPlan, ICollection<string>)> missingDependencies = new ();
+		HashSet<string> included = new ( includedPlans, StringComparer.OrdinalIgnoreCase );
+		Dictionary<string, (ProjectPlan, ICollection<string>)> missingDependencies = new ( StringComparer.OrdinalIgnoreCase );
 
-		foreach( string plan in includedPlans )
+		foreach( string plan in included )
 		{
-			IEnumerable<string> planDependencies = _infoStore.GetPlanDependencies( plan );
-
-			IEnumerable<ProjectPlan> dependencies =
-				planDependencies
-					.Where( x => !includedPlans.Contains( plan ) )
-					.Select( x => _infoStore.GetPlan( x ) )
-					.Where( x =>
-								string.IsNullOrEmpty( x.Release ) ||
-								_releaseDependencyDeterminator.DetermineDependencyRelationship( x.Release, release ) ==
-								DependencyRelationship.Dependant
-					);
-
-			foreach( ProjectPlan dependency in dependencies )
+			foreach( string dependencyName in _infoStore.GetPlanDependencies( plan ) )
 			{
-				ICollection<string>? dependants = null;
+				if( included.Contains( dependencyName ) )
+					continue;
+
+				ProjectPlan dependency = _infoStore.GetPlan( dependencyName ) ?? throw new UnknownPlanException( dependencyName );
+
+				if( !IsMissingFrom( release, dependency ) )
+					continue;
 
 				if( missingDependencies.TryGetValue( dependency.Definition.Name, out (ProjectPlan, ICollection<string>) details ) )
-				{
-					details.Item2.Add(plan);
-				}
+					details.Item2.Add( plan );
 				else
-				{
-					dependants = new List<string>() { plan };
-					missingDependencies.Add(dependency.Definition.Name, (dependency, dependants));
-				}
+					missingDependencies.Add( dependency.Definition.Name, (dependency, new List<string> { plan }) );
 			}
-
-			missingDependencies.Coalesce( DetermineMissingDependencies( planDependencies, release ), plan );
-
 		}
 
 		return missingDependencies;
 	}
+
+	/// <summary>
+	/// The unreleased plans <paramref name="plan"/> depends on, directly or through other unreleased
+	/// plans, dependencies before their dependants. Released plans end the walk: their own
+	/// dependencies were settled when they joined their release.
+	/// </summary>
+	private List<string> CollectUnreleasedDependencies( ProjectPlan plan )
+	{
+		List<string> collected = [];
+		HashSet<string> visited = new ( StringComparer.OrdinalIgnoreCase ) { plan.Definition.Name };
+
+		void Visit( string name )
+		{
+			foreach( string dependencyName in _infoStore.GetPlanDependencies( name ) )
+			{
+				if( !visited.Add( dependencyName ) )
+					continue;
+
+				ProjectPlan dependency = _infoStore.GetPlan( dependencyName ) ?? throw new UnknownPlanException( dependencyName );
+
+				if( !string.IsNullOrEmpty( dependency.Release ) )
+					continue;
+
+				Visit( dependency.Definition.Name );
+				collected.Add( dependency.Definition.Name );
+			}
+		}
+
+		Visit( plan.Definition.Name );
+
+		return collected;
+	}
+
+	/// <summary>
+	/// Whether a plan outside <paramref name="release"/> is unavailable to it: unreleased, or in a
+	/// release that comes after it.
+	/// </summary>
+	private bool IsMissingFrom( string release, ProjectPlan dependency )
+		=> string.IsNullOrEmpty( dependency.Release ) ||
+			_releaseDependencyDeterminator.DetermineDependencyRelationship( dependency.Release, release ) ==
+			DependencyRelationship.Dependant;
 
 	private void EnsureNoMissingDependencies(IEnumerable<string> includedPlans, string release )
 	{
@@ -669,7 +700,7 @@ public class Project : IProject
 
 		try
 		{
-			ProjectPlan? projectPlan = EnsurePlanExistsAsOrphan( plan );
+			ProjectPlan projectPlan = EnsurePlanExistsAsOrphan( plan );
 
 			_releasesSemaphore.Wait();
 			releasesLocked = true;
@@ -684,25 +715,17 @@ public class Project : IProject
 
 			IEnumerable<ProjectElement> existingPlans = _infoStore.GetReleasePlans( release );
 
-			if( includeDependencies )
-			{
-				IDictionary<string, (ProjectPlan, ICollection<string>)> dependencies =
-					DetermineMissingDependencies( existingPlans.Select( x => x.Definition.Name ), release );
+			// with dependencies: every unreleased plan this one needs, directly or through another
+			// unreleased plan, joins it; one in a later release is refused below rather than moved
+			List<string> unreleasedDependencies =
+				includeDependencies ? CollectUnreleasedDependencies( projectPlan ) : [];
 
-				foreach( (ProjectPlan dependency, _) in dependencies.Values  )
-				{
-					if( string.IsNullOrEmpty( dependency.Release ) )
-						_infoStore.AddReleasePlan( release, dependency.Definition.Name, actionContext );
-					else if( _releaseDependencyDeterminator.DetermineDependencyRelationship( release, dependency.Release ) == DependencyRelationship.Dependency )
-					{
-						_infoStore.DeleteReleasePlan( dependency.Release,  dependency.Definition.Name, actionContext );
-						_infoStore.AddReleasePlan( release, dependency.Definition.Name, actionContext );
-					}
+			EnsureNoMissingDependencies(
+				existingPlans.Select( x => x.Definition.Name ).Concat( unreleasedDependencies ).Append( plan ),
+				release );
 
-				}
-			}
-			else
-				EnsureNoMissingDependencies( existingPlans.Select( x => x.Definition.Name ).Append( plan ), release );
+			foreach( string dependency in unreleasedDependencies )
+				_infoStore.AddReleasePlan( release, dependency, actionContext );
 
 			_infoStore.AddReleasePlan( release, plan, actionContext );
 

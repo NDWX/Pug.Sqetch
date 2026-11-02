@@ -193,7 +193,7 @@ public sealed class PlanSetReleaseCommand( IAnsiConsole console ) : Command<Plan
 		public bool Unreleased { get; init; }
 
 		[CommandOption( "--with-dependencies" )]
-		[Description( "Also pull the plan's dependencies into the release" )]
+		[Description( "Also add the plan's unreleased dependencies to the release" )]
 		public bool WithDependencies { get; init; }
 
 		[CommandOption( "--with-dependants" )]
