@@ -1,4 +1,5 @@
 using Pug.Sqetch.Deployment;
+
 using static Pug.Sqetch.Tests.Deployment.Lineages;
 
 namespace Pug.Sqetch.Tests.Deployment;
@@ -11,21 +12,25 @@ namespace Pug.Sqetch.Tests.Deployment;
 /// </summary>
 public class DeploymentRollbackTests
 {
-	private readonly InMemoryScripts _scripts = new ();
-	private readonly FakeDatabaseDriver _driver = new ();
-	private readonly RecordingListener _listener = new ();
-	private readonly FakeJournal _journal = new ();
+	private readonly InMemoryScripts _scripts = new();
+	private readonly FakeDatabaseDriver _driver = new();
+	private readonly RecordingListener _listener = new();
+	private readonly FakeJournal _journal = new();
 
 	[Fact]
 	public void WithoutTheModeAFailureLeavesEarlierCommitsInPlace()
 	{
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.None ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				TwoReleases(),
+				DeploymentCommitLevel.Release,
+				RollbackTrigger.None
+			)
+		);
 
 		// a/s1 and b/s1 committed with r1 and stay; nothing is undone
-		Assert.Equal( ["-- deploy a/s1", "-- deploy b/s1"], _driver.AppliedScripts );
+		Assert.Equal( [ "-- deploy a/s1", "-- deploy b/s1" ], _driver.AppliedScripts );
 	}
 
 	/// <summary>
@@ -37,12 +42,17 @@ public class DeploymentRollbackTests
 	{
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				TwoReleases(),
+				DeploymentCommitLevel.Release,
+				RollbackTrigger.OnError
+			)
+		);
 
 		Assert.Equal(
-			["-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1"],
-			_driver.AppliedScripts );
+			[ "-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1" ],
+			_driver.AppliedScripts
+		);
 	}
 
 	/// <summary>
@@ -54,12 +64,17 @@ public class DeploymentRollbackTests
 	{
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Plan, RollbackTrigger.OnError ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				TwoReleases(),
+				DeploymentCommitLevel.Plan,
+				RollbackTrigger.OnError
+			)
+		);
 
 		Assert.Equal(
-			["-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1"],
-			_driver.AppliedScripts );
+			[ "-- deploy a/s1", "-- deploy b/s1", "-- rollback b/s1", "-- rollback a/s1" ],
+			_driver.AppliedScripts
+		);
 	}
 
 	/// <summary>
@@ -70,13 +85,18 @@ public class DeploymentRollbackTests
 	public void APlanTheOpenTransactionTookBackIsNotCompensated()
 	{
 		IReadOnlyList<ReleaseGroup> releases = Lineage(
-			[Release( "r1" )],
-			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
+			[ Release( "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ) ]
+		);
 
 		_driver.FailingScripts.Add( "-- deploy b/s1" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				releases,
+				DeploymentCommitLevel.Release,
+				RollbackTrigger.OnError
+			)
+		);
 
 		// the whole release shared one transaction, so nothing committed and nothing is undone
 		Assert.Empty( _driver.AppliedScripts );
@@ -90,22 +110,28 @@ public class DeploymentRollbackTests
 
 		Assert.Equal(
 			[
-				"-- deploy a/s1", "-- deploy b/s1", "-- deploy c/s1",
-				"-- rollback c/s1", "-- rollback b/s1", "-- rollback a/s1"
+				"-- deploy a/s1",
+				"-- deploy b/s1",
+				"-- deploy c/s1",
+				"-- rollback c/s1",
+				"-- rollback b/s1",
+				"-- rollback a/s1"
 			],
-			_driver.AppliedScripts );
+			_driver.AppliedScripts
+		);
 	}
 
 	[Fact]
 	public void StepsWithinAPlanAreUndoneInReverse()
 	{
-		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1", "s2", "s3" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1", "s2", "s3" ) ] );
 
-		Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
+		Deploy( releases, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Equal(
-			["-- rollback a/s3", "-- rollback a/s2", "-- rollback a/s1"],
-			_driver.AppliedScripts.Where( x => x.StartsWith( "-- rollback" ) ) );
+			[ "-- rollback a/s3", "-- rollback a/s2", "-- rollback a/s1" ],
+			_driver.AppliedScripts.Where( x => x.StartsWith( "-- rollback" ) )
+		);
 	}
 
 	/// <summary>
@@ -121,14 +147,25 @@ public class DeploymentRollbackTests
 
 		Assert.Equal(
 			[
-				"RollingBackRelease r2", "RollingBackPlan r2/c", "RollingBackStep r2/c/s1",
-				"RolledBackStep r2/c/s1", "RolledBackPlan r2/c", "RolledBackRelease r2",
-				"RollingBackRelease r1", "RollingBackPlan r1/b", "RollingBackStep r1/b/s1",
-				"RolledBackStep r1/b/s1", "RolledBackPlan r1/b",
-				"RollingBackPlan r1/a", "RollingBackStep r1/a/s1",
-				"RolledBackStep r1/a/s1", "RolledBackPlan r1/a", "RolledBackRelease r1"
+				"RollingBackRelease r2",
+				"RollingBackPlan r2/c",
+				"RollingBackStep r2/c/s1",
+				"RolledBackStep r2/c/s1",
+				"RolledBackPlan r2/c",
+				"RolledBackRelease r2",
+				"RollingBackRelease r1",
+				"RollingBackPlan r1/b",
+				"RollingBackStep r1/b/s1",
+				"RolledBackStep r1/b/s1",
+				"RolledBackPlan r1/b",
+				"RollingBackPlan r1/a",
+				"RollingBackStep r1/a/s1",
+				"RolledBackStep r1/a/s1",
+				"RolledBackPlan r1/a",
+				"RolledBackRelease r1"
 			],
-			journaled.Where( x => x.Contains( "olledBack" ) || x.Contains( "ollingBack" ) ) );
+			journaled.Where( x => x.Contains( "olledBack" ) || x.Contains( "ollingBack" ) )
+		);
 	}
 
 	[Fact]
@@ -137,9 +174,12 @@ public class DeploymentRollbackTests
 		Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Contains( "rolling-back deployment succeeded; rolling back as requested", _listener.Events );
+
 		Assert.Equal(
-			["rollback-plan r2/c", "rollback-plan r1/b", "rollback-plan r1/a"],
-			_listener.Events.Where( x => x.StartsWith( "rollback-plan" ) ) );
+			[ "rollback-plan r2/c", "rollback-plan r1/b", "rollback-plan r1/a" ],
+			_listener.Events.Where( x => x.StartsWith( "rollback-plan" ) )
+		);
+
 		Assert.Equal( "rolled-back", _listener.Events.Last() );
 	}
 
@@ -148,8 +188,12 @@ public class DeploymentRollbackTests
 	{
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				TwoReleases(),
+				DeploymentCommitLevel.Release,
+				RollbackTrigger.OnError
+			)
+		);
 
 		Assert.Contains( _listener.Events, x => x.StartsWith( "rolling-back deployment failed:" ) );
 	}
@@ -164,22 +208,26 @@ public class DeploymentRollbackTests
 		_driver.FailingScripts.Add( "-- deploy c/s1" );
 		_driver.FailingScripts.Add( "-- rollback b/s1" );
 
-		RollbackFailedException error = Assert.Throws<RollbackFailedException>(
-			() => Deploy( TwoReleases(), DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+		RollbackFailedException error = Assert.Throws<RollbackFailedException>( () => Deploy(
+				TwoReleases(),
+				DeploymentCommitLevel.Release,
+				RollbackTrigger.OnError
+			)
+		);
 
-		Assert.Equal( ( "r1", "b", "s1" ), (error.Release, error.Plan, error.Step) );
+		Assert.Equal( ( "r1", "b", "s1" ), ( error.Release, error.Plan, error.Step ) );
 		Assert.Contains( "partially rolled back", error.Message );
 	}
 
 	[Fact]
 	public void NothingToDeployRollsBackNothing()
 	{
-		IReadOnlyList<ReleaseGroup> releases = Lineage( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 
 		_journal.Latest = new JournaledRelease( "r1", Completed: true );
-		_journal.DeployedPlans["r1"] = ["a"];
+		_journal.DeployedPlans["r1"] = [ "a" ];
 
-		Deploy( releases,DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
+		Deploy( releases, DeploymentCommitLevel.Release, RollbackTrigger.OnSuccess );
 
 		Assert.Empty( _driver.AppliedScripts );
 		Assert.DoesNotContain( _listener.Events, x => x.StartsWith( "rolling-back" ) );
@@ -188,10 +236,15 @@ public class DeploymentRollbackTests
 	/// <summary>r1 holds 'a' then 'b', r2 holds 'c'; one step each.</summary>
 	private static IReadOnlyList<ReleaseGroup> TwoReleases()
 		=> Lineage(
-			[Release( "r1" ), Release( "r2", "r1" )],
-			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
+			[ Release( "r1" ), Release( "r2", "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" ) ]
+		);
 
-	private void Deploy( IReadOnlyList<ReleaseGroup> releases, DeploymentCommitLevel commitLevel, RollbackTrigger rollback )
+	private void Deploy(
+		IReadOnlyList<ReleaseGroup> releases,
+		DeploymentCommitLevel commitLevel,
+		RollbackTrigger rollback
+	)
 	{
 		_journal.Attach( _driver );
 

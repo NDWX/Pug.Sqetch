@@ -1,4 +1,5 @@
 using Npgsql;
+
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.Ado;
 
@@ -21,21 +22,28 @@ public sealed class PostgreSqlDatabaseDriverFactory : IDatabaseDriverFactory
 	public string Name => DriverName;
 
 	public DatabaseDriverParametersDefinition GetParametersDefinition()
-		=> new (
+		=> new(
 			[
 				new DatabaseDriverParameterDefinition( "host", "Server host name or address" ),
 				new DatabaseDriverParameterDefinition( "port", "Server port; defaults to 5432" ),
 				new DatabaseDriverParameterDefinition( "database", "Database name" ),
 				new DatabaseDriverParameterDefinition( "username", "Role to connect as" ),
 				new DatabaseDriverParameterDefinition(
-					"password", "Password for 'username'; prefer 'password-env', since a command line is visible to "
-								+ "every process on the host" ),
+					"password",
+					"Password for 'username'; prefer 'password-env', since a command line is visible to " +
+					"every process on the host"
+				),
 				new DatabaseDriverParameterDefinition(
-					"password-env", "Name of an environment variable holding the password" ),
+					"password-env",
+					"Name of an environment variable holding the password"
+				),
 				new DatabaseDriverParameterDefinition(
-					"connection-string", "Full Npgsql connection string, for anything the parameters above do not cover" )
+					"connection-string",
+					"Full Npgsql connection string, for anything the parameters above do not cover"
+				)
 			],
-			[["host", "database"], ["connection-string"]] );
+			[ [ "host", "database" ], [ "connection-string" ] ]
+		);
 
 	public IDatabaseDriver Create( IDictionary<string, string> parameters, TimeSpan stepScriptTimeout )
 	{
@@ -61,27 +69,28 @@ public sealed class PostgreSqlDatabaseDriverFactory : IDatabaseDriverFactory
 
 		if( supplied is not null )
 		{
-			string[] conflicting = ["host", "port", "database", "username", "password", "password-env"];
+			string[] conflicting = [ "host", "port", "database", "username", "password", "password-env" ];
 
 			if( conflicting.Any( name => Value( name ) is not null ) )
 				throw new ArgumentException(
-					"'connection-string' replaces the individual connection parameters; specify one or the other." );
+					"'connection-string' replaces the individual connection parameters; specify one or the other."
+				);
 
 			return new NpgsqlConnectionStringBuilder( supplied ).ConnectionString;
 		}
 
-		string host = Value( "host" )
-					?? throw new ArgumentException( "'host' is required unless 'connection-string' is given." );
+		string host = Value( "host" ) ??
+					throw new ArgumentException( "'host' is required unless 'connection-string' is given." );
 
-		string database = Value( "database" )
-						?? throw new ArgumentException( "'database' is required unless 'connection-string' is given." );
+		string database = Value( "database" ) ??
+						throw new ArgumentException( "'database' is required unless 'connection-string' is given." );
 
-		NpgsqlConnectionStringBuilder builder = new () { Host = host, Database = database };
+		NpgsqlConnectionStringBuilder builder = new() { Host = host, Database = database };
 
 		if( Value( "port" ) is { } port )
-			builder.Port = int.TryParse( port, out int parsed )
-							? parsed
-							: throw new ArgumentException( $"'port' must be a number, not '{port}'." );
+			builder.Port = int.TryParse( port, out int parsed ) ?
+				parsed :
+				throw new ArgumentException( $"'port' must be a number, not '{port}'." );
 
 		if( Value( "username" ) is { } username )
 			builder.Username = username;

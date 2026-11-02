@@ -21,7 +21,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	}
 
 	public ProjectDefinition GetDefinition()
-		=> new ( _session.Project.Name, _session.Project.Description, _session.Project.Engine );
+		=> new( _session.Project.Name, _session.Project.Description, _session.Project.Engine );
 
 	public void AddPlan( ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context )
 	{
@@ -35,15 +35,21 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		JsonFiles.Write(
 			_session.Paths.PlanFile( string.Empty, definition.Name ),
 			new PlanDocument(
-				definition.Name, definition.Description, dependencyNames, string.Empty,
-				ActionDocument.From( context ), null ) );
+				definition.Name,
+				definition.Description,
+				dependencyNames,
+				string.Empty,
+				ActionDocument.From( context ),
+				null
+			)
+		);
 
 		_session.PlanIndex.Set( new PlanIndexEntry( definition.Name, string.Empty, dependencyNames ) );
 	}
 
 	public void UpdatePlan( ObjectDefinition definition )
 	{
-		(PlanIndexEntry entry, string planFile, PlanDocument document) = RequirePlanDocument( definition.Name );
+		( PlanIndexEntry entry, string planFile, PlanDocument document ) = RequirePlanDocument( definition.Name );
 
 		_session.EnsureReleaseNotFinalized( entry.Release );
 
@@ -54,12 +60,16 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 	public IDictionary<string, ProjectPlan> GetPlans( string? release = null )
 	{
-		IEnumerable<PlanIndexEntry> entries = release is null
-			? _session.PlanIndex.Entries
-			: _session.PlanIndex.Entries.Where(
-				x => string.Equals( x.Release, release, StringComparison.OrdinalIgnoreCase ) );
+		IEnumerable<PlanIndexEntry> entries = release is null ?
+			_session.PlanIndex.Entries :
+			_session.PlanIndex.Entries.Where( x => string.Equals(
+					x.Release,
+					release,
+					StringComparison.OrdinalIgnoreCase
+				)
+			);
 
-		Dictionary<string, ProjectPlan> plans = new ( StringComparer.OrdinalIgnoreCase );
+		Dictionary<string, ProjectPlan> plans = new( StringComparer.OrdinalIgnoreCase );
 
 		foreach( PlanIndexEntry entry in entries )
 			plans[entry.Name] = ReadPlanDocument( entry ).ToModel();
@@ -79,13 +89,13 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 	public IEnumerable<string> GetPlanDependants( string name )
 		=> _session.PlanIndex.Entries
-					.Where( x => x.Dependencies.Contains( name, StringComparer.OrdinalIgnoreCase ) )
-					.Select( x => x.Name )
-					.ToArray();
+			.Where( x => x.Dependencies.Contains( name, StringComparer.OrdinalIgnoreCase ) )
+			.Select( x => x.Name )
+			.ToArray();
 
 	public void SetPlanDependencies( string name, IEnumerable<string> dependencies )
 	{
-		(PlanIndexEntry entry, string planFile, PlanDocument document) = RequirePlanDocument( name );
+		( PlanIndexEntry entry, string planFile, PlanDocument document ) = RequirePlanDocument( name );
 
 		_session.EnsureReleaseNotFinalized( entry.Release );
 
@@ -96,7 +106,12 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		_session.PlanIndex.Set( entry with { Dependencies = dependencyNames } );
 	}
 
-	public void AddStep( string plan, ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context )
+	public void AddStep(
+		string plan,
+		ObjectDefinition definition,
+		IEnumerable<string> dependencies,
+		ActionContext context
+	)
 	{
 		NameRules.Ensure( definition.Name, "Step" );
 
@@ -109,12 +124,18 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		JsonFiles.Write(
 			_session.Paths.StepFile( entry.Release, entry.Name, definition.Name ),
-			new StepDocument( definition.Name, definition.Description, dependencies.ToArray(), ActionDocument.From( context ) ) );
+			new StepDocument(
+				definition.Name,
+				definition.Description,
+				dependencies.ToArray(),
+				ActionDocument.From( context )
+			)
+		);
 	}
 
 	public void UpdateStep( string plan, ObjectDefinition definition )
 	{
-		(PlanIndexEntry entry, string stepFile, StepDocument document) = RequireStepDocument( plan, definition.Name );
+		( PlanIndexEntry entry, string stepFile, StepDocument document ) = RequireStepDocument( plan, definition.Name );
 
 		_session.EnsureReleaseNotFinalized( entry.Release );
 
@@ -132,7 +153,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	{
 		PlanIndexEntry entry = _session.RequirePlan( plan );
 
-		Dictionary<string, ProjectElement> steps = new ( StringComparer.OrdinalIgnoreCase );
+		Dictionary<string, ProjectElement> steps = new( StringComparer.OrdinalIgnoreCase );
 
 		foreach( StepDocument document in EnumerateStepDocuments( entry ) )
 			steps[document.Name] = document.ToModel( entry.Name );
@@ -149,21 +170,21 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		string? stepDirectory = FindStepDirectory( entry, name );
 
-		return stepDirectory is null
-			? null
-			: JsonFiles.Read<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) ).ToModel( entry.Name );
+		return stepDirectory is null ?
+			null :
+			JsonFiles.Read<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) ).ToModel( entry.Name );
 	}
 
 	public IEnumerable<string> GetStepDependencies( string plan, string name )
 	{
-		(_, _, StepDocument document) = RequireStepDocument( plan, name );
+		( _, _, StepDocument document ) = RequireStepDocument( plan, name );
 
 		return document.Dependencies;
 	}
 
 	public void SetStepDependencies( string plan, string name, IEnumerable<string> dependencies )
 	{
-		(PlanIndexEntry entry, string stepFile, StepDocument document) = RequireStepDocument( plan, name );
+		( PlanIndexEntry entry, string stepFile, StepDocument document ) = RequireStepDocument( plan, name );
 
 		_session.EnsureReleaseNotFinalized( entry.Release );
 
@@ -175,9 +196,9 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		PlanIndexEntry entry = _session.RequirePlan( plan );
 
 		return EnumerateStepDocuments( entry )
-				.Where( x => x.Dependencies.Contains( name, StringComparer.OrdinalIgnoreCase ) )
-				.Select( x => x.Name )
-				.ToArray();
+			.Where( x => x.Dependencies.Contains( name, StringComparer.OrdinalIgnoreCase ) )
+			.Select( x => x.Name )
+			.ToArray();
 	}
 
 	public void DeletePlan( string name )
@@ -210,9 +231,9 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	}
 
 	public bool ReleaseExists( string? name = null )
-		=> string.IsNullOrWhiteSpace( name )
-			? _session.Paths.EnumerateReleaseDirectories( string.Empty ).Any()
-			: _session.ReadRelease( name ) is not null;
+		=> string.IsNullOrWhiteSpace( name ) ?
+			_session.Paths.EnumerateReleaseDirectories( string.Empty ).Any() :
+			_session.ReadRelease( name ) is not null;
 
 	public IEnumerable<ProjectPlan> ListPlans( PlanSearchCriteria criteria )
 	{
@@ -227,7 +248,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 	public IEnumerable<ProjectRelease> ListReleases( ReleaseSearchCriteria criteria )
 	{
-		List<ProjectRelease> releases = [];
+		List<ProjectRelease> releases = [ ];
 
 		foreach( ReleaseDocument document in MatchReleaseDocuments( criteria ) )
 			releases.Add( document.ToModel() );
@@ -248,7 +269,14 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		JsonFiles.Write(
 			_session.Paths.ReleaseFile( definition.Name ),
-			new ReleaseDocument( definition.Name, definition.Description, dependency, ActionDocument.From( context ), null ) );
+			new ReleaseDocument(
+				definition.Name,
+				definition.Description,
+				dependency,
+				ActionDocument.From( context ),
+				null
+			)
+		);
 	}
 
 	public void DeleteRelease( string name )
@@ -262,7 +290,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		if( Directory.Exists( plansDirectory ) &&
 			Directory.EnumerateDirectories( plansDirectory )
-					.Any( x => File.Exists( Path.Combine( x, FileNames.PlanFile ) ) ) )
+				.Any( x => File.Exists( Path.Combine( x, FileNames.PlanFile ) ) ) )
 			throw new ProjectStoreException( $"Release '{document.Name}' still contains plans." );
 
 		Directory.Delete( _session.Paths.ReleaseDirectory( document.Name ), recursive: true );
@@ -279,7 +307,8 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		JsonFiles.Write(
 			Path.Combine( source, FileNames.ReleaseFile ),
-			document with { Finalized = ActionDocument.From( releaseContext ) } );
+			document with { Finalized = ActionDocument.From( releaseContext ) }
+		);
 
 		MoveToFinalizedLocation( document.Name, source );
 	}
@@ -295,7 +324,10 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		// a release named like its own shard finalizes into a child of its current folder,
 		// which Directory.Move cannot do directly; hop through a temporary sibling
-		if( ( target + Path.DirectorySeparatorChar ).StartsWith( source + Path.DirectorySeparatorChar, StringComparison.Ordinal ) )
+		if( ( target + Path.DirectorySeparatorChar ).StartsWith(
+				source + Path.DirectorySeparatorChar,
+				StringComparison.Ordinal
+			) )
 		{
 			string temporary = source + ".finalizing";
 
@@ -323,9 +355,9 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		string plansDirectory = _session.Paths.ReleasePlansDirectory( document.Name );
 
 		if( !Directory.Exists( plansDirectory ) )
-			return [];
+			return [ ];
 
-		List<ProjectElement> plans = [];
+		List<ProjectElement> plans = [ ];
 
 		foreach( string planDirectory in Directory.EnumerateDirectories( plansDirectory ) )
 		{
@@ -384,7 +416,9 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	/// </summary>
 	public void SetJournalingStatement( JournalingSlot slot, string statement )
 		=> AtomicFile.WriteAllText(
-			_session.Paths.JournalingStatementFile( slot ), statement.TrimEnd( '\r', '\n' ) + "\n" );
+			_session.Paths.JournalingStatementFile( slot ),
+			statement.TrimEnd( '\r', '\n' ) + "\n"
+		);
 
 	public void Dispose()
 	{
@@ -403,7 +437,8 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		JsonFiles.Write(
 			planFile,
-			JsonFiles.Read<PlanDocument>( planFile ) with { Release = toRelease, ReleaseAssignment = assignment } );
+			JsonFiles.Read<PlanDocument>( planFile ) with { Release = toRelease, ReleaseAssignment = assignment }
+		);
 
 		_session.PlanIndex.Set( entry with { Release = toRelease } );
 	}
@@ -417,19 +452,22 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		string planFile = _session.Paths.PlanFile( entry.Release, entry.Name );
 
-		return (entry, planFile, JsonFiles.Read<PlanDocument>( planFile ));
+		return ( entry, planFile, JsonFiles.Read<PlanDocument>( planFile ) );
 	}
 
-	private (PlanIndexEntry Entry, string StepFile, StepDocument Document) RequireStepDocument( string plan, string name )
+	private (PlanIndexEntry Entry, string StepFile, StepDocument Document) RequireStepDocument(
+		string plan,
+		string name
+	)
 	{
 		PlanIndexEntry entry = _session.RequirePlan( plan );
 
-		string? stepDirectory = FindStepDirectory( entry, name )
-								?? throw new ProjectStoreException( $"Step '{name}' of plan '{plan}' does not exist." );
+		string? stepDirectory = FindStepDirectory( entry, name ) ??
+								throw new ProjectStoreException( $"Step '{name}' of plan '{plan}' does not exist." );
 
 		string stepFile = Path.Combine( stepDirectory, FileNames.StepFile );
 
-		return (entry, stepFile, JsonFiles.Read<StepDocument>( stepFile ));
+		return ( entry, stepFile, JsonFiles.Read<StepDocument>( stepFile ) );
 	}
 
 	// a directory only counts as a step once step.json exists; scripts may be written
@@ -442,9 +480,9 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 			return null;
 
 		return Directory.EnumerateDirectories( stepsDirectory )
-						.FirstOrDefault(
-							x => string.Equals( Path.GetFileName( x ), step, StringComparison.OrdinalIgnoreCase ) &&
-								File.Exists( Path.Combine( x, FileNames.StepFile ) ) );
+			.FirstOrDefault( x => string.Equals( Path.GetFileName( x ), step, StringComparison.OrdinalIgnoreCase ) &&
+								File.Exists( Path.Combine( x, FileNames.StepFile ) )
+			);
 	}
 
 	private IEnumerable<StepDocument> EnumerateStepDocuments( PlanIndexEntry entry )
@@ -456,7 +494,8 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		foreach( string stepDirectory in Directory.EnumerateDirectories( stepsDirectory ) )
 		{
-			StepDocument? document = JsonFiles.TryRead<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) );
+			StepDocument? document =
+				JsonFiles.TryRead<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) );
 
 			if( document is not null )
 				yield return document;
@@ -472,17 +511,21 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	private IEnumerable<ReleaseDocument> MatchReleaseDocuments( ReleaseSearchCriteria criteria )
 	{
 		// a finalize window or finalize user only makes sense against finalized releases
-		bool finalized = criteria.Finalized || criteria.FinalizeTimestamp is not null || criteria.FinalizeUser is not null;
+		bool finalized = criteria.Finalized ||
+						criteria.FinalizeTimestamp is not null ||
+						criteria.FinalizeUser is not null;
 
 		foreach( ReleaseDocument document in EnumerateReleaseDocuments( criteria.Prefix ) )
 		{
 			if( finalized != document.Finalized is not null )
 				continue;
 
-			if( criteria.CreateTimestamp is not null && !document.Registration.Timestamp.IsWithin( criteria.CreateTimestamp ) )
+			if( criteria.CreateTimestamp is not null &&
+				!document.Registration.Timestamp.IsWithin( criteria.CreateTimestamp ) )
 				continue;
 
-			if( criteria.FinalizeTimestamp is not null && !document.Finalized!.Timestamp.IsWithin( criteria.FinalizeTimestamp ) )
+			if( criteria.FinalizeTimestamp is not null &&
+				!document.Finalized!.Timestamp.IsWithin( criteria.FinalizeTimestamp ) )
 				continue;
 
 			if( !MatchesUser( document.Registration, criteria.CreateUser ) )
@@ -497,7 +540,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 	private IEnumerable<ProjectPlan> ListUnreleasedPlans( PlanSearchCriteria criteria )
 	{
-		List<ProjectPlan> plans = [];
+		List<ProjectPlan> plans = [ ];
 
 		foreach( PlanIndexEntry entry in _session.PlanIndex.Entries.Where( x => x.Release.Length == 0 ) )
 		{
@@ -524,7 +567,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	/// </summary>
 	private IEnumerable<ProjectPlan> ListReleasedPlans( PlanSearchCriteria criteria )
 	{
-		List<ReleaseDocument> releases = [];
+		List<ReleaseDocument> releases = [ ];
 
 		if( criteria.ReleaseFinalizeTimestamp is null )
 		{
@@ -534,9 +577,12 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		}
 		else
 			releases.AddRange(
-				MatchReleaseDocuments( new ReleaseSearchCriteria( FinalizeTimestamp: criteria.ReleaseFinalizeTimestamp ) ) );
+				MatchReleaseDocuments(
+					new ReleaseSearchCriteria( FinalizeTimestamp: criteria.ReleaseFinalizeTimestamp )
+				)
+			);
 
-		List<ProjectPlan> plans = [];
+		List<ProjectPlan> plans = [ ];
 
 		foreach( ReleaseDocument release in OrderReleasesChronologically( releases ) )
 			plans.AddRange( ListPlansOfRelease( release.Name, criteria ) );
@@ -548,14 +594,15 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	{
 		string plansDirectory = _session.Paths.ReleasePlansDirectory( release );
 
-		List<ProjectPlan> plans = [];
+		List<ProjectPlan> plans = [ ];
 
 		if( !Directory.Exists( plansDirectory ) )
 			return plans;
 
 		foreach( string planDirectory in Directory.EnumerateDirectories( plansDirectory ) )
 		{
-			PlanDocument? document = JsonFiles.TryRead<PlanDocument>( Path.Combine( planDirectory, FileNames.PlanFile ) );
+			PlanDocument? document =
+				JsonFiles.TryRead<PlanDocument>( Path.Combine( planDirectory, FileNames.PlanFile ) );
 
 			if( document is not null && MatchesUser( document.Registration, criteria.CreateUser ) )
 				plans.Add( document.ToModel() );
@@ -571,30 +618,32 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	/// </summary>
 	private static IEnumerable<ReleaseDocument> OrderReleasesChronologically( List<ReleaseDocument> releases )
 	{
-		Dictionary<string, ReleaseDocument> byName = new ( StringComparer.OrdinalIgnoreCase );
+		Dictionary<string, ReleaseDocument> byName = new( StringComparer.OrdinalIgnoreCase );
 
 		foreach( ReleaseDocument release in releases )
 			byName[release.Name] = release;
 
 		List<ReleaseDocument> pending = releases
-										.OrderBy( x => x.Registration.Timestamp )
-										.ThenBy( x => x.Name, StringComparer.OrdinalIgnoreCase )
-										.ToList();
+			.OrderBy( x => x.Registration.Timestamp )
+			.ThenBy( x => x.Name, StringComparer.OrdinalIgnoreCase )
+			.ToList();
 
-		HashSet<string> emitted = new ( StringComparer.OrdinalIgnoreCase );
-		List<ReleaseDocument> ordered = [];
+		HashSet<string> emitted = new( StringComparer.OrdinalIgnoreCase );
+		List<ReleaseDocument> ordered = [ ];
 
 		while( pending.Count > 0 )
 		{
 			// emit the earliest-registered release whose in-set dependency was emitted, so
 			// this grouping agrees with the business layer's release ordering semantics
-			int ready = pending.FindIndex(
-				x => x.Dependency.Length == 0 || !byName.ContainsKey( x.Dependency ) || emitted.Contains( x.Dependency ) );
+			int ready = pending.FindIndex( x =>
+				x.Dependency.Length == 0 || !byName.ContainsKey( x.Dependency ) || emitted.Contains( x.Dependency )
+			);
 
 			// dependency cycle: emit the remainder in timestamp order rather than failing
 			if( ready < 0 )
 			{
 				ordered.AddRange( pending );
+
 				break;
 			}
 

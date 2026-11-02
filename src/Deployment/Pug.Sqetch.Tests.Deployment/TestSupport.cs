@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text;
+
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
@@ -28,29 +29,29 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 	/// Assert against this only where the interleaving or the transaction boundaries are the
 	/// subject of the test.
 	/// </summary>
-	public List<string> Events { get; } = [];
+	public List<string> Events { get; } = [ ];
 
 	/// <summary>
 	/// Step scripts of committed transactions, in the order they ran — what the database kept.
 	/// </summary>
-	public List<string> AppliedScripts { get; } = [];
+	public List<string> AppliedScripts { get; } = [ ];
 
 	/// <summary>Scripts whose execution should fail.</summary>
-	public HashSet<string> FailingScripts { get; } = [];
+	public HashSet<string> FailingScripts { get; } = [ ];
 
 	/// <summary>Journaling statements whose execution should fail, by exact statement text.</summary>
-	public HashSet<string> FailingJournalingStatements { get; } = [];
+	public HashSet<string> FailingJournalingStatements { get; } = [ ];
 
 	/// <summary>Journaling queries whose execution should fail, by exact query text.</summary>
-	public HashSet<string> FailingJournalingQueries { get; } = [];
+	public HashSet<string> FailingJournalingQueries { get; } = [ ];
 
-	public List<FakeTransaction> Transactions { get; } = [];
+	public List<FakeTransaction> Transactions { get; } = [ ];
 
 	/// <summary>
 	/// Canned result sets for <see cref="FakeTransaction.ExecuteJournalingQuery"/>, keyed by the exact
 	/// query text. A test seeds one per query slot's SQL before exercising <c>StatementJournal</c>.
 	/// </summary>
-	public Dictionary<string, DataTable> QueryResults { get; } = new ();
+	public Dictionary<string, DataTable> QueryResults { get; } = new();
 
 	/// <summary>
 	/// Interprets the marker journaling statements a deployment runs, so the durable journal state
@@ -64,7 +65,7 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 
 	public IDatabaseTransaction BeginTransaction()
 	{
-		FakeTransaction transaction = new ( this, Transactions.Count + 1 );
+		FakeTransaction transaction = new( this, Transactions.Count + 1 );
 
 		Transactions.Add( transaction );
 		Events.Add( $"begin #{transaction.Number}" );
@@ -82,7 +83,7 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 
 public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : IDatabaseTransaction
 {
-	private readonly List<Action> _onCommit = [];
+	private readonly List<Action> _onCommit = [ ];
 
 	/// <summary>The driver this transaction was begun on — a test seeds canned query results here.</summary>
 	public FakeDatabaseDriver Driver { get; } = driver;
@@ -97,20 +98,20 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 	/// The journal entries written in this transaction, so a test can assert what became durable
 	/// together — notably that a release's completion shares its last plan's transaction.
 	/// </summary>
-	public List<string> Journaled { get; } = [];
+	public List<string> Journaled { get; } = [ ];
 
 	/// <summary>
 	/// Every journaling statement and query this transaction executed, paired with the parameters it
 	/// was called with — so a test can assert exact <c>(statement, parameters)</c> pairs without
 	/// parsing <see cref="FakeDatabaseDriver.Events"/> strings.
 	/// </summary>
-	public List<(string Statement, IReadOnlyList<JournalingParameter> Parameters)> JournalingCalls { get; } = [];
+	public List<(string Statement, IReadOnlyList<JournalingParameter> Parameters)> JournalingCalls { get; } = [ ];
 
 	/// <summary>
 	/// Every reader <see cref="ExecuteJournalingQuery"/> handed out, in order — so a test can assert
 	/// the caller disposed it.
 	/// </summary>
-	public List<IDataReader> QueryReaders { get; } = [];
+	public List<IDataReader> QueryReaders { get; } = [ ];
 
 	/// <summary>Registers state this transaction makes durable when, and only when, it commits.</summary>
 	public void OnCommit( Action apply ) => _onCommit.Add( apply );
@@ -126,7 +127,7 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 
 	public void ExecuteJournalingStatement( string statement, IReadOnlyList<JournalingParameter> parameters )
 	{
-		JournalingCalls.Add( (statement, parameters) );
+		JournalingCalls.Add( ( statement, parameters ) );
 		driver.Events.Add( $"journal-statement #{Number} {statement} [{Format( parameters )}]" );
 
 		if( driver.FailingJournalingStatements.Contains( statement ) )
@@ -137,7 +138,7 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 
 	public IDataReader ExecuteJournalingQuery( string query, IReadOnlyList<JournalingParameter> parameters )
 	{
-		JournalingCalls.Add( (query, parameters) );
+		JournalingCalls.Add( ( query, parameters ) );
 		driver.Events.Add( $"journal-query #{Number} {query} [{Format( parameters )}]" );
 
 		if( driver.FailingJournalingQueries.Contains( query ) )
@@ -162,8 +163,10 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 	private static string Format( IReadOnlyList<JournalingParameter> parameters )
 		=> string.Join(
 			", ",
-			parameters.Select(
-				p => $"{p.Name}={( p.Value is DateTime time ? $"<{time.Kind.ToString().ToLowerInvariant()}>" : p.Value )}" ) );
+			parameters.Select( p =>
+				$"{p.Name}={( p.Value is DateTime time ? $"<{time.Kind.ToString().ToLowerInvariant()}>" : p.Value )}"
+			)
+		);
 
 	public void Rollback()
 	{
@@ -190,7 +193,7 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 
 public sealed class RecordingListener : IDeploymentListener
 {
-	public List<string> Events { get; } = [];
+	public List<string> Events { get; } = [ ];
 
 	public void ContinuingFrom( string release ) => Events.Add( $"continuing {release}" );
 
@@ -202,9 +205,11 @@ public sealed class RecordingListener : IDeploymentListener
 
 	public void DeployingPlan( string release, string plan ) => Events.Add( $"plan {release}/{plan}" );
 
-	public void DeployingStep( string release, string plan, string step ) => Events.Add( $"step {release}/{plan}/{step}" );
+	public void DeployingStep( string release, string plan, string step ) =>
+		Events.Add( $"step {release}/{plan}/{step}" );
 
-	public void StepDeployed( string release, string plan, string step ) => Events.Add( $"step-done {release}/{plan}/{step}" );
+	public void StepDeployed( string release, string plan, string step ) =>
+		Events.Add( $"step-done {release}/{plan}/{step}" );
 
 	public void PlanDeployed( string release, string plan ) => Events.Add( $"plan-done {release}/{plan}" );
 
@@ -237,19 +242,19 @@ public sealed class FakeJournal
 
 	public JournaledRelease? Latest { get; set; }
 
-	public Dictionary<string, List<string>> DeployedPlans { get; } = [];
+	public Dictionary<string, List<string>> DeployedPlans { get; } = [ ];
 
 	/// <summary>
 	/// Releases whose <em>start</em> was journaled, in order. A release deployment resumes into is
 	/// absent: the run that began it recorded that already.
 	/// </summary>
-	public List<string> StartedReleases { get; } = [];
+	public List<string> StartedReleases { get; } = [ ];
 
 	public static string Marker( JournalingSlot slot ) => $"{Prefix}{slot}";
 
 	/// <summary>Marker SQL for every slot — what a test bundles.</summary>
 	public static JournalingStatements Statements()
-		=> new ( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Marker( slot ) ) );
+		=> new( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Marker( slot ) ) );
 
 	/// <summary>
 	/// Answers the two query slots from the seeded state and starts interpreting the statements the
@@ -259,7 +264,7 @@ public sealed class FakeJournal
 	{
 		driver.Journal = this;
 
-		DataTable latest = new ();
+		DataTable latest = new();
 
 		latest.Columns.Add( "release", typeof(string) );
 		latest.Columns.Add( "completed", typeof(bool) );
@@ -269,7 +274,7 @@ public sealed class FakeJournal
 
 		driver.QueryResults[Marker( JournalingSlot.GetLatestRelease )] = latest;
 
-		DataTable plans = new ();
+		DataTable plans = new();
 
 		plans.Columns.Add( "plan", typeof(string) );
 
@@ -283,7 +288,10 @@ public sealed class FakeJournal
 	}
 
 	internal void Observe(
-		string statement, IReadOnlyList<JournalingParameter> parameters, FakeTransaction transaction )
+		string statement,
+		IReadOnlyList<JournalingParameter> parameters,
+		FakeTransaction transaction
+	)
 	{
 		if( !statement.StartsWith( Prefix, StringComparison.Ordinal ) )
 			return;
@@ -299,40 +307,41 @@ public sealed class FakeJournal
 		// the entry shows exactly the identity the slot carries, so a slot with no release — the
 		// journal's own schema — is not recorded as one with a blank release
 		IReadOnlyList<string> carries =
-			JournalingSlots.TryParse( slot, out JournalingSlot parsed ) ? JournalingSlots.ParameterNames( parsed ) : [];
+			JournalingSlots.TryParse( slot, out JournalingSlot parsed ) ?
+				JournalingSlots.ParameterNames( parsed ) : [ ];
 
 		transaction.Journaled.Add(
 			carries.Contains( JournalingSlots.Parameters.Step ) ? $"{slot} {release}/{plan}/{step}"
 			: carries.Contains( JournalingSlots.Parameters.Plan ) ? $"{slot} {release}/{plan}"
 			: carries.Contains( JournalingSlots.Parameters.Release ) ? $"{slot} {release}"
-			: slot );
+			: slot
+		);
 
 		switch( slot )
 		{
 			case nameof(JournalingSlot.DeployingRelease):
-				transaction.OnCommit(
-					() =>
-					{
+				transaction.OnCommit( () => {
 						StartedReleases.Add( release );
 						Latest = new JournaledRelease( release, Completed: false );
-					} );
+					}
+				);
 
-				break;
+			break;
 
 			case nameof(JournalingSlot.ReleaseDeployed):
 				transaction.OnCommit( () => Latest = new JournaledRelease( release, Completed: true ) );
 
-				break;
+			break;
 
 			case nameof(JournalingSlot.PlanDeployed):
 				transaction.OnCommit( () => Plans( release ).Add( plan ) );
 
-				break;
+			break;
 		}
 	}
 
 	private List<string> Plans( string release )
-		=> DeployedPlans.TryGetValue( release, out List<string>? plans ) ? plans : DeployedPlans[release] = [];
+		=> DeployedPlans.TryGetValue( release, out List<string>? plans ) ? plans : DeployedPlans[release] = [ ];
 }
 
 /// <summary>
@@ -341,7 +350,7 @@ public sealed class FakeJournal
 /// </summary>
 public sealed class InMemoryScripts : IScriptContentReader
 {
-	private readonly Dictionary<(string Plan, string Step, bool Rollback), string> _scripts = new ();
+	private readonly Dictionary<(string Plan, string Step, bool Rollback), string> _scripts = new();
 
 	private readonly Func<string, string, string> _deploy;
 
@@ -354,18 +363,18 @@ public sealed class InMemoryScripts : IScriptContentReader
 	}
 
 	/// <summary>The releases asked about, one entry per script read, in order.</summary>
-	public List<string> Releases { get; } = [];
+	public List<string> Releases { get; } = [ ];
 
 	public InMemoryScripts Deploy( string plan, string step, string script )
 	{
-		_scripts[(plan, step, false)] = script;
+		_scripts[( plan, step, false )] = script;
 
 		return this;
 	}
 
 	public InMemoryScripts Rollback( string plan, string step, string script )
 	{
-		_scripts[(plan, step, true)] = script;
+		_scripts[( plan, step, true )] = script;
 
 		return this;
 	}
@@ -374,14 +383,14 @@ public sealed class InMemoryScripts : IScriptContentReader
 	{
 		Releases.Add( release );
 
-		return _scripts.TryGetValue( (plan, step, false), out string? script ) ? script : _deploy( plan, step );
+		return _scripts.TryGetValue( ( plan, step, false ), out string? script ) ? script : _deploy( plan, step );
 	}
 
 	public string ReadRollbackScript( string release, string plan, string step )
 	{
 		Releases.Add( release );
 
-		return _scripts.TryGetValue( (plan, step, true), out string? script ) ? script : _rollback( plan, step );
+		return _scripts.TryGetValue( ( plan, step, true ), out string? script ) ? script : _rollback( plan, step );
 	}
 }
 
@@ -397,23 +406,33 @@ public static class Lineages
 
 	public sealed record PlanEntry( string Release, DeployablePlan Plan );
 
-	public static ReleaseEntry Release( string name, string dependency = "" ) => new ( name, dependency );
+	public static ReleaseEntry Release( string name, string dependency = "" ) => new( name, dependency );
 
 	public static PlanEntry Plan( string name, string release, params string[] steps )
-		=> new ( release, new DeployablePlan( name, "", steps.Select( step => new DeployableStep( step, "" ) ).ToList() ) );
+		=> new(
+			release,
+			new DeployablePlan( name, "", steps.Select( step => new DeployableStep( step, "" ) ).ToList() )
+		);
 
 	public static IReadOnlyList<ReleaseGroup> Lineage(
-		IReadOnlyList<ReleaseEntry> releases, IReadOnlyList<PlanEntry> plans )
+		IReadOnlyList<ReleaseEntry> releases,
+		IReadOnlyList<PlanEntry> plans
+	)
 	{
 		List<ReleaseGroup> groups = releases
-									.Select( release => new ReleaseGroup(
-												release.Name, "", release.Dependency,
-												plans.Where( plan => plan.Release == release.Name )
-													.Select( plan => plan.Plan )
-													.ToList() ) )
-									.ToList();
+			.Select( release => new ReleaseGroup(
+					release.Name,
+					"",
+					release.Dependency,
+					plans.Where( plan => plan.Release == release.Name )
+						.Select( plan => plan.Plan )
+						.ToList()
+				)
+			)
+			.ToList();
 
-		List<DeployablePlan> unreleased = plans.Where( plan => plan.Release.Length == 0 ).Select( plan => plan.Plan ).ToList();
+		List<DeployablePlan> unreleased =
+			plans.Where( plan => plan.Release.Length == 0 ).Select( plan => plan.Plan ).ToList();
 
 		if( unreleased.Count > 0 )
 			groups.Add( new ReleaseGroup( "", "", releases.Count > 0 ? releases[^1].Name : "", unreleased ) );

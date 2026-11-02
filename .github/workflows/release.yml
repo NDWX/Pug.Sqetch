@@ -19,7 +19,7 @@ on:
       product:
         description: Product to build
         type: choice
-        options: [sqetch, sqetch-deploy]
+        options: [ sqetch, sqetch-deploy ]
         required: true
 
 permissions:
@@ -176,11 +176,11 @@ jobs:
   # few minutes; the timeout is there so that a hung installer fails the run instead of holding it for
   # GitHub's six hours.
   smoke-linux:
-    needs: [identify, linux]
+    needs: [ identify, linux ]
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -196,11 +196,11 @@ jobs:
         run: pwsh Installers/build/build.ps1 -Stage smoke-image -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
   smoke-windows:
-    needs: [identify, windows]
+    needs: [ identify, windows ]
     strategy:
       fail-fast: false
       matrix:
-        runner: [windows-latest, windows-11-arm]
+        runner: [ windows-latest, windows-11-arm ]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -213,11 +213,11 @@ jobs:
       - run: ./Installers/build/build.ps1 -Stage smoke -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
   smoke-macos:
-    needs: [identify, macos]
+    needs: [ identify, macos ]
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-latest, macos-15-intel]
+        runner: [ macos-latest, macos-15-intel ]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -230,7 +230,7 @@ jobs:
       - run: pwsh Installers/build/build.ps1 -Stage smoke -Product '${{ needs.identify.outputs.product }}' -Version '${{ needs.identify.outputs.version }}'
 
   smoke-tool:
-    needs: [identify, tool]
+    needs: [ identify, tool ]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -249,7 +249,7 @@ jobs:
   # required reviewers can gate it.
   nuget:
     if: github.event_name == 'push' && needs.identify.outputs.release == 'true'
-    needs: [identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool]
+    needs: [ identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool ]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -279,7 +279,7 @@ jobs:
   # test and smoke job and runs in the 'release' environment.
   image:
     if: github.event_name == 'push' && needs.identify.outputs.release == 'true' && needs.identify.outputs.image == 'true'
-    needs: [identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool]
+    needs: [ identify, test, smoke-linux, smoke-windows, smoke-macos, smoke-tool ]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -316,7 +316,7 @@ jobs:
     if: >-
       !cancelled() && github.event_name == 'push' && needs.identify.outputs.release == 'true' &&
       needs.nuget.result == 'success' && contains( fromJSON( '["success", "skipped"]' ), needs.image.result )
-    needs: [identify, nuget, image]
+    needs: [ identify, nuget, image ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

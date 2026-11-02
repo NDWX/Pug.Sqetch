@@ -18,7 +18,7 @@ public sealed class BundleScriptContentReader( IBundleReader reader, IBundleLayo
 	private string Read( string plan, string step, StepScriptKind kind )
 	{
 		using Stream entry = reader.Open( layout.ScriptPath( plan, step, kind ) );
-		using StreamReader content = new ( entry );
+		using StreamReader content = new( entry );
 
 		return content.ReadToEnd();
 	}

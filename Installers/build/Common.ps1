@@ -16,20 +16,20 @@ $script:RepoRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '../..' ) ).Path
 # also ships as a container image (Image.ps1).
 $script:Products = [ordered]@{
 	'sqetch' = [pscustomobject]@{
-		Name        = 'sqetch'
-		TagName     = 'sqetch'
-		Project     = 'src/Cli/Planning/Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj'
-		PackageId   = 'Pug.Sqetch.Cli'
+		Name = 'sqetch'
+		TagName = 'sqetch'
+		Project = 'src/Cli/Planning/Pug.Sqetch.Planning.Cli/Pug.Sqetch.Planning.Cli.csproj'
+		PackageId = 'Pug.Sqetch.Cli'
 		Description = 'Sqetch: author database schema changes as plans and group them into releases'
-		Image       = $false
+		Image = $false
 	}
 	'sqetch-deploy' = [pscustomobject]@{
-		Name        = 'sqetch-deploy'
-		TagName     = 'sqetch_deploy'
-		Project     = 'src/Cli/Deployment/Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj'
-		PackageId   = 'Pug.Sqetch.Deployment.Cli'
+		Name = 'sqetch-deploy'
+		TagName = 'sqetch_deploy'
+		Project = 'src/Cli/Deployment/Pug.Sqetch.Deployment.Cli/Pug.Sqetch.Deployment.Cli.csproj'
+		PackageId = 'Pug.Sqetch.Deployment.Cli'
 		Description = 'Sqetch deploy: bundle Sqetch projects and deploy the bundles to a database through pluggable database drivers'
-		Image       = $true
+		Image = $true
 	}
 }
 
@@ -56,12 +56,12 @@ $script:ProjectUrl = 'https://github.com/NDWX/Pug.Sqetch'
 
 # every RID a release has an archive for, and the platform mise calls it
 $script:MisePlatforms = [ordered]@{
-	'linux-x64'   = 'linux-x64'
+	'linux-x64' = 'linux-x64'
 	'linux-arm64' = 'linux-arm64'
-	'osx-x64'     = 'macos-x64'
-	'osx-arm64'   = 'macos-arm64'
-	'win-x64'     = 'windows-x64'
-	'win-arm64'   = 'windows-arm64'
+	'osx-x64' = 'macos-x64'
+	'osx-arm64' = 'macos-arm64'
+	'win-x64' = 'windows-x64'
+	'win-arm64' = 'windows-arm64'
 }
 
 $script:DockerViaSg = $false
@@ -73,7 +73,7 @@ $script:DockerViaSg = $false
 function Invoke-Native
 {
 	param(
-		[Parameter( Mandatory )] [string] $FilePath,
+		[Parameter(Mandatory)] [string] $FilePath,
 		[string[]] $Arguments = @(),
 		[switch] $Capture,
 		[switch] $PassThru,
@@ -87,7 +87,7 @@ function Invoke-Native
 		return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
 	}
 
-	Write-Host "> $FilePath $( ( $Arguments | ForEach-Object { $Secret -contains $_ ? '***' : $_ } ) -join ' ' )"
+	Write-Host "> $FilePath $(( $Arguments | ForEach-Object { $Secret -contains $_ ? '***' : $_ } ) -join ' ')"
 
 	if( $Capture )
 	{
@@ -112,7 +112,7 @@ function Invoke-Native
 # Docker, or 'sg docker -c' where the shell predates the docker group membership (local runs).
 function Invoke-Docker
 {
-	param( [Parameter( Mandatory )] [string[]] $Arguments, [switch] $Capture, [switch] $PassThru )
+	param( [Parameter(Mandatory)] [string[]] $Arguments, [switch] $Capture, [switch] $PassThru )
 
 	if( -not $script:DockerViaSg )
 	{
@@ -126,13 +126,13 @@ function Invoke-Docker
 
 function Get-Product
 {
-	param( [Parameter( Mandatory )] [string] $Name )
+	param( [Parameter(Mandatory)] [string] $Name )
 
 	$product = $script:Products[$Name]
 
 	if( -not $product )
 	{
-		throw "unknown product '$Name'; expected one of: $( $script:Products.Keys -join ', ' )"
+		throw "unknown product '$Name'; expected one of: $($script:Products.Keys -join ', ')"
 	}
 
 	return $product
@@ -140,14 +140,14 @@ function Get-Product
 
 function Get-ProjectVersion
 {
-	param( [Parameter( Mandatory )] $Product )
+	param( [Parameter(Mandatory)] $Product )
 
-	[xml] $project = Get-Content -Raw ( Join-Path $script:RepoRoot $Product.Project )
+	[xml]$project = Get-Content -Raw ( Join-Path $script:RepoRoot $Product.Project )
 	$version = @( $project.Project.PropertyGroup | ForEach-Object { $_.SelectSingleNode( 'Version' ) } | Where-Object { $_ } )
 
 	if( $version.Count -ne 1 )
 	{
-		throw "$( $Product.Project ) must declare exactly one <Version>"
+		throw "$($Product.Project) must declare exactly one <Version>"
 	}
 
 	return $version[0].InnerText.Trim()
@@ -187,10 +187,10 @@ function Resolve-BuildIdentity
 
 		if( $baseVersion -ne $projectVersion )
 		{
-			throw "tag '$tag' names version $baseVersion but $( $product.Project ) declares $projectVersion"
+			throw "tag '$tag' names version $baseVersion but $($product.Project) declares $projectVersion"
 		}
 
-		$version = $prerelease ? "$baseVersion-pre.$( Get-BuildStamp )" : $baseVersion
+		$version = $prerelease ? "$baseVersion-pre.$(Get-BuildStamp)" : $baseVersion
 		$signed = $false
 
 		if( -not $prerelease )
@@ -199,11 +199,11 @@ function Resolve-BuildIdentity
 
 			if( $missing.Count -eq $script:SigningVariables.Count )
 			{
-				Write-BuildWarning "release tag '$tag' builds unsigned: no signing variables are set ($( $script:SigningVariables -join ', ' ))"
+				Write-BuildWarning "release tag '$tag' builds unsigned: no signing variables are set ($($script:SigningVariables -join ', '))"
 			}
 			elseif( $missing )
 			{
-				throw "release tag '$tag' has a partial signing configuration; these signing variables are not set: $( $missing -join ', ' ). Set all of them to sign, or none to build unsigned."
+				throw "release tag '$tag' has a partial signing configuration; these signing variables are not set: $($missing -join ', '). Set all of them to sign, or none to build unsigned."
 			}
 			else
 			{
@@ -220,7 +220,7 @@ function Resolve-BuildIdentity
 
 		$product = Get-Product $ProductName
 		$baseVersion = Get-ProjectVersion $product
-		$version = "$baseVersion-dev.$( Get-BuildStamp )"
+		$version = "$baseVersion-dev.$(Get-BuildStamp)"
 		$prerelease = $true
 		$signed = $false
 	}
@@ -231,7 +231,7 @@ function Resolve-BuildIdentity
 
 		if( $missing )
 		{
-			throw "tag '$tag' publishes to nuget.org, but these variables are not set: $( $missing -join ', ' )"
+			throw "tag '$tag' publishes to nuget.org, but these variables are not set: $($missing -join ', ')"
 		}
 
 		if( $product.Image )
@@ -240,21 +240,21 @@ function Resolve-BuildIdentity
 
 			if( $missing )
 			{
-				throw "tag '$tag' publishes a container image, but these variables are not set: $( $missing -join ', ' )"
+				throw "tag '$tag' publishes a container image, but these variables are not set: $($missing -join ', ')"
 			}
 		}
 	}
 
 	return [pscustomobject]@{
-		Product     = $product.Name
-		Project     = $product.Project
+		Product = $product.Name
+		Project = $product.Project
 		BaseVersion = $baseVersion
-		Version     = $version
-		Signed      = $signed
-		Prerelease  = $prerelease
-		Release     = [bool] $tag
-		Tag         = $tag ?? ''
-		Image       = $product.Image
+		Version = $version
+		Signed = $signed
+		Prerelease = $prerelease
+		Release = [bool]$tag
+		Tag = $tag ?? ''
+		Image = $product.Image
 	}
 }
 
@@ -262,8 +262,8 @@ function Resolve-BuildIdentity
 function New-BuildContext
 {
 	param(
-		[Parameter( Mandatory )] [string] $ProductName,
-		[Parameter( Mandatory )] [string] $Version,
+		[Parameter(Mandatory)] [string] $ProductName,
+		[Parameter(Mandatory)] [string] $Version,
 		[string] $ArtifactsDir,
 		[switch] $Sign
 	)
@@ -272,25 +272,25 @@ function New-BuildContext
 	$artifacts = $ArtifactsDir ? [IO.Path]::GetFullPath( $ArtifactsDir ) : ( Join-Path $script:RepoRoot 'artifacts' )
 
 	return [pscustomobject]@{
-		Product      = $product
-		Name         = $product.Name
-		Version      = $Version
-		BaseVersion  = ( $Version -split '-', 2 )[0]
-		Sign         = [bool] $Sign
-		RepoRoot     = $script:RepoRoot
-		ProjectPath  = Join-Path $script:RepoRoot $product.Project
+		Product = $product
+		Name = $product.Name
+		Version = $Version
+		BaseVersion = ( $Version -split '-', 2 )[0]
+		Sign = [bool]$Sign
+		RepoRoot = $script:RepoRoot
+		ProjectPath = Join-Path $script:RepoRoot $product.Project
 		ArtifactsDir = $artifacts
-		PublishRoot  = Join-Path $artifacts 'publish'
-		DistDir      = Join-Path $artifacts 'dist'
-		WorkDir      = Join-Path $artifacts 'work'
+		PublishRoot = Join-Path $artifacts 'publish'
+		DistDir = Join-Path $artifacts 'dist'
+		WorkDir = Join-Path $artifacts 'work'
 	}
 }
 
 function Get-PublishDir
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
-	return Join-Path $Context.PublishRoot "$( $Context.Name )-$Rid"
+	return Join-Path $Context.PublishRoot "$($Context.Name)-$Rid"
 }
 
 # The RID of the machine running the script; smoke tests run only what it can execute.
@@ -304,9 +304,9 @@ function Get-HostRid
 
 function Get-ExecutableName
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
-	return $Rid -like 'win-*' ? "$( $Context.Name ).exe" : $Context.Name
+	return $Rid -like 'win-*' ? "$($Context.Name).exe" : $Context.Name
 }
 
 function Get-NuGetPackagesRoot
@@ -324,7 +324,7 @@ function Get-NuGetPackagesRoot
 # The licence of the .NET runtime a self-contained publish embeds, from the runtime pack it used.
 function Get-RuntimePackDirectory
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$json = Invoke-Native -FilePath 'dotnet' -Capture -Arguments @(
 		'msbuild', $Context.ProjectPath, '-nologo', '-m:1', '-t:ProcessFrameworkReferences',
@@ -345,7 +345,7 @@ function Get-RuntimePackDirectory
 # the mapping between them, third-party notices and, when self-contained, the runtime's own.
 function Copy-DistributionDocs
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Destination, [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Destination, [string] $Rid )
 
 	$root = $Context.RepoRoot
 	$productDir = Split-Path -Parent $Context.ProjectPath
@@ -366,7 +366,7 @@ function Copy-DistributionDocs
 # Self-contained single-file publish (Installers/Publish.props) plus the licence texts.
 function Publish-Product
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$output = Get-PublishDir -Context $Context -Rid $Rid
 
@@ -377,7 +377,7 @@ function Publish-Product
 
 	Invoke-Native -FilePath 'dotnet' -Arguments @(
 		'publish', $Context.ProjectPath, '-m:1', '-nologo', '-c', 'Release', '-r', $Rid,
-		"-p:Version=$( $Context.Version )", '-o', $output )
+		"-p:Version=$($Context.Version)", '-o', $output )
 
 	Copy-DistributionDocs -Context $Context -Destination $output -Rid $Rid
 
@@ -388,10 +388,10 @@ function Publish-Product
 # The archive holds a top-level <name>-<version> folder.
 function New-Archive
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$publish = Get-PublishDir -Context $Context -Rid $Rid
-	$folder = "$( $Context.Name )-$( $Context.Version )"
+	$folder = "$($Context.Name)-$($Context.Version)"
 	$stage = Join-Path $Context.WorkDir "archive-$Rid"
 	$null = New-Item -ItemType Directory -Force -Path $Context.DistDir
 
@@ -419,29 +419,29 @@ function New-Archive
 
 function Get-ArchivePath
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$extension = $Rid -like 'win-*' ? 'zip' : 'tar.gz'
 
-	return Join-Path $Context.DistDir "$( $Context.Name )-$( $Context.Version )-$Rid.$extension"
+	return Join-Path $Context.DistDir "$($Context.Name)-$($Context.Version)-$Rid.$extension"
 }
 
 # The tag the workflow releases a build under, from the tag scheme above; $null for a development
 # build, which is not released.
 function Get-ReleaseTag
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$prefix = $Context.Product.TagName
 
 	if( $Context.Version -eq $Context.BaseVersion )
 	{
-		return "$prefix-v$( $Context.BaseVersion )"
+		return "$prefix-v$($Context.BaseVersion)"
 	}
 
 	if( $Context.Version -like '*-pre.*' )
 	{
-		return "$prefix-pre-v$( $Context.BaseVersion )"
+		return "$prefix-pre-v$($Context.BaseVersion)"
 	}
 
 	return $null
@@ -450,7 +450,7 @@ function Get-ReleaseTag
 # Where the workflow publishes a build's asset; a development build has no release.
 function Get-ReleaseAssetUrl
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $FileName )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $FileName )
 
 	$tag = Get-ReleaseTag -Context $Context
 
@@ -469,16 +469,16 @@ function Get-ReleaseAssetUrl
 # then lists it too.
 function New-MiseConfig
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$tag = Get-ReleaseTag -Context $Context
 
 	if( -not $tag )
 	{
-		throw "a development build ($( $Context.Version )) is not released, so it has no download URLs for mise"
+		throw "a development build ($($Context.Version)) is not released, so it has no download URLs for mise"
 	}
 
-	$archives = [ordered]@{}
+	$archives = [ordered]@{ }
 
 	foreach( $rid in $script:MisePlatforms.Keys )
 	{
@@ -489,21 +489,21 @@ function New-MiseConfig
 
 	if( $missing )
 	{
-		throw "the mise configuration needs every platform's archive; not in $( $Context.DistDir ): $( $missing -join ', ' )"
+		throw "the mise configuration needs every platform's archive; not in $($Context.DistDir): $($missing -join ', ')"
 	}
 
-	$tool = "`"http:$( $Context.Name )`""
+	$tool = "`"http:$($Context.Name)`""
 
 	$lines = @(
-		"# $( $Context.Name ) $( $Context.Version ) for mise (https://mise.jdx.dev), from the release"
+		"# $($Context.Name) $($Context.Version) for mise (https://mise.jdx.dev), from the release"
 		"# $script:ProjectUrl/releases/tag/$tag"
 		'#'
-		"# Save it in a repository as .config/mise/conf.d/$( $Context.Name ).toml and run 'mise install'."
+		"# Save it in a repository as .config/mise/conf.d/$($Context.Name).toml and run 'mise install'."
 		"# To change version, replace it with another release's file."
 		''
 		"[tools.$tool]"
-		"version = `"$( $Context.Version )`""
-		# each archive holds one <name>-<version> folder
+		"version = `"$($Context.Version)`""
+	# each archive holds one <name>-<version> folder
 		'strip_components = 1'
 		''
 		"[tools.$tool.platforms]" )
@@ -513,10 +513,10 @@ function New-MiseConfig
 		$url = Get-ReleaseAssetUrl -Context $Context -FileName ( Split-Path -Leaf $entry.Value )
 		$hash = ( Get-FileHash -Algorithm SHA256 -LiteralPath $entry.Value ).Hash.ToLowerInvariant()
 
-		$lines += "$( $script:MisePlatforms[$entry.Key] ) = { url = `"$url`", checksum = `"sha256:$hash`" }"
+		$lines += "$($script:MisePlatforms[$entry.Key]) = { url = `"$url`", checksum = `"sha256:$hash`" }"
 	}
 
-	$path = Join-Path $Context.DistDir "$( $Context.Name )-$( $Context.Version ).mise.toml"
+	$path = Join-Path $Context.DistDir "$($Context.Name)-$($Context.Version).mise.toml"
 	[IO.File]::WriteAllText( $path, ( $lines -join "`n" ) + "`n" )
 
 	return $path
@@ -529,7 +529,7 @@ function New-MiseConfig
 # The local invoker runs in a fresh working directory, which it creates.
 function New-LocalInvoker
 {
-	param( [Parameter( Mandatory )] [string] $Command, [Parameter( Mandatory )] [string] $WorkingDirectory )
+	param( [Parameter(Mandatory)] [string] $Command, [Parameter(Mandatory)] [string] $WorkingDirectory )
 
 	$null = New-Item -ItemType Directory -Force -Path $WorkingDirectory
 
@@ -556,7 +556,7 @@ function New-LocalInvoker
 # container, as the container's user.
 function New-ContainerInvoker
 {
-	param( [Parameter( Mandatory )] [string] $Container, [Parameter( Mandatory )] [string] $Command )
+	param( [Parameter(Mandatory)] [string] $Container, [Parameter(Mandatory)] [string] $Command )
 
 	$null = Invoke-Docker -Arguments @( 'exec', $Container, 'mkdir', '-p', '/smoke/work' )
 
@@ -573,23 +573,23 @@ function New-ContainerInvoker
 function Assert-Invocation
 {
 	param(
-		[Parameter( Mandatory )] [scriptblock] $Invoke,
-		[Parameter( Mandatory )] [string[]] $Arguments,
+		[Parameter(Mandatory)] [scriptblock] $Invoke,
+		[Parameter(Mandatory)] [string[]] $Arguments,
 		[int] $ExitCode = 0,
 		[string] $Expect
 	)
 
 	$result = & $Invoke $Arguments
-	Write-Host "  $( $Arguments -join ' ' ) -> $( $result.ExitCode )"
+	Write-Host "  $($Arguments -join ' ') -> $($result.ExitCode)"
 
 	if( $result.ExitCode -ne $ExitCode )
 	{
-		throw "'$( $Arguments -join ' ' )' exited with $( $result.ExitCode ), expected $ExitCode`n$( $result.Output )"
+		throw "'$($Arguments -join ' ')' exited with $($result.ExitCode), expected $ExitCode`n$($result.Output)"
 	}
 
 	if( $Expect -and $result.Output -notmatch $Expect )
 	{
-		throw "'$( $Arguments -join ' ' )' printed no match for '$Expect'`n$( $result.Output )"
+		throw "'$($Arguments -join ' ')' printed no match for '$Expect'`n$($result.Output)"
 	}
 
 	return $result
@@ -601,13 +601,13 @@ function Assert-Invocation
 function Test-ProductCommands
 {
 	param(
-		[Parameter( Mandatory )] $Context,
-		[Parameter( Mandatory )] [scriptblock] $Invoke,
+		[Parameter(Mandatory)] $Context,
+		[Parameter(Mandatory)] [scriptblock] $Invoke,
 		[string] $BundlePath = ( Join-Path $script:RepoRoot 'Installers/smoke/bundle' ),
 		[string] $ProjectPath = ( Join-Path $script:RepoRoot 'Installers/smoke/project' )
 	)
 
-	$null = Assert-Invocation -Invoke $Invoke -Arguments @( '--version' ) -Expect "^$( [regex]::Escape( $Context.Version ) )\s*$"
+	$null = Assert-Invocation -Invoke $Invoke -Arguments @( '--version' ) -Expect "^$([regex]::Escape( $Context.Version ))\s*$"
 
 	switch( $Context.Name )
 	{
@@ -633,19 +633,19 @@ function Test-ProductCommands
 			# bundling reads the committed project, which needs no project user, and what it writes
 			# deploys; the output name is fresh because a bundle refuses an existing target, and a
 			# working directory can outlive one run
-			$bundled = "smoke-bundle-$( [Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ) )"
+			$bundled = "smoke-bundle-$([Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ))"
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'bundle', '--project', $ProjectPath, '-t', 'directory', '-o', $bundled )
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'deploy', $bundled, '--driver', 'sqlite', '--sqlite-file', 'bundled.db' ) -Expect 'bundle built by sqetch-deploy'
 		}
 	}
 
-	Write-Host "smoke checks passed for $( $Context.Name ) $( $Context.Version )"
+	Write-Host "smoke checks passed for $($Context.Name) $($Context.Version)"
 }
 
 # Extracts the host RID's archive and runs the checks on the binary inside.
 function Test-Archive
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$archive = Get-ArchivePath -Context $Context -Rid $Rid
 	$target = Join-Path $Context.WorkDir "smoke-archive-$Rid"
@@ -666,7 +666,7 @@ function Test-Archive
 		Invoke-Native -FilePath 'tar' -Arguments @( '-xzf', $archive, '-C', $target )
 	}
 
-	$binary = Join-Path ( Join-Path $target "$( $Context.Name )-$( $Context.Version )" ) ( Get-ExecutableName -Context $Context -Rid $Rid )
+	$binary = Join-Path ( Join-Path $target "$($Context.Name)-$($Context.Version)" ) ( Get-ExecutableName -Context $Context -Rid $Rid )
 	$invoke = New-LocalInvoker -Command $binary -WorkingDirectory ( Join-Path $target 'work' )
 
 	Test-ProductCommands -Context $Context -Invoke $invoke
@@ -675,18 +675,18 @@ function Test-Archive
 # The framework-dependent dotnet tool package (PackAsTool in the host's project).
 function New-ToolPackage
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	Invoke-Native -FilePath 'dotnet' -Arguments @(
 		'pack', $Context.ProjectPath, '-m:1', '-nologo', '-c', 'Release',
-		"-p:Version=$( $Context.Version )", '-o', $Context.DistDir )
+		"-p:Version=$($Context.Version)", '-o', $Context.DistDir )
 
-	return Join-Path $Context.DistDir "$( $Context.Product.PackageId ).$( $Context.Version ).nupkg"
+	return Join-Path $Context.DistDir "$($Context.Product.PackageId).$($Context.Version).nupkg"
 }
 
 function Test-ToolPackage
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$toolPath = Join-Path $Context.WorkDir 'smoke-tool'
 
@@ -699,7 +699,7 @@ function Test-ToolPackage
 		'tool', 'install', $Context.Product.PackageId, '--version', $Context.Version,
 		'--tool-path', $toolPath, '--add-source', $Context.DistDir, '--ignore-failed-sources' )
 
-	$command = Join-Path $toolPath ( $IsWindows ? "$( $Context.Name ).exe" : $Context.Name )
+	$command = Join-Path $toolPath ( $IsWindows ? "$($Context.Name).exe" : $Context.Name )
 	$invoke = New-LocalInvoker -Command $command -WorkingDirectory ( Join-Path $toolPath 'work' )
 
 	Test-ProductCommands -Context $Context -Invoke $invoke
@@ -711,9 +711,9 @@ function Test-ToolPackage
 # a version back, only unlist it. -DryRun prints the push and leaves the key unread.
 function Publish-ToolPackage
 {
-	param( [Parameter( Mandatory )] $Context, [switch] $DryRun )
+	param( [Parameter(Mandatory)] $Context, [switch] $DryRun )
 
-	$package = Join-Path $Context.DistDir "$( $Context.Product.PackageId ).$( $Context.Version ).nupkg"
+	$package = Join-Path $Context.DistDir "$($Context.Product.PackageId).$($Context.Version).nupkg"
 
 	if( -not ( Test-Path -LiteralPath $package ) )
 	{
@@ -724,7 +724,7 @@ function Publish-ToolPackage
 
 	if( $DryRun )
 	{
-		Write-Host "[dry run] dotnet $( $arguments -join ' ' ) ***"
+		Write-Host "[dry run] dotnet $($arguments -join ' ') ***"
 		return
 	}
 
@@ -738,12 +738,12 @@ function Publish-ToolPackage
 
 function Write-Checksums
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$sums = Get-ChildItem -File -Path $Context.DistDir |
-		Where-Object Name -ne 'SHA256SUMS' |
-		Sort-Object Name |
-		ForEach-Object { "$( ( Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName ).Hash.ToLowerInvariant() )  $( $_.Name )" }
+			Where-Object Name -ne 'SHA256SUMS' |
+			Sort-Object Name |
+			ForEach-Object { "$(( Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName ).Hash.ToLowerInvariant())  $($_.Name)" }
 
 	$path = Join-Path $Context.DistDir 'SHA256SUMS'
 	[IO.File]::WriteAllText( $path, ( $sums -join "`n" ) + "`n" )
@@ -754,7 +754,7 @@ function Write-Checksums
 # A warning that a workflow run shows as an annotation on its summary page, not only in the job log.
 function Write-BuildWarning
 {
-	param( [Parameter( Mandatory )] [string] $Message )
+	param( [Parameter(Mandatory)] [string] $Message )
 
 	if( $env:GITHUB_ACTIONS -eq 'true' )
 	{
@@ -769,16 +769,16 @@ function Write-BuildWarning
 # Stage outputs for the workflow (GITHUB_OUTPUT), echoed for a local run.
 function Write-StageOutputs
 {
-	param( [Parameter( Mandatory )] [System.Collections.IDictionary] $Values )
+	param( [Parameter(Mandatory)] [System.Collections.IDictionary] $Values )
 
 	foreach( $entry in $Values.GetEnumerator() )
 	{
-		$value = $entry.Value -is [bool] ? $entry.Value.ToString().ToLowerInvariant() : "$( $entry.Value )"
-		Write-Host "$( $entry.Key )=$value"
+		$value = $entry.Value -is [bool] ? $entry.Value.ToString().ToLowerInvariant() : "$($entry.Value)"
+		Write-Host "$($entry.Key)=$value"
 
 		if( $env:GITHUB_OUTPUT )
 		{
-			Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "$( $entry.Key )=$value"
+			Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "$($entry.Key)=$value"
 		}
 	}
 }

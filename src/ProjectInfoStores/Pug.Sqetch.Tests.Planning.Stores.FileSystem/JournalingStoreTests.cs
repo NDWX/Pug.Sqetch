@@ -26,12 +26,15 @@ public class JournalingStoreTests
 		using FileSystemProjectStores stores = project.Open();
 
 		stores.InfoStore.SetJournalingStatement(
-			JournalingSlot.PrepareJournal, "create table journal( release text not null )" );
+			JournalingSlot.PrepareJournal,
+			"create table journal( release text not null )"
+		);
 
 		// SetJournalingStatement appends a trailing newline, matching JsonFiles.Write
 		Assert.Equal(
 			"create table journal( release text not null )\n",
-			stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal ) );
+			stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal )
+		);
 	}
 
 	[Fact]
@@ -43,7 +46,8 @@ public class JournalingStoreTests
 		stores.InfoStore.SetJournalingStatement( JournalingSlot.DeployingRelease, "-- deploying a release" );
 
 		Assert.True(
-			File.Exists( Path.Combine( project.Root, "journaling", "OnDeployingRelease.sql" ) ) );
+			File.Exists( Path.Combine( project.Root, "journaling", "OnDeployingRelease.sql" ) )
+		);
 	}
 
 	[Fact]
@@ -56,7 +60,9 @@ public class JournalingStoreTests
 		stores.InfoStore.SetJournalingStatement( JournalingSlot.PrepareJournal, "create table b" );
 
 		Assert.Equal(
-			"create table b\n", stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal ) );
+			"create table b\n",
+			stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal )
+		);
 	}
 
 	[Fact]
@@ -87,9 +93,12 @@ public class JournalingStoreTests
 		for( int cycle = 0; cycle < 3; cycle++ )
 			stores.InfoStore.SetJournalingStatement(
 				JournalingSlot.PrepareJournal,
-				stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal )! );
+				stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal )!
+			);
 
 		Assert.Equal(
-			"create table a\n", stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal ) );
+			"create table a\n",
+			stores.InfoStore.GetJournalingStatement( JournalingSlot.PrepareJournal )
+		);
 	}
 }

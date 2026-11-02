@@ -7,11 +7,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj" />
+        <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12"/>
     </ItemGroup>
 
 </Project>

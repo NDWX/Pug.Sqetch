@@ -9,7 +9,8 @@ public sealed record BundleManifest(
 	BundleManifestProject Project,
 	BundleSelection Selection,
 	IReadOnlyList<BundleManifestRelease> Releases,
-	IReadOnlyList<BundleManifestPlan> Plans );
+	IReadOnlyList<BundleManifestPlan> Plans
+);
 
 public sealed record BundleManifestProject( string Name, string Description, string Engine );
 
@@ -26,9 +27,11 @@ public sealed record BundleManifestPlan(
 	string Description,
 	string Release,
 	IReadOnlyList<string> Dependencies,
-	IReadOnlyList<BundleManifestStep> Steps );
+	IReadOnlyList<BundleManifestStep> Steps
+);
 
 public sealed record BundleManifestStep(
 	string Name,
 	string Description,
-	IReadOnlyList<string> Dependencies );
+	IReadOnlyList<string> Dependencies
+);

@@ -1,6 +1,7 @@
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.DatabaseDriver;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -10,10 +11,15 @@ public sealed class DeployCommand(
 	IAnsiConsole console,
 	IDatabaseDriverRegistry drivers,
 	IBundleTypeRegistry bundleTypes,
-	IBundleLayoutRegistry layouts )
+	IBundleLayoutRegistry layouts
+)
 	: Command<DeploymentSettings>
 {
-	protected override int Execute( CommandContext context, DeploymentSettings settings, CancellationToken cancellationToken )
+	protected override int Execute(
+		CommandContext context,
+		DeploymentSettings settings,
+		CancellationToken cancellationToken
+	)
 	{
 		IBundleType type = ResolveBundleType( settings );
 
@@ -42,15 +48,20 @@ public sealed class DeployCommand(
 		// the deployment is over — including the failure paths below, which still rethrow
 		using IDatabaseDriver owned = driver;
 
-		using ConsoleDeploymentListener listener = new ( console, settings.Log );
+		using ConsoleDeploymentListener listener = new( console, settings.Log );
 
 		listener.BundleRead( validated.Metadata );
 
 		try
 		{
 			new DeploymentEngine(
-					driver, validated.Journaling, new BundleScriptContentReader( reader, validated.Layout ),
-					settings.EffectiveCommitLevel, listener, settings.RollbackTrigger )
+					driver,
+					validated.Journaling,
+					new BundleScriptContentReader( reader, validated.Layout ),
+					settings.EffectiveCommitLevel,
+					listener,
+					settings.RollbackTrigger
+				)
 				.Deploy( validated.Manifest.Project.Name, validated.Releases );
 		}
 		catch( Exception exception )
@@ -76,8 +87,8 @@ public sealed class DeployCommand(
 		if( Directory.Exists( settings.Bundle ) )
 			return bundleTypes.Create( DirectoryBundleType.TypeName );
 
-		if( settings.Bundle.EndsWith( ".tar.gz", StringComparison.OrdinalIgnoreCase )
-			|| settings.Bundle.EndsWith( ".tgz", StringComparison.OrdinalIgnoreCase ) )
+		if( settings.Bundle.EndsWith( ".tar.gz", StringComparison.OrdinalIgnoreCase ) ||
+			settings.Bundle.EndsWith( ".tgz", StringComparison.OrdinalIgnoreCase ) )
 			return bundleTypes.Create( TarGzBundleType.TypeName );
 
 		if( settings.Bundle.EndsWith( ".tar", StringComparison.OrdinalIgnoreCase ) )

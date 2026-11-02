@@ -1,31 +1,31 @@
 {
   "project": {
-    "name": "smoke",
-    "description": "Fixture for the installer smoke tests",
-    "engine": ""
+	"name": "smoke",
+	"description": "Fixture for the installer smoke tests",
+	"engine": ""
   },
   "selection": "finalized",
   "releases": [
-    {
-      "name": "smoke-1",
-      "description": "The only release of the smoke fixture",
-      "dependency": "",
-      "finalized": true
-    }
+	{
+	  "name": "smoke-1",
+	  "description": "The only release of the smoke fixture",
+	  "dependency": "",
+	  "finalized": true
+	}
   ],
   "plans": [
-    {
-      "name": "create-greetings",
-      "description": "Creates the greetings table",
-      "release": "smoke-1",
-      "dependencies": [],
-      "steps": [
-        {
-          "name": "greetings-table",
-          "description": "The greetings table",
-          "dependencies": []
-        }
-      ]
-    }
+	{
+	  "name": "create-greetings",
+	  "description": "Creates the greetings table",
+	  "release": "smoke-1",
+	  "dependencies": [],
+	  "steps": [
+		{
+		  "name": "greetings-table",
+		  "description": "The greetings table",
+		  "dependencies": []
+		}
+	  ]
+	}
   ]
 }

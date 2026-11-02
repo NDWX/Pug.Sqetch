@@ -17,9 +17,10 @@ public class RollbackFailedException
 
 	public RollbackFailedException( string release, string plan, string step, Exception innerException )
 		: base(
-			$"Rolling back step '{step}' of plan '{plan}' in release '{release}' failed; the database is "
-			+ "partially rolled back and needs attention.",
-			innerException )
+			$"Rolling back step '{step}' of plan '{plan}' in release '{release}' failed; the database is " +
+			"partially rolled back and needs attention.",
+			innerException
+		)
 	{
 		Release = release;
 		Plan = plan;

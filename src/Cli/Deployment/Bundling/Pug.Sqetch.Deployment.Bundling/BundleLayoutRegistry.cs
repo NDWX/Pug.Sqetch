@@ -8,7 +8,7 @@ namespace Pug.Sqetch.Deployment.Bundling;
 /// </summary>
 public class BundleLayoutRegistry : IBundleLayoutRegistry
 {
-	private readonly Dictionary<string, Func<IBundleLayout>> _factories = new ( StringComparer.OrdinalIgnoreCase );
+	private readonly Dictionary<string, Func<IBundleLayout>> _factories = new( StringComparer.OrdinalIgnoreCase );
 
 	public BundleLayoutRegistry()
 	{
@@ -29,15 +29,17 @@ public class BundleLayoutRegistry : IBundleLayoutRegistry
 		if( _factories.TryGetValue( name, out Func<IBundleLayout>? factory ) )
 		{
 			layout = factory();
+
 			return true;
 		}
 
 		layout = null;
+
 		return false;
 	}
 
 	public IBundleLayout Create( string name )
-		=> TryCreate( name, out IBundleLayout? layout )
-			? layout
-			: throw new UnknownBundleLayoutException( name, Names );
+		=> TryCreate( name, out IBundleLayout? layout ) ?
+			layout :
+			throw new UnknownBundleLayoutException( name, Names );
 }

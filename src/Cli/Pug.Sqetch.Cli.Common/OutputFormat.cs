@@ -16,18 +16,22 @@ public static class OutputFormats
 		{
 			case null or "":
 				format = OutputFormat.Auto;
+
 				return true;
 
 			case "json":
 				format = OutputFormat.Json;
+
 				return true;
 
 			case "csv":
 				format = OutputFormat.Csv;
+
 				return true;
 
 			default:
 				format = OutputFormat.Auto;
+
 				return false;
 		}
 	}

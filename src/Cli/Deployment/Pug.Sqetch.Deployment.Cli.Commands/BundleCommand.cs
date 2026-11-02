@@ -1,8 +1,10 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Cli;
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,7 +18,8 @@ public sealed class BundleCommand(
 	IAnsiConsole console,
 	IBundleTypeRegistry bundleTypes,
 	IBundleLayoutRegistry layouts,
-	BundlerIdentity bundler )
+	BundlerIdentity bundler
+)
 	: Command<BundleCommand.Settings>
 {
 	public sealed class Settings : CommandSettings
@@ -75,8 +78,8 @@ public sealed class BundleCommand(
 		// before any output exists
 		Bundle bundle = new BundleBuilder( session.ReadOnlyProject ).Assemble( settings.Selection, settings.Since );
 
-		string path = settings.BundleOutputPath
-					?? type.DefaultOutputName( $"{bundle.Project.Name}-{DateTime.Now:yyyyMMddHHmmss}" );
+		string path = settings.BundleOutputPath ??
+					type.DefaultOutputName( $"{bundle.Project.Name}-{DateTime.Now:yyyyMMddHHmmss}" );
 
 		IBundleWriter writer;
 

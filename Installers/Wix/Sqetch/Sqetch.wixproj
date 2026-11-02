@@ -1,11 +1,11 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
 
-	<PropertyGroup>
-		<ProductName>sqetch</ProductName>
-		<ProductDescription>Sqetch: author database schema changes as plans, group them into releases and bundle them for deployment</ProductDescription>
-		<UpgradeCode>4F19D3E3-DEF9-4990-94D8-5F4F3D09AA34</UpgradeCode>
-	</PropertyGroup>
+    <PropertyGroup>
+        <ProductName>sqetch</ProductName>
+        <ProductDescription>Sqetch: author database schema changes as plans, group them into releases and bundle them for deployment</ProductDescription>
+        <UpgradeCode>4F19D3E3-DEF9-4990-94D8-5F4F3D09AA34</UpgradeCode>
+    </PropertyGroup>
 
-	<Import Project="..\Shared\Installer.props" />
+    <Import Project="..\Shared\Installer.props"/>
 
 </Project>

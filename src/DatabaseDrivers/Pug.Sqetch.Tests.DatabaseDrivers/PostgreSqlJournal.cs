@@ -13,7 +13,7 @@ public static class PostgreSqlJournal
 	private const string Table = "sqetch_journal";
 
 	public static JournalingStatements Statements()
-		=> new ( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Statement( slot ) ) );
+		=> new( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Statement( slot ) ) );
 
 	private static string Statement( JournalingSlot slot )
 		=> slot switch
@@ -58,11 +58,11 @@ public static class PostgreSqlJournal
 
 	private static string Insert( JournalingSlot slot )
 	{
-		List<string> columns = ["project", "slot"];
-		List<string> values = ["@project", $"'{slot}'"];
+		List<string> columns = [ "project", "slot" ];
+		List<string> values = [ "@project", $"'{slot}'" ];
 
 		foreach( string name in JournalingSlots.ParameterNames( slot )
-												.Where( name => name != JournalingSlots.Parameters.Project ) )
+					.Where( name => name != JournalingSlots.Parameters.Project ) )
 		{
 			columns.Add( name == JournalingSlots.Parameters.UtcTimestamp ? "at_utc" : name );
 			values.Add( $"@{name}" );

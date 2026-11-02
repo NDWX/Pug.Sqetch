@@ -1,6 +1,8 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Cli;
 using Pug.Sqetch.DatabaseDriver;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -25,9 +27,13 @@ public sealed class DriverListCommand( IAnsiConsole console, IDatabaseDriverRegi
 		List<string> names = drivers.Names.OrderBy( x => x, StringComparer.OrdinalIgnoreCase ).ToList();
 
 		ResultWriter.WriteRows(
-			console, settings.Format, ["Driver"], names,
-			x => [x],
-			x => new { driver = x } );
+			console,
+			settings.Format,
+			[ "Driver" ],
+			names,
+			x => [ x ],
+			x => new { driver = x }
+		);
 
 		return DeployExitCodes.Success;
 	}
@@ -57,31 +63,37 @@ public sealed class DriverParametersCommand( IAnsiConsole console, IDatabaseDriv
 	private sealed record Parameter( string Switch, string Description );
 
 	private sealed record DriverView(
-		string Driver, IReadOnlyList<IReadOnlyList<string>> RequiredSets, IReadOnlyList<Parameter> Parameters );
+		string Driver,
+		IReadOnlyList<IReadOnlyList<string>> RequiredSets,
+		IReadOnlyList<Parameter> Parameters
+	);
 
 	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
 	{
 		RemainingArguments.RejectAll( context.Remaining );
 
 		// an unknown name is the registry's own refusal, which already lists what it does know
-		List<DriverView> views = settings.Driver is null
-			? drivers.Names
-						.OrderBy( x => x, StringComparer.OrdinalIgnoreCase )
-						.Select( name => View( drivers.Create( name ) ) )
-						.ToList()
-			: [View( drivers.Create( settings.Driver ) )];
+		List<DriverView> views = settings.Driver is null ?
+			drivers.Names
+				.OrderBy( x => x, StringComparer.OrdinalIgnoreCase )
+				.Select( name => View( drivers.Create( name ) ) )
+				.ToList() : [ View( drivers.Create( settings.Driver ) ) ];
 
 		ResultWriter.WriteSections(
-			console, settings.Format,
-			views.Select(
-					view => new
+			console,
+			settings.Format,
+			views.Select( view => new
 					{
 						driver = view.Driver,
 						requiredParameterSets = view.RequiredSets,
-						parameters = view.Parameters.Select( x => new { parameter = x.Switch, description = x.Description } )
-					} )
+						parameters = view.Parameters.Select( x => new
+							{ parameter = x.Switch, description = x.Description }
+						)
+					}
+				)
 				.ToList(),
-			views.SelectMany( Sections ).ToList() );
+			views.SelectMany( Sections ).ToList()
+		);
 
 		return DeployExitCodes.Success;
 	}
@@ -98,11 +110,12 @@ public sealed class DriverParametersCommand( IAnsiConsole console, IDatabaseDriv
 		return new DriverView(
 			factory.Name,
 			definition.RequiredParametersOptions
-						.Select( IReadOnlyList<string> ( grouping ) => grouping.Select( x => prefix + x ).ToList() )
-						.ToList(),
+				.Select( IReadOnlyList<string> ( grouping ) => grouping.Select( x => prefix + x ).ToList() )
+				.ToList(),
 			definition.Parameters
-						.Select( x => new Parameter( prefix + x.Name, x.Description ) )
-						.ToList() );
+				.Select( x => new Parameter( prefix + x.Name, x.Description ) )
+				.ToList()
+		);
 	}
 
 	/// <summary>
@@ -114,15 +127,17 @@ public sealed class DriverParametersCommand( IAnsiConsole console, IDatabaseDriv
 		yield return new ResultSection(
 			$"{view.Driver}/required-sets",
 			$"{view.Driver}: required parameter sets",
-			["Set", "Parameters"],
+			[ "Set", "Parameters" ],
 			view.RequiredSets
 				.Select( ( set, index ) => new[] { ( index + 1 ).ToString(), string.Join( " ", set ) } )
-				.ToList() );
+				.ToList()
+		);
 
 		yield return new ResultSection(
 			$"{view.Driver}/parameters",
 			$"{view.Driver}: parameters",
-			["Parameter", "Description"],
-			view.Parameters.Select( x => new[] { x.Switch, x.Description } ).ToList() );
+			[ "Parameter", "Description" ],
+			view.Parameters.Select( x => new[] { x.Switch, x.Description } ).ToList()
+		);
 	}
 }

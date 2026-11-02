@@ -8,11 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj" />
+        <ProjectReference Include="..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="DatabaseDriver\" />
+        <Folder Include="DatabaseDriver\"/>
     </ItemGroup>
 
 </Project>

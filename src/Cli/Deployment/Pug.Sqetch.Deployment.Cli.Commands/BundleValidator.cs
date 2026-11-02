@@ -33,7 +33,7 @@ public static class BundleValidator
 		BundleManifest manifest = layout.ReadManifest( reader );
 		JournalingStatements journaling = layout.ReadJournalingStatements( reader );
 
-		List<string> missing = new ();
+		List<string> missing = new();
 
 		foreach( BundleManifestPlan plan in manifest.Plans )
 			foreach( BundleManifestStep step in plan.Steps )
@@ -47,7 +47,8 @@ public static class BundleValidator
 
 		if( missing.Count > 0 )
 			throw new InvalidBundleException(
-				$"Bundle is missing entries listed in its manifest: {string.Join( ", ", missing )}." );
+				$"Bundle is missing entries listed in its manifest: {string.Join( ", ", missing )}."
+			);
 
 		return new ValidatedBundle( manifest, BundleReleaseGroups.From( manifest ), journaling, metadata, layout );
 	}

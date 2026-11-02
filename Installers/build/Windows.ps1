@@ -9,13 +9,13 @@
 #               process-independent view of PATH; needs an elevated session
 
 $script:WixProjects = @{
-	'sqetch'        = 'Installers/Wix/Sqetch/Sqetch.wixproj'
+	'sqetch' = 'Installers/Wix/Sqetch/Sqetch.wixproj'
 	'sqetch-deploy' = 'Installers/Wix/SqetchDeploy/SqetchDeploy.wixproj'
 }
 
 # RID -> WiX platform (the MSBuild Platform of the wixproj)
 $script:WixPlatforms = @{
-	'win-x64'   = 'x64'
+	'win-x64' = 'x64'
 	'win-arm64' = 'arm64'
 }
 
@@ -23,14 +23,14 @@ $script:TimestampUrl = 'http://timestamp.acs.microsoft.com'
 
 function Invoke-PlatformSigning
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string[]] $Files )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string[]] $Files )
 
 	# AZURE_CLIENT_ID and AZURE_TENANT_ID are azure/login's business, not ours
 	$missing = @( 'SIGN_KEY_VAULT_URL', 'SIGN_CERTIFICATE_NAME' | Where-Object { -not [Environment]::GetEnvironmentVariable( $_ ) } )
 
 	if( $missing )
 	{
-		throw "signing needs these environment variables: $( $missing -join ', ' )"
+		throw "signing needs these environment variables: $($missing -join ', ')"
 	}
 
 	# A local tool is found through the manifest above the working directory. The manifest pins the
@@ -64,7 +64,7 @@ function Invoke-PlatformSigning
 # Signed by anyone; whether the chain is trusted is the platform's call and varies by machine.
 function Assert-Signed
 {
-	param( [Parameter( Mandatory )] [string] $Path )
+	param( [Parameter(Mandatory)] [string] $Path )
 
 	if( ( Get-AuthenticodeSignature -LiteralPath $Path ).Status -eq 'NotSigned' )
 	{
@@ -80,21 +80,21 @@ function Assert-Signed
 # while nothing is pushed there.
 function Get-ChocolateyVersion
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	return $Context.Version
 }
 
 function Get-InstallerPath
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
-	return Join-Path $Context.DistDir "$( $Context.Name )-$( $Context.Version )-$Rid.msi"
+	return Join-Path $Context.DistDir "$($Context.Name)-$($Context.Version)-$Rid.msi"
 }
 
 function New-PlatformPackages
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$msi = New-Installer -Context $Context -Rid $Rid
 
@@ -107,13 +107,13 @@ function New-PlatformPackages
 # Builds the product's MSI from its publish directory, copies it into dist and signs that copy.
 function New-Installer
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$platform = $script:WixPlatforms[$Rid]
 
 	if( -not $platform )
 	{
-		throw "no MSI is built for $Rid; expected one of: $( $script:WixPlatforms.Keys -join ', ' )"
+		throw "no MSI is built for $Rid; expected one of: $($script:WixPlatforms.Keys -join ', ')"
 	}
 
 	$publish = Get-PublishDir -Context $Context -Rid $Rid
@@ -130,7 +130,7 @@ function New-Installer
 	}
 
 	$project = Join-Path $Context.RepoRoot $script:WixProjects[$Context.Name]
-	$name = "$( $Context.Name )-$( $Context.Version )-$Rid"
+	$name = "$($Context.Name)-$($Context.Version)-$Rid"
 
 	# The ProductVersion of an MSI is numeric X.Y.Z only; the full version is the file name and, for a
 	# pre-release, part of the product name. Platform picks bin/<platform>/Release, so the two
@@ -138,8 +138,8 @@ function New-Installer
 	Invoke-Native -FilePath 'dotnet' -Arguments @(
 		'build', $project, '-m:1', '-nologo', '--no-incremental', '-c', 'Release',
 		"-p:Platform=$platform",
-		"-p:ProductVersion=$( $Context.BaseVersion )",
-		"-p:ProductFullVersion=$( $Context.Version )",
+		"-p:ProductVersion=$($Context.BaseVersion)",
+		"-p:ProductFullVersion=$($Context.Version)",
 		"-p:ProductSourceDir=$publish",
 		"-p:OutputName=$name" )
 
@@ -166,7 +166,7 @@ function New-Installer
 # here because it names this build's file and hash; its LICENSE.txt gets the full licence texts appended.
 function New-ChocolateyPackage
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Msi )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Msi )
 
 	if( -not ( Get-Command 'choco' -ErrorAction SilentlyContinue ) )
 	{
@@ -178,11 +178,11 @@ function New-ChocolateyPackage
 
 	if( $chocoVersion.Major -lt 2 )
 	{
-		throw "Chocolatey $chocoVersion cannot pack SemVer 2.0.0 versions such as $( $Context.Version ); version 2.0 or later is required"
+		throw "Chocolatey $chocoVersion cannot pack SemVer 2.0.0 versions such as $($Context.Version); version 2.0 or later is required"
 	}
 
-	$source = Join-Path $Context.RepoRoot "Installers/chocolatey/$( $Context.Name )"
-	$stage = Join-Path $Context.WorkDir "chocolatey-$( $Context.Name )"
+	$source = Join-Path $Context.RepoRoot "Installers/chocolatey/$($Context.Name)"
+	$stage = Join-Path $Context.WorkDir "chocolatey-$($Context.Name)"
 	$tools = Join-Path $stage 'tools'
 	$msiName = Split-Path -Leaf $Msi
 
@@ -197,12 +197,12 @@ function New-ChocolateyPackage
 
 	$verification = Join-Path $tools 'VERIFICATION.txt'
 	$rendered = ( Get-Content -Raw -LiteralPath $verification ).
-		Replace( '{{PRODUCT}}', $Context.Name ).
-		Replace( '{{VERSION}}', $Context.Version ).
-		Replace( '{{MSI}}', $msiName ).
-		Replace( '{{URL}}', ( Get-ReleaseAssetUrl -Context $Context -FileName $msiName ) ).
-		Replace( '{{SHA256}}', ( Get-FileHash -Algorithm SHA256 -LiteralPath $Msi ).Hash.ToLowerInvariant() )
-	[IO.File]::WriteAllText( $verification, $rendered, [Text.UTF8Encoding]::new( $false ) )
+			Replace( '{{PRODUCT}}', $Context.Name ).
+			Replace( '{{VERSION}}', $Context.Version ).
+			Replace( '{{MSI}}', $msiName ).
+			Replace( '{{URL}}', ( Get-ReleaseAssetUrl -Context $Context -FileName $msiName ) ).
+			Replace( '{{SHA256}}',( Get-FileHash -Algorithm SHA256 -LiteralPath $Msi ).Hash.ToLowerInvariant() )
+	[IO.File]::WriteAllText( $verification, $rendered,[Text.UTF8Encoding]::new( $false ) )
 
 	$licence = Join-Path $tools 'LICENSE.txt'
 	$licenceText = Get-Content -Raw -LiteralPath $licence
@@ -212,29 +212,29 @@ function New-ChocolateyPackage
 
 	foreach( $entry in $texts )
 	{
-		$licenceText += "`n`n$( '=' * 100 )`n$( $entry.Title )`n$( '=' * 100 )`n`n" + ( Get-Content -Raw -LiteralPath $entry.Path )
+		$licenceText += "`n`n$('=' * 100)`n$($entry.Title)`n$('=' * 100)`n`n" + ( Get-Content -Raw -LiteralPath $entry.Path )
 	}
 
-	[IO.File]::WriteAllText( $licence, $licenceText, [Text.UTF8Encoding]::new( $false ) )
+	[IO.File]::WriteAllText( $licence, $licenceText,[Text.UTF8Encoding]::new( $false ) )
 
 	$null = New-Item -ItemType Directory -Force -Path $Context.DistDir
 	Invoke-Native -FilePath 'choco' -Arguments @(
-		'pack', ( Join-Path $stage "$( $Context.Name ).nuspec" ),
+		'pack', ( Join-Path $stage "$($Context.Name).nuspec" ),
 		'--version', ( Get-ChocolateyVersion -Context $Context ),
 		'--outputdirectory', $Context.DistDir, '--no-color' )
 
-	return Join-Path $Context.DistDir "$( $Context.Name ).$( Get-ChocolateyVersion -Context $Context ).nupkg"
+	return Join-Path $Context.DistDir "$($Context.Name).$(Get-ChocolateyVersion -Context $Context).nupkg"
 }
 
 # --- smoke tests ----------------------------------------------------------------------------------------
 
 function Test-Installers
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	if( $Rid -ne ( Get-HostRid ) )
 	{
-		Write-Host "skipping installer tests for $( $Rid ): this machine runs $( Get-HostRid )"
+		Write-Host "skipping installer tests for $($Rid): this machine runs $(Get-HostRid)"
 		return
 	}
 
@@ -271,16 +271,25 @@ function Test-Installers
 function Invoke-Msiexec
 {
 	param(
-		[Parameter( Mandatory )] [string[]] $Arguments,
-		[Parameter( Mandatory )] [string] $Log,
+		[Parameter(Mandatory)] [string[]] $Arguments,
+		[Parameter(Mandatory)] [string] $Log,
 		[double] $TimeoutMinutes = 5
 	)
 
 	$all = $Arguments + @( '/qn', '/norestart', '/l*v', $Log )
 	$line = ( $all | ForEach-Object {
-		if( $_ -notmatch '\s' ) { $_ }
-		elseif( $_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$' ) { "$( $Matches[1] )=`"$( $Matches[2] )`"" }
-		else { "`"$_`"" }
+		if( $_ -notmatch '\s' )
+		{
+			$_
+		}
+		elseif( $_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$' )
+		{
+			"$($Matches[1])=`"$($Matches[2])`""
+		}
+		else
+		{
+			"`"$_`""
+		}
 	} ) -join ' '
 
 	Write-Host "> msiexec $line"
@@ -294,15 +303,15 @@ function Invoke-Msiexec
 	{
 		Write-Host "--- msiexec did not finish within $TimeoutMinutes minutes; every msiexec process:"
 		Get-CimInstance -ClassName Win32_Process -Filter "Name = 'msiexec.exe'" |
-			Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, CreationDate, CommandLine |
-			Out-Host
+				Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, CreationDate, CommandLine |
+				Out-Host
 		$process.Kill( $true )
-		$failure = "msiexec $( $Arguments[0] ) did not finish within $TimeoutMinutes minutes"
+		$failure = "msiexec $($Arguments[0]) did not finish within $TimeoutMinutes minutes"
 	}
 	# 3010: success, restart wanted; nothing here installs a driver or a service, but it is not a failure
 	elseif( $process.ExitCode -notin 0, 3010 )
 	{
-		$failure = "msiexec exited with code $( $process.ExitCode )"
+		$failure = "msiexec exited with code $($process.ExitCode)"
 	}
 
 	if( $failure )
@@ -320,14 +329,14 @@ function Invoke-Msiexec
 # The PATH as the registry holds it now, not the copy this process started with.
 function Get-RegistryPath
 {
-	param( [Parameter( Mandatory )] [ValidateSet( 'User', 'Machine' )] [string] $Scope )
+	param( [Parameter(Mandatory)] [ValidateSet('User', 'Machine')] [string] $Scope )
 
 	return [Environment]::GetEnvironmentVariable( 'Path', $Scope )
 }
 
 function ConvertTo-PathKey
 {
-	param( [Parameter( Mandatory )] [string] $Path )
+	param( [Parameter(Mandatory)] [string] $Path )
 
 	return [IO.Path]::GetFullPath( [Environment]::ExpandEnvironmentVariables( $Path ) ).TrimEnd( '\' )
 }
@@ -342,7 +351,7 @@ function Get-PathEntries
 # What running '<name>.exe' would find in a PATH, in order; $null when nothing does.
 function Resolve-OnPath
 {
-	param( [Parameter( Mandatory )] [string] $FileName, [string] $Path )
+	param( [Parameter(Mandatory)] [string] $FileName, [string] $Path )
 
 	foreach( $entry in Get-PathEntries $Path )
 	{
@@ -363,9 +372,9 @@ function Resolve-OnPath
 function Test-MsiScope
 {
 	param(
-		[Parameter( Mandatory )] $Context,
-		[Parameter( Mandatory )] [string] $Msi,
-		[Parameter( Mandatory )] [ValidateSet( 'user', 'machine' )] [string] $Scope
+		[Parameter(Mandatory)] $Context,
+		[Parameter(Mandatory)] [string] $Msi,
+		[Parameter(Mandatory)] [ValidateSet('user', 'machine')] [string] $Scope
 	)
 
 	$name = $Context.Name
@@ -446,7 +455,14 @@ function Test-MsiScope
 		if( $failed )
 		{
 			# a failed check: leave the machine as it was found, and let the failure through
-			try { Invoke-Msiexec -Arguments @( '/x', $Msi ) -Log "$log.cleanup.log" } catch { Write-Warning "cleanup failed: $_" }
+			try
+			{
+				Invoke-Msiexec -Arguments @( '/x', $Msi ) -Log "$log.cleanup.log"
+			}
+			catch
+			{
+				Write-Warning "cleanup failed: $_"
+			}
 		}
 	}
 
@@ -474,14 +490,14 @@ function Test-MsiScope
 function Invoke-Chocolatey
 {
 	param(
-		[Parameter( Mandatory )] [string[]] $Arguments,
+		[Parameter(Mandatory)] [string[]] $Arguments,
 		[string] $MsiLog,
 		[double] $TimeoutMinutes = 5
 	)
 
 	$choco = ( Get-Command 'choco' -CommandType Application -ErrorAction Stop | Select-Object -First 1 ).Source
 	$line = ( $Arguments | ForEach-Object { $_ -match '\s' ? "`"$_`"" : $_ } ) -join ' '
-	$output = Join-Path ( [IO.Path]::GetTempPath() ) "choco-$( [guid]::NewGuid() ).out"
+	$output = Join-Path ( [IO.Path]::GetTempPath() ) "choco-$([guid]::NewGuid()).out"
 	$errors = "$output.err"
 
 	Write-Host "> choco $line"
@@ -512,11 +528,11 @@ function Invoke-Chocolatey
 		Write-Host "--- choco did not finish within $TimeoutMinutes minutes; the processes it started:"
 		Get-ProcessTree -Id $process.Id | Out-Host
 		$process.Kill( $true )
-		$failure = "choco $( $Arguments[0] ) did not finish within $TimeoutMinutes minutes"
+		$failure = "choco $($Arguments[0]) did not finish within $TimeoutMinutes minutes"
 	}
 	elseif( $process.ExitCode -ne 0 )
 	{
-		$failure = "choco exited with code $( $process.ExitCode )"
+		$failure = "choco exited with code $($process.ExitCode)"
 	}
 
 	Remove-Item -LiteralPath $output, $errors -Force -ErrorAction SilentlyContinue
@@ -539,7 +555,7 @@ function Invoke-Chocolatey
 # many have been. Until -Final, a last line without its line break is left for the next call.
 function Write-NewOutput
 {
-	param( [Parameter( Mandatory )] [string] $Path, [int] $Shown, [switch] $Final )
+	param( [Parameter(Mandatory)] [string] $Path, [int] $Shown, [switch] $Final )
 
 	if( -not ( Test-Path -LiteralPath $Path ) )
 	{
@@ -573,7 +589,7 @@ function Write-NewOutput
 # A process and everything it started, with the command lines, to show what a hung one is waiting on.
 function Get-ProcessTree
 {
-	param( [Parameter( Mandatory )] [int] $Id )
+	param( [Parameter(Mandatory)] [int] $Id )
 
 	$all = @( Get-CimInstance -ClassName Win32_Process )
 	$ids = [Collections.Generic.HashSet[int]]::new()
@@ -586,7 +602,7 @@ function Get-ProcessTree
 
 		foreach( $candidate in $all )
 		{
-			if( $ids.Contains( [int] $candidate.ParentProcessId ) -and $ids.Add( [int] $candidate.ProcessId ) )
+			if( $ids.Contains( [int]$candidate.ParentProcessId ) -and $ids.Add( [int]$candidate.ProcessId ) )
 			{
 				$grew = $true
 			}
@@ -594,14 +610,14 @@ function Get-ProcessTree
 	}
 
 	return $all |
-		Where-Object { $ids.Contains( [int] $_.ProcessId ) } |
-		Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, Name, CommandLine
+			Where-Object { $ids.Contains( [int]$_.ProcessId ) } |
+			Format-Table -AutoSize -Wrap ProcessId, ParentProcessId, Name, CommandLine
 }
 
 # choco is given the directory with the package as its only source and the exact version.
 function Test-ChocolateyPackage
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$id = $Context.Name
 	$expected = Join-Path $env:ProgramFiles $id
@@ -637,7 +653,14 @@ function Test-ChocolateyPackage
 	{
 		if( $failed )
 		{
-			try { Invoke-Chocolatey -Arguments @( 'uninstall', $id, '-y', '--no-color' ) } catch { Write-Warning "cleanup failed: $_" }
+			try
+			{
+				Invoke-Chocolatey -Arguments @( 'uninstall', $id, '-y', '--no-color' )
+			}
+			catch
+			{
+				Write-Warning "cleanup failed: $_"
+			}
 		}
 	}
 

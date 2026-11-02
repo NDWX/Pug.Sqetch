@@ -18,7 +18,8 @@ internal sealed class ProjectStoreSession
 
 		if( !File.Exists( projectFile ) )
 			throw new ProjectStoreException(
-				$"'{root}' is not a Sqetch project directory ('{FileNames.ProjectFile}' not found)." );
+				$"'{root}' is not a Sqetch project directory ('{FileNames.ProjectFile}' not found)."
+			);
 
 		Project = JsonFiles.Read<ProjectDocument>( projectFile );
 

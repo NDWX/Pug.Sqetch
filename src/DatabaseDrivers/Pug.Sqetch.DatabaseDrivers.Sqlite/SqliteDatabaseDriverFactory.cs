@@ -1,5 +1,7 @@
 using System.Data.Common;
+
 using Microsoft.Data.Sqlite;
+
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.Ado;
 
@@ -17,15 +19,20 @@ public sealed class SqliteDatabaseDriverFactory : IDatabaseDriverFactory
 	public string Name => DriverName;
 
 	public DatabaseDriverParametersDefinition GetParametersDefinition()
-		=> new (
+		=> new(
 			[
-				new DatabaseDriverParameterDefinition( "file", "Path to the database file; created if it does not exist" ),
+				new DatabaseDriverParameterDefinition(
+					"file",
+					"Path to the database file; created if it does not exist"
+				),
 				new DatabaseDriverParameterDefinition(
 					"connection-string",
-					"Full Microsoft.Data.Sqlite connection string, for anything 'file' does not cover "
-					+ "(pass 'Mode=ReadWrite' to refuse to create a missing file)" )
+					"Full Microsoft.Data.Sqlite connection string, for anything 'file' does not cover " +
+					"(pass 'Mode=ReadWrite' to refuse to create a missing file)"
+				)
 			],
-			[["file"], ["connection-string"]] );
+			[ [ "file" ], [ "connection-string" ] ]
+		);
 
 	public IDatabaseDriver Create( IDictionary<string, string> parameters, TimeSpan stepScriptTimeout )
 	{

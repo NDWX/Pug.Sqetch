@@ -1,22 +1,22 @@
 <Project>
 
-	<!-- Shared identity for every project. A project that ships (the two CLI hosts) overrides
-	     IsPackable and carries its own Version: the two CLIs are released independently. -->
-	<PropertyGroup>
-		<Company>Pug</Company>
-		<Authors>Pug</Authors>
-		<Product>Sqetch</Product>
-		<RepositoryUrl>https://github.com/NDWX/Pug.Sqetch</RepositoryUrl>
-		<RepositoryType>git</RepositoryType>
-		<PackageProjectUrl>https://github.com/NDWX/Pug.Sqetch</PackageProjectUrl>
-		<IsPackable>false</IsPackable>
+    <!-- Shared identity for every project. A project that ships (the two CLI hosts) overrides
+         IsPackable and carries its own Version: the two CLIs are released independently. -->
+    <PropertyGroup>
+        <Company>Pug</Company>
+        <Authors>Pug</Authors>
+        <Product>Sqetch</Product>
+        <RepositoryUrl>https://github.com/NDWX/Pug.Sqetch</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/NDWX/Pug.Sqetch</PackageProjectUrl>
+        <IsPackable>false</IsPackable>
 
-		<!-- the version option prints the version a release was built as, not version+commit -->
-		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <!-- the version option prints the version a release was built as, not version+commit -->
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
-		<!-- symbols travel inside every assembly, so a single-file release has no loose .pdb files
-		     beside it and its stack traces still carry line numbers -->
-		<DebugType>embedded</DebugType>
-	</PropertyGroup>
+        <!-- symbols travel inside every assembly, so a single-file release has no loose .pdb files
+             beside it and its stack traces still carry line numbers -->
+        <DebugType>embedded</DebugType>
+    </PropertyGroup>
 
 </Project>

@@ -76,7 +76,8 @@ public sealed class FileSystemScriptsStore : IScriptsStore
 		return new StepScripts(
 			OpenScript( Path.Combine( stepDirectory, FileNames.DeployScriptFile ) ),
 			OpenScript( Path.Combine( stepDirectory, FileNames.VerifyScriptFile ) ),
-			OpenScript( Path.Combine( stepDirectory, FileNames.RollbackScriptFile ) ) );
+			OpenScript( Path.Combine( stepDirectory, FileNames.RollbackScriptFile ) )
+		);
 	}
 
 	public void Dispose()
@@ -85,10 +86,11 @@ public sealed class FileSystemScriptsStore : IScriptsStore
 	}
 
 	private StepScriptKeys GetKeys( string stepDirectory )
-		=> new (
+		=> new(
 			_session.Paths.RelativeToRoot( Path.Combine( stepDirectory, FileNames.DeployScriptFile ) ),
 			_session.Paths.RelativeToRoot( Path.Combine( stepDirectory, FileNames.VerifyScriptFile ) ),
-			_session.Paths.RelativeToRoot( Path.Combine( stepDirectory, FileNames.RollbackScriptFile ) ) );
+			_session.Paths.RelativeToRoot( Path.Combine( stepDirectory, FileNames.RollbackScriptFile ) )
+		);
 
 	private static void WriteScript( string path, Stream? content )
 	{
@@ -107,6 +109,7 @@ public sealed class FileSystemScriptsStore : IScriptsStore
 		catch
 		{
 			File.Delete( temporary );
+
 			throw;
 		}
 	}

@@ -28,9 +28,11 @@ public sealed class ProjectSession : IDisposable
 
 	public IProject Project
 		=> _project ??= ProjectFactory.Create(
-			Stores.InfoStore, Stores.ScriptsStore,
+			Stores.InfoStore,
+			Stores.ScriptsStore,
 			new ReleaseChainDependencyDeterminator( Stores.InfoStore ),
-			UserIdentity.Require( Root ) );
+			UserIdentity.Require( Root )
+		);
 
 	/// <summary>
 	/// The project for reading only, which needs no project user. Reuses <see cref="Project"/>
@@ -38,15 +40,17 @@ public sealed class ProjectSession : IDisposable
 	/// same stores.
 	/// </summary>
 	public IReadOnlyProject ReadOnlyProject
-		=> (IReadOnlyProject?)_project
-			?? ( _readOnlyProject ??= ProjectFactory.CreateReadOnly(
-					Stores.InfoStore, Stores.ScriptsStore,
-					new ReleaseChainDependencyDeterminator( Stores.InfoStore ) ) );
+		=> (IReadOnlyProject?)_project ??
+			( _readOnlyProject ??= ProjectFactory.CreateReadOnly(
+				Stores.InfoStore,
+				Stores.ScriptsStore,
+				new ReleaseChainDependencyDeterminator( Stores.InfoStore )
+			) );
 
 	public static ProjectSession Open() => Open( Directory.GetCurrentDirectory() );
 
 	public static ProjectSession Open( string root )
-		=> new ( root, FileSystemProjectStores.Open( root ) );
+		=> new( root, FileSystemProjectStores.Open( root ) );
 
 	public void Dispose()
 	{

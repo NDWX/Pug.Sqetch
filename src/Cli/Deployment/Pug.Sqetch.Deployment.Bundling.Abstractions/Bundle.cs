@@ -23,7 +23,8 @@ public sealed record Bundle(
 	BundleSelection Selection,
 	JournalingStatements Journaling,
 	IReadOnlyList<BundleRelease> Releases,
-	IReadOnlyList<BundlePlan> Plans );
+	IReadOnlyList<BundlePlan> Plans
+);
 
 /// <summary>
 /// <paramref name="Dependency"/> names the release this one follows in the project's single
@@ -39,7 +40,8 @@ public sealed record BundlePlan(
 	string Description,
 	string Release,
 	IReadOnlyList<string> Dependencies,
-	IReadOnlyList<BundleStep> Steps );
+	IReadOnlyList<BundleStep> Steps
+);
 
 /// <summary>
 /// <paramref name="OpenScripts"/> opens the step's scripts on demand — lazy so that at most
@@ -51,4 +53,5 @@ public sealed record BundleStep(
 	string Name,
 	string Description,
 	IReadOnlyList<string> Dependencies,
-	Func<StepScripts> OpenScripts );
+	Func<StepScripts> OpenScripts
+);

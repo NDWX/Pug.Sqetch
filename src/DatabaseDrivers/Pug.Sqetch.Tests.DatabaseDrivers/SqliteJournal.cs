@@ -16,8 +16,9 @@ public static class SqliteJournal
 	private const string Table = "sqetch_journal";
 
 	public static JournalingStatements Statements()
-		=> new (
-			JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Statement( slot ) ) );
+		=> new(
+			JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Statement( slot ) )
+		);
 
 	private static string Statement( JournalingSlot slot )
 		=> slot switch
@@ -69,8 +70,8 @@ public static class SqliteJournal
 	{
 		IReadOnlyList<string> names = JournalingSlots.ParameterNames( slot );
 
-		List<string> columns = ["project", "slot"];
-		List<string> values = ["@project", $"'{slot}'"];
+		List<string> columns = [ "project", "slot" ];
+		List<string> values = [ "@project", $"'{slot}'" ];
 
 		foreach( string name in names.Where( name => name != JournalingSlots.Parameters.Project ) )
 		{

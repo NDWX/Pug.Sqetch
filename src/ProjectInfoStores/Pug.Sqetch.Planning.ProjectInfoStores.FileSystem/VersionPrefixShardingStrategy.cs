@@ -20,7 +20,9 @@ public sealed class VersionPrefixShardingStrategy : IReleaseShardingStrategy
 	}
 
 	public static VersionPrefixShardingStrategy FromOptions( IReadOnlyDictionary<string, string>? options )
-		=> new ( options is not null && options.TryGetValue( DelimiterOption, out string? delimiter ) ? delimiter : "." );
+		=> new(
+			options is not null && options.TryGetValue( DelimiterOption, out string? delimiter ) ? delimiter : "."
+		);
 
 	public int ShardDepth => 1;
 
@@ -40,8 +42,8 @@ public sealed class VersionPrefixShardingStrategy : IReleaseShardingStrategy
 
 		// a prefix containing the delimiter carries a complete first segment which must
 		// match the shard exactly; otherwise the shard need only start with the prefix
-		return delimiterIndex > 0
-			? string.Equals( shardPath, releaseNamePrefix[..delimiterIndex], StringComparison.OrdinalIgnoreCase )
-			: shardPath.StartsWith( releaseNamePrefix, StringComparison.OrdinalIgnoreCase );
+		return delimiterIndex > 0 ?
+			string.Equals( shardPath, releaseNamePrefix[..delimiterIndex], StringComparison.OrdinalIgnoreCase ) :
+			shardPath.StartsWith( releaseNamePrefix, StringComparison.OrdinalIgnoreCase );
 	}
 }

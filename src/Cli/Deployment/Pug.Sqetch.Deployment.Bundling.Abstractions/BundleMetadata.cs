@@ -22,7 +22,8 @@ public sealed record BundleMetadata(
 	string Layout,
 	string Bundler,
 	string BundlerVersion,
-	DateTime Bundled )
+	DateTime Bundled
+)
 {
 	/// <summary>The entry the metadata lives in; matched exactly.</summary>
 	public const string EntryName = "META-DATA";
@@ -35,7 +36,10 @@ public sealed record BundleMetadata(
 
 	private const string InstantFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
-	private static readonly UTF8Encoding StrictUtf8 = new ( encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true );
+	private static readonly UTF8Encoding StrictUtf8 = new(
+		encoderShouldEmitUTF8Identifier: false,
+		throwOnInvalidBytes: true
+	);
 
 	/// <summary>Reads and parses the metadata entry; throws <see cref="InvalidBundleMetadataException"/> when it is missing or invalid.</summary>
 	public static BundleMetadata Read( IBundleReader reader )
@@ -53,7 +57,7 @@ public sealed record BundleMetadata(
 
 			// no byte-order detection: the entry is UTF-8, so a UTF-16 mark is a malformed entry and not
 			// a cue to decode it differently; a UTF-8 mark is left for Parse to tolerate
-			using StreamReader content = new ( entry, StrictUtf8, detectEncodingFromByteOrderMarks: false );
+			using StreamReader content = new( entry, StrictUtf8, detectEncodingFromByteOrderMarks: false );
 
 			text = content.ReadToEnd();
 		}
@@ -70,7 +74,7 @@ public sealed record BundleMetadata(
 	{
 		ArgumentNullException.ThrowIfNull( writer );
 
-		using MemoryStream content = new ( Encoding.UTF8.GetBytes( ToText() ) );
+		using MemoryStream content = new( Encoding.UTF8.GetBytes( ToText() ) );
 
 		writer.Add( EntryName, content );
 	}
@@ -79,7 +83,7 @@ public sealed record BundleMetadata(
 	{
 		ArgumentNullException.ThrowIfNull( text );
 
-		Dictionary<string, string> values = new ();
+		Dictionary<string, string> values = new();
 
 		string[] lines = text.TrimStart( '﻿' ).Split( '\n' );
 
@@ -95,12 +99,14 @@ public sealed record BundleMetadata(
 
 			if( key.Length == 0 )
 				throw new InvalidBundleMetadataException(
-					$"Bundle '{EntryName}' line {index + 1} is not a 'key=value' pair." );
+					$"Bundle '{EntryName}' line {index + 1} is not a 'key=value' pair."
+				);
 
 			// unknown keys are skipped whole, repeats included: they belong to a newer writer
 			if( IsKnown( key ) && !values.TryAdd( key, line[( separator + 1 )..].Trim() ) )
 				throw new InvalidBundleMetadataException(
-					$"Bundle '{EntryName}' gives '{key}' more than once (line {index + 1})." );
+					$"Bundle '{EntryName}' gives '{key}' more than once (line {index + 1})."
+				);
 		}
 
 		return new BundleMetadata(
@@ -108,7 +114,8 @@ public sealed record BundleMetadata(
 			Required( values, LayoutKey ),
 			Required( values, BundlerKey ),
 			Required( values, BundlerVersionKey ),
-			ParseInstant( Required( values, BundledKey ) ) );
+			ParseInstant( Required( values, BundledKey ) )
+		);
 	}
 
 	/// <summary>
@@ -128,15 +135,18 @@ public sealed record BundleMetadata(
 
 		if( Bundled.Kind != DateTimeKind.Utc )
 			throw new InvalidBundleMetadataException(
-				$"Bundled instant must be UTC, not {Bundled.Kind}; convert it before writing." );
+				$"Bundled instant must be UTC, not {Bundled.Kind}; convert it before writing."
+			);
 
 		return string.Join(
-			'\n',
-			$"{FormatKey}={Format.ToString( CultureInfo.InvariantCulture )}",
-			$"{LayoutKey}={Layout}",
-			$"{BundlerKey}={Bundler}",
-			$"{BundlerVersionKey}={BundlerVersion}",
-			$"{BundledKey}={Bundled.ToString( InstantFormat, CultureInfo.InvariantCulture )}" ) + "\n";
+					'\n',
+					$"{FormatKey}={Format.ToString( CultureInfo.InvariantCulture )}",
+					$"{LayoutKey}={Layout}",
+					$"{BundlerKey}={Bundler}",
+					$"{BundlerVersionKey}={BundlerVersion}",
+					$"{BundledKey}={Bundled.ToString( InstantFormat, CultureInfo.InvariantCulture )}"
+				) +
+				"\n";
 	}
 
 	private static bool IsKnown( string key )
@@ -157,7 +167,8 @@ public sealed record BundleMetadata(
 	{
 		if( !int.TryParse( value, NumberStyles.None, CultureInfo.InvariantCulture, out int format ) || format < 1 )
 			throw new InvalidBundleMetadataException(
-				$"Bundle '{EntryName}' gives '{FormatKey}' as '{value}', which is not a positive whole number." );
+				$"Bundle '{EntryName}' gives '{FormatKey}' as '{value}', which is not a positive whole number."
+			);
 
 		return format;
 	}
@@ -166,11 +177,16 @@ public sealed record BundleMetadata(
 	{
 		// only the one spelling: no offset, no fraction, no local time to be guessed at
 		if( !DateTime.TryParseExact(
-				value, InstantFormat, CultureInfo.InvariantCulture,
-				DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime instant ) )
+				value,
+				InstantFormat,
+				CultureInfo.InvariantCulture,
+				DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+				out DateTime instant
+			) )
 			throw new InvalidBundleMetadataException(
-				$"Bundle '{EntryName}' gives '{BundledKey}' as '{value}', which is not a UTC instant"
-				+ " written as yyyy-MM-ddTHH:mm:ssZ." );
+				$"Bundle '{EntryName}' gives '{BundledKey}' as '{value}', which is not a UTC instant" +
+				" written as yyyy-MM-ddTHH:mm:ssZ."
+			);
 
 		return instant;
 	}

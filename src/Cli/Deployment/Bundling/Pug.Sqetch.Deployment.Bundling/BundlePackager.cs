@@ -12,14 +12,19 @@ public static class BundlePackager
 	/// preceded by the metadata, which is returned. <paramref name="bundled"/> must be UTC.
 	/// </summary>
 	public static BundleMetadata Write(
-		Bundle bundle, IBundleLayout layout, IBundleWriter writer, string bundler, string bundlerVersion,
-		DateTime bundled )
+		Bundle bundle,
+		IBundleLayout layout,
+		IBundleWriter writer,
+		string bundler,
+		string bundlerVersion,
+		DateTime bundled
+	)
 	{
 		ArgumentNullException.ThrowIfNull( bundle );
 		ArgumentNullException.ThrowIfNull( layout );
 		ArgumentNullException.ThrowIfNull( writer );
 
-		BundleMetadata metadata = new ( layout.Format, layout.Name, bundler, bundlerVersion, bundled );
+		BundleMetadata metadata = new( layout.Format, layout.Name, bundler, bundlerVersion, bundled );
 
 		metadata.Write( writer );
 		layout.Write( bundle, writer );

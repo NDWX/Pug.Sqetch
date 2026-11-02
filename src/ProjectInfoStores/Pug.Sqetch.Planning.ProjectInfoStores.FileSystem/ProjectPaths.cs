@@ -36,9 +36,9 @@ public sealed class ProjectPaths
 		=> Path.Combine( JournalingDirectory, JournalingSlots.FileName( slot ) );
 
 	public string PlanDirectory( string release, string plan )
-		=> string.IsNullOrEmpty( release )
-			? Path.Combine( PlansDirectory, plan )
-			: Path.Combine( ReleasePlansDirectory( release ), plan );
+		=> string.IsNullOrEmpty( release ) ?
+			Path.Combine( PlansDirectory, plan ) :
+			Path.Combine( ReleasePlansDirectory( release ), plan );
 
 	public string PlanFile( string release, string plan )
 		=> Path.Combine( PlanDirectory( release, plan ), FileNames.PlanFile );
@@ -78,9 +78,9 @@ public sealed class ProjectPaths
 	{
 		string shard = _sharding.GetShardPath( release );
 
-		return string.IsNullOrEmpty( shard )
-			? Path.Combine( ReleasesDirectory, release )
-			: Path.Combine( ReleasesDirectory, shard.Replace( '/', Path.DirectorySeparatorChar ), release );
+		return string.IsNullOrEmpty( shard ) ?
+			Path.Combine( ReleasesDirectory, release ) :
+			Path.Combine( ReleasesDirectory, shard.Replace( '/', Path.DirectorySeparatorChar ), release );
 	}
 
 	public string ReleaseFile( string release )
@@ -110,7 +110,12 @@ public sealed class ProjectPaths
 				yield return releaseDirectory;
 		}
 
-		foreach( string shardDirectory in EnumerateShardDirectories( ReleasesDirectory, _sharding.ShardDepth, string.Empty, prefix ) )
+		foreach( string shardDirectory in EnumerateShardDirectories(
+					ReleasesDirectory,
+					_sharding.ShardDepth,
+					string.Empty,
+					prefix
+				) )
 		{
 			foreach( string releaseDirectory in MatchingReleaseDirectoriesIn( shardDirectory, prefix ) )
 				yield return releaseDirectory;
@@ -129,7 +134,12 @@ public sealed class ProjectPaths
 		}
 	}
 
-	private IEnumerable<string> EnumerateShardDirectories( string directory, int remainingDepth, string shardPath, string prefix )
+	private IEnumerable<string> EnumerateShardDirectories(
+		string directory,
+		int remainingDepth,
+		string shardPath,
+		string prefix
+	)
 	{
 		if( remainingDepth == 0 )
 		{
@@ -141,9 +151,9 @@ public sealed class ProjectPaths
 
 		foreach( string child in Directory.EnumerateDirectories( directory ) )
 		{
-			string childShard = shardPath.Length == 0
-									? Path.GetFileName( child )
-									: $"{shardPath}/{Path.GetFileName( child )}";
+			string childShard = shardPath.Length == 0 ?
+				Path.GetFileName( child ) :
+				$"{shardPath}/{Path.GetFileName( child )}";
 
 			foreach( string shard in EnumerateShardDirectories( child, remainingDepth - 1, childShard, prefix ) )
 				yield return shard;

@@ -13,7 +13,8 @@ internal static class CliErrors
 			DuplicateStepNameException => "a step with this name already exists in the plan",
 			DuplicateReleaseNameException => "a release with this name already exists",
 			UnknownPlanException unknownPlan => $"plan '{unknownPlan.Name}' does not exist",
-			UnknownStepException unknownStep => $"step '{unknownStep.Name}' does not exist in plan '{unknownStep.Plan}'",
+			UnknownStepException unknownStep =>
+				$"step '{unknownStep.Name}' does not exist in plan '{unknownStep.Plan}'",
 			UnknownReleaseException unknownRelease => $"release '{unknownRelease.ReleaseName}' does not exist",
 			ReleaseFinalizedException => "the release is finalized and can no longer be changed",
 			PlanFinalizedException => "the plan belongs to a finalized release and can no longer be changed",
@@ -36,17 +37,21 @@ internal static class CliErrors
 	{
 		IEnumerable<string> plans = missing.MissingDependencies
 			.OrderBy( x => x.Key, StringComparer.OrdinalIgnoreCase )
-			.Select( x =>
-			{
-				ProjectPlan dependency = x.Value.Item1;
-				ICollection<string> dependants = x.Value.Item2;
-				string where = string.IsNullOrEmpty( dependency.Release ) ? "unreleased" : $"in later release '{dependency.Release}'";
+			.Select( x => {
+					ProjectPlan dependency = x.Value.Item1;
+					ICollection<string> dependants = x.Value.Item2;
 
-				return $"'{x.Key}' ({where}; required by {string.Join( ", ", dependants.Select( d => $"'{d}'" ) )})";
-			} );
+					string where = string.IsNullOrEmpty( dependency.Release ) ?
+						"unreleased" :
+						$"in later release '{dependency.Release}'";
+
+					return
+						$"'{x.Key}' ({where}; required by {string.Join( ", ", dependants.Select( d => $"'{d}'" ) )})";
+				}
+			);
 
 		return "a plan's dependencies must be in its release or an earlier one; missing " +
-			string.Join( ", ", plans ) +
-			". Include unreleased dependencies in --plans, or add the plan with 'plan set-release --with-dependencies'";
+				string.Join( ", ", plans ) +
+				". Include unreleased dependencies in --plans, or add the plan with 'plan set-release --with-dependencies'";
 	}
 }

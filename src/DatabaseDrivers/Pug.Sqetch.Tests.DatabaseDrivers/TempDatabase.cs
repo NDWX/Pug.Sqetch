@@ -20,12 +20,13 @@ public sealed class TempDatabase : IDisposable
 	public IDatabaseDriver Driver( TimeSpan? stepScriptTimeout = null )
 		=> new SqliteDatabaseDriverFactory().Create(
 			new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase ) { ["file"] = File },
-			stepScriptTimeout ?? TimeSpan.FromSeconds( 30 ) );
+			stepScriptTimeout ?? TimeSpan.FromSeconds( 30 )
+		);
 
 	/// <summary>Reads the database back through a connection of its own, so only committed state is seen.</summary>
 	public List<string> Query( string sql )
 	{
-		using Microsoft.Data.Sqlite.SqliteConnection connection = new ( $"Data Source={File}" );
+		using Microsoft.Data.Sqlite.SqliteConnection connection = new( $"Data Source={File}" );
 
 		connection.Open();
 
@@ -35,14 +36,16 @@ public sealed class TempDatabase : IDisposable
 
 		using Microsoft.Data.Sqlite.SqliteDataReader reader = command.ExecuteReader();
 
-		List<string> rows = [];
+		List<string> rows = [ ];
 
 		while( reader.Read() )
 			rows.Add(
 				string.Join(
 					"|",
 					Enumerable.Range( 0, reader.FieldCount )
-								.Select( index => reader.IsDBNull( index ) ? "<null>" : reader.GetValue( index ).ToString() ) ) );
+						.Select( index => reader.IsDBNull( index ) ? "<null>" : reader.GetValue( index ).ToString() )
+				)
+			);
 
 		return rows;
 	}

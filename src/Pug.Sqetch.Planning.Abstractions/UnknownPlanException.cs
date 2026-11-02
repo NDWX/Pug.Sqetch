@@ -5,8 +5,8 @@ public class UnknownPlanException
 {
 	public string Name { get; }
 
-	public UnknownPlanException( string name ) 
-		: base($"Plan '{name}' does not exist.")
+	public UnknownPlanException( string name )
+		: base( $"Plan '{name}' does not exist." )
 	{
 		Name = name;
 	}

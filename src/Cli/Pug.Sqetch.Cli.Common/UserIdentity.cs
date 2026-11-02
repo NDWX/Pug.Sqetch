@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using Pug.Sqetch.Planning;
 using Pug.Sqetch.Planning.Models;
 
@@ -10,7 +11,7 @@ namespace Pug.Sqetch.Cli;
 /// </summary>
 public static class UserIdentity
 {
-	private static readonly JsonSerializerOptions FileOptions = new ()
+	private static readonly JsonSerializerOptions FileOptions = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		PropertyNameCaseInsensitive = true,
@@ -22,7 +23,10 @@ public static class UserIdentity
 		string[] candidates =
 		[
 			Path.Combine( projectPath, Defaults.UserInfoStoreFileName ),
-			Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ), Defaults.UserInfoStoreFileName )
+			Path.Combine(
+				Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ),
+				Defaults.UserInfoStoreFileName
+			)
 		];
 
 		foreach( string candidate in candidates )
@@ -41,13 +45,12 @@ public static class UserIdentity
 
 	public static string Save( UserInfo user, string projectPath, bool global )
 	{
-		string directory = global
-			? Environment.GetFolderPath( Environment.SpecialFolder.UserProfile )
-			: projectPath;
+		string directory = global ? Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ) : projectPath;
 
 		File.WriteAllText(
 			Path.Combine( directory, Defaults.UserInfoStoreFileName ),
-			JsonSerializer.Serialize( user, FileOptions ) + "\n" );
+			JsonSerializer.Serialize( user, FileOptions ) + "\n"
+		);
 
 		return directory;
 	}

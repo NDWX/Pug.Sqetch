@@ -1,5 +1,7 @@
 using System.Text.Json;
+
 using Pug.Sqetch.Planning.Cli;
+
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Testing;
 
@@ -41,7 +43,7 @@ public class CliTests : IDisposable
 
 	private static CommandAppResult Run( params string[] args )
 	{
-		CommandAppTester tester = new ();
+		CommandAppTester tester = new();
 
 		tester.Configure( SqetchApp.Configure );
 
@@ -81,7 +83,9 @@ public class CliTests : IDisposable
 		Assert.Equal( "plans/customer-email/steps/add-column", lines[0] );
 		Assert.Contains( "plans/customer-email/steps/add-column/deploy.sql", lines );
 
-		Assert.True( File.Exists( Path.Combine( _root, "plans", "customer-email", "steps", "add-column", "deploy.sql" ) ) );
+		Assert.True(
+			File.Exists( Path.Combine( _root, "plans", "customer-email", "steps", "add-column", "deploy.sql" ) )
+		);
 	}
 
 	[Fact]
@@ -114,8 +118,9 @@ public class CliTests : IDisposable
 		CommandAppResult released = Run( "plan", "list", "--released" );
 
 		Assert.Equal(
-			["table", "index"],
-			released.Output.Split( '\n' ).Select( x => x.Split( '\t' )[0] ).ToArray() );
+			[ "table", "index" ],
+			released.Output.Split( '\n' ).Select( x => x.Split( '\t' )[0] ).ToArray()
+		);
 
 		Assert.Equal( 0, Run( "release", "finalize", "--name", "2026.07" ).ExitCode );
 
@@ -123,7 +128,11 @@ public class CliTests : IDisposable
 		string today = DateTime.Now.ToString( "yyyy-MM-dd" );
 		string tomorrow = DateTime.Now.AddDays( 1 ).ToString( "yyyy-MM-dd" );
 
-		Assert.Contains( "table", Run( "plan", "list", "--finalized-after", today, "--finalized-before", tomorrow ).Output );
+		Assert.Contains(
+			"table",
+			Run( "plan", "list", "--finalized-after", today, "--finalized-before", tomorrow ).Output
+		);
+
 		Assert.Equal( "", Run( "plan", "list", "--released", "--finalized-after", tomorrow ).Output );
 	}
 
@@ -175,11 +184,18 @@ public class CliTests : IDisposable
 		Assert.Equal( 1, Run( "plan", "set-release", "--plan", "report", "--release", "2026.07" ).ExitCode );
 
 		Assert.Equal(
-			0, Run( "plan", "set-release", "--plan", "report", "--release", "2026.07", "--with-dependencies" ).ExitCode );
+			0,
+			Run( "plan", "set-release", "--plan", "report", "--release", "2026.07", "--with-dependencies" ).ExitCode
+		);
 
 		Assert.Equal(
-			["index", "report", "table"],
-			Run( "plan", "list", "--release", "2026.07" ).Output.Split( '\n' ).Select( x => x.Split( '\t' )[0] ).Order().ToArray() );
+			[ "index", "report", "table" ],
+			Run( "plan", "list", "--release", "2026.07" )
+				.Output.Split( '\n' )
+				.Select( x => x.Split( '\t' )[0] )
+				.Order()
+				.ToArray()
+		);
 	}
 
 	[Fact]
@@ -191,7 +207,16 @@ public class CliTests : IDisposable
 		Run( "release", "create", "--name", "2026.07", "--plans", "table" );
 		Run( "release", "create", "--name", "2026.08", "--depends-on", "2026.07" );
 
-		CommandAppResult created = Run( "plan", "create", "--name", "index", "--require-plans", "table", "--release", "2026.08" );
+		CommandAppResult created = Run(
+			"plan",
+			"create",
+			"--name",
+			"index",
+			"--require-plans",
+			"table",
+			"--release",
+			"2026.08"
+		);
 
 		Assert.Equal( 0, created.ExitCode );
 		Assert.Contains( "2026.08", Run( "plan", "--name", "index" ).Output );
@@ -226,7 +251,7 @@ public class CliTests : IDisposable
 		InitializeProject();
 		Run( "plan", "create", "--name", "solo", "--description", "only one" );
 
-		CommandAppTester tester = new ( console: new TestConsole().Width( 160 ).Interactive() );
+		CommandAppTester tester = new( console: new TestConsole().Width( 160 ).Interactive() );
 
 		tester.Configure( SqetchApp.Configure );
 
@@ -248,12 +273,19 @@ public class CliTests : IDisposable
 		Run( "release", "create", "--name", "2026.08", "--depends-on", "2026.07" );
 		Run( "release", "finalize", "--name", "2026.07" );
 
-		string[] openReleases = Run( "release", "list" ).Output
-										.Split( '\n' ).Select( x => x.Split( '\t' )[0] ).ToArray();
+		string[] openReleases = Run( "release", "list" )
+			.Output
+			.Split( '\n' )
+			.Select( x => x.Split( '\t' )[0] )
+			.ToArray();
 
-		Assert.Equal( ["2026.08"], openReleases );
+		Assert.Equal( [ "2026.08" ], openReleases );
 		Assert.Contains( "2026.07", Run( "release", "list", "--finalized" ).Output );
-		Assert.Contains( "tester@example.com", Run( "release", "list", "--finalized", "--finalize-user", "tester@example.com" ).Output );
+
+		Assert.Contains(
+			"tester@example.com",
+			Run( "release", "list", "--finalized", "--finalize-user", "tester@example.com" ).Output
+		);
 	}
 
 	[Fact]
@@ -310,6 +342,7 @@ public class CliTests : IDisposable
 
 		Assert.Contains( "(unreleased)", Run( "plan", "--name", "undecided" ).Output );
 		Assert.Equal( "", Run( "release", "list" ).Output );
+
 		// unfinalized releases live unsharded directly under 'releases'
 		Assert.False( Directory.Exists( Path.Combine( _root, "releases", "2026.09" ) ) );
 	}

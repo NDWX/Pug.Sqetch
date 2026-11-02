@@ -12,7 +12,7 @@ internal sealed record PlanIndexEntry( string Name, string Release, string[] Dep
 internal sealed class PlanIndex
 {
 	private readonly string _path;
-	private readonly SortedDictionary<string, PlanIndexEntry> _entries = new ( StringComparer.OrdinalIgnoreCase );
+	private readonly SortedDictionary<string, PlanIndexEntry> _entries = new( StringComparer.OrdinalIgnoreCase );
 
 	private PlanIndex( string path )
 	{
@@ -23,9 +23,10 @@ internal sealed class PlanIndex
 	{
 		if( !File.Exists( path ) )
 			throw new ProjectStoreException(
-				$"Plan index '{path}' not found; not a Sqetch project directory, or the index needs to be rebuilt." );
+				$"Plan index '{path}' not found; not a Sqetch project directory, or the index needs to be rebuilt."
+			);
 
-		PlanIndex index = new ( path );
+		PlanIndex index = new( path );
 
 		foreach( string line in File.ReadLines( path ) )
 		{
@@ -35,12 +36,15 @@ internal sealed class PlanIndex
 			string[] fields = line.Split( '\t' );
 
 			if( fields.Length != 3 || fields[0].Length == 0 )
-				throw new ProjectStoreException( $"Plan index '{path}' is corrupt at line '{line}'; rebuild the index." );
+				throw new ProjectStoreException(
+					$"Plan index '{path}' is corrupt at line '{line}'; rebuild the index."
+				);
 
 			index._entries[fields[0]] = new PlanIndexEntry(
 				fields[0],
 				fields[1],
-				fields[2].Length == 0 ? [] : fields[2].Split( ',' ) );
+				fields[2].Length == 0 ? [ ] : fields[2].Split( ',' )
+			);
 		}
 
 		return index;
@@ -48,14 +52,15 @@ internal sealed class PlanIndex
 
 	public static PlanIndex Rebuild( ProjectPaths paths )
 	{
-		PlanIndex index = new ( paths.PlanIndexFile );
+		PlanIndex index = new( paths.PlanIndexFile );
 
 		index.AddFromPlansDirectory( paths.PlansDirectory, string.Empty );
 
 		foreach( string releaseDirectory in paths.EnumerateReleaseDirectories( string.Empty ) )
 			index.AddFromPlansDirectory(
 				Path.Combine( releaseDirectory, FileNames.PlansDirectory ),
-				Path.GetFileName( releaseDirectory ) );
+				Path.GetFileName( releaseDirectory )
+			);
 
 		index.Save();
 
@@ -87,7 +92,8 @@ internal sealed class PlanIndex
 
 		foreach( string planDirectory in Directory.EnumerateDirectories( plansDirectory ) )
 		{
-			PlanDocument? document = JsonFiles.TryRead<PlanDocument>( Path.Combine( planDirectory, FileNames.PlanFile ) );
+			PlanDocument? document =
+				JsonFiles.TryRead<PlanDocument>( Path.Combine( planDirectory, FileNames.PlanFile ) );
 
 			if( document is null )
 				continue;
@@ -102,5 +108,7 @@ internal sealed class PlanIndex
 		=> AtomicFile.WriteAllText(
 			_path,
 			string.Concat(
-				_entries.Values.Select( x => $"{x.Name}\t{x.Release}\t{string.Join( ',', x.Dependencies )}\n" ) ) );
+				_entries.Values.Select( x => $"{x.Name}\t{x.Release}\t{string.Join( ',', x.Dependencies )}\n" )
+			)
+		);
 }

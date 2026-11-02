@@ -19,6 +19,7 @@ public static partial class NameRules
 		if( !IsValid( name ) )
 			throw new ArgumentException(
 				$"{kind} name '{name}' is not a valid name; use letters, digits or '-_+()@#.', " +
-				"starting with a letter or digit and not ending with '.'" );
+				"starting with a letter or digit and not ending with '.'"
+			);
 	}
 }

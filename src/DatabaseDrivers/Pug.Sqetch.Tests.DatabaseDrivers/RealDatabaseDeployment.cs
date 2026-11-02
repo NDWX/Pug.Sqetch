@@ -1,8 +1,10 @@
 using System.Globalization;
+
 using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Tests.Deployment;
+
 using static Pug.Sqetch.Tests.Deployment.Lineages;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -28,22 +30,26 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// from one catalog query, since SQLite has no information_schema.
 /// </param>
 public sealed class RealDatabaseDeployment(
-	Func<IDatabaseDriver> driver, JournalingStatements journaling, Func<string, List<string>> query,
-	Func<List<string>> stepTables )
+	Func<IDatabaseDriver> driver,
+	JournalingStatements journaling,
+	Func<string, List<string>> query,
+	Func<List<string>> stepTables
+)
 {
 	/// <summary>Two releases, three plans, one step each; every step creates its own table.</summary>
 	private static IReadOnlyList<ReleaseGroup> TwoReleases()
 		=> Lineage(
-			[Release( "r1" ), Release( "r2", "r1" )],
-			[Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" )] );
+			[ Release( "r1" ), Release( "r2", "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" ) ]
+		);
 
 	public void AWholeBundleIsAppliedAndJournaled()
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( releases,Scripts() );
+		Deploy( releases, Scripts() );
 
-		Assert.Equal( ["a_s1", "b_s1", "c_s1"], StepTables() );
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
 
 		Assert.Equal(
 			[
@@ -64,7 +70,8 @@ public sealed class RealDatabaseDeployment(
 				"PlanDeployed|r2|c|",
 				"ReleaseDeployed|r2||"
 			],
-			Journal() );
+			Journal()
+		);
 	}
 
 	/// <summary>
@@ -77,13 +84,16 @@ public sealed class RealDatabaseDeployment(
 
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( releases,Scripts() );
+		Deploy( releases, Scripts() );
 
 		List<DateTime> instants = query( "select at_utc from sqetch_journal order by id" )
-									.Select(
-										at => DateTime.Parse(
-											at, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal ) )
-									.ToList();
+			.Select( at => DateTime.Parse(
+					at,
+					CultureInfo.InvariantCulture,
+					DateTimeStyles.AdjustToUniversal
+				)
+			)
+			.ToList();
 
 		Assert.Equal( 16, instants.Count );
 		Assert.All( instants, instant => Assert.InRange( instant, before, DateTime.UtcNow.AddSeconds( 5 ) ) );
@@ -96,13 +106,13 @@ public sealed class RealDatabaseDeployment(
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( releases,Scripts() );
+		Deploy( releases, Scripts() );
 
 		List<string> journaled = Journal();
 
-		RecordingListener second = new ();
+		RecordingListener second = new();
 
-		Deploy( releases,Scripts(), listener: second );
+		Deploy( releases, Scripts(), listener: second );
 
 		Assert.Contains( "nothing", second.Events );
 		Assert.Equal( journaled, Journal() );
@@ -116,30 +126,34 @@ public sealed class RealDatabaseDeployment(
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryScripts broken =Scripts();
+		InMemoryScripts broken = Scripts();
 
-		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
+		broken.Deploy( "b", "s1", "insert into nowhere ( id ) values ( 1 )" );
 
-		Assert.Throws<StepScriptFailedException>( () => Deploy( releases,broken, DeploymentCommitLevel.Plan ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases, broken, DeploymentCommitLevel.Plan ) );
 
 		Assert.Equal(
 			[
-				"DeployingRelease|r1||", "DeployingPlan|r1|a|", "DeployingStep|r1|a|s1", "StepDeployed|r1|a|s1",
+				"DeployingRelease|r1||",
+				"DeployingPlan|r1|a|",
+				"DeployingStep|r1|a|s1",
+				"StepDeployed|r1|a|s1",
 				"PlanDeployed|r1|a|"
 			],
-			Journal() );
+			Journal()
+		);
 
-		RecordingListener second = new ();
+		RecordingListener second = new();
 
-		Deploy( releases,Scripts(), DeploymentCommitLevel.Plan, second );
+		Deploy( releases, Scripts(), DeploymentCommitLevel.Plan, second );
 
 		Assert.Contains( "skip-plan r1/a", second.Events );
 		Assert.DoesNotContain( "skip-plan r1/b", second.Events );
-		Assert.Equal( ["a_s1", "b_s1", "c_s1"], StepTables() );
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
 
 		// r1's start is not journaled twice, and its completion lands once the rest of it is deployed
-		Assert.Equal( ["r1", "r2"], Journal( "DeployingRelease" ) );
-		Assert.Equal( ["r1", "r2"], Journal( "ReleaseDeployed" ) );
+		Assert.Equal( [ "r1", "r2" ], Journal( "DeployingRelease" ) );
+		Assert.Equal( [ "r1", "r2" ], Journal( "ReleaseDeployed" ) );
 	}
 
 	// ------------------------------------------------------------------ compensating rollback
@@ -154,24 +168,37 @@ public sealed class RealDatabaseDeployment(
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryScripts broken =Scripts();
+		InMemoryScripts broken = Scripts();
 
-		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
+		broken.Deploy( "b", "s1", "insert into nowhere ( id ) values ( 1 )" );
 
-		Assert.Throws<StepScriptFailedException>(
-			() => Deploy( releases,broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				releases,
+				broken,
+				DeploymentCommitLevel.Plan,
+				rollback: RollbackTrigger.OnError
+			)
+		);
 
 		// a was committed and is now compensated for; b never reached the database
 		Assert.Empty( StepTables() );
 
 		Assert.Equal(
 			[
-				"DeployingRelease|r1||", "DeployingPlan|r1|a|", "DeployingStep|r1|a|s1", "StepDeployed|r1|a|s1",
+				"DeployingRelease|r1||",
+				"DeployingPlan|r1|a|",
+				"DeployingStep|r1|a|s1",
+				"StepDeployed|r1|a|s1",
 				"PlanDeployed|r1|a|",
-				"RollingBackRelease|r1||", "RollingBackPlan|r1|a|", "RollingBackStep|r1|a|s1",
-				"RolledBackStep|r1|a|s1", "RolledBackPlan|r1|a|", "RolledBackRelease|r1||"
+				"RollingBackRelease|r1||",
+				"RollingBackPlan|r1|a|",
+				"RollingBackStep|r1|a|s1",
+				"RolledBackStep|r1|a|s1",
+				"RolledBackPlan|r1|a|",
+				"RolledBackRelease|r1||"
 			],
-			Journal() );
+			Journal()
+		);
 	}
 
 	/// <summary>
@@ -183,20 +210,31 @@ public sealed class RealDatabaseDeployment(
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		Deploy( releases,Scripts(), rollback: RollbackTrigger.OnSuccess );
+		Deploy( releases, Scripts(), rollback: RollbackTrigger.OnSuccess );
 
 		Assert.Empty( StepTables() );
 
 		Assert.Equal(
 			[
-				"RollingBackRelease|r2||", "RollingBackPlan|r2|c|", "RollingBackStep|r2|c|s1",
-				"RolledBackStep|r2|c|s1", "RolledBackPlan|r2|c|", "RolledBackRelease|r2||",
+				"RollingBackRelease|r2||",
+				"RollingBackPlan|r2|c|",
+				"RollingBackStep|r2|c|s1",
+				"RolledBackStep|r2|c|s1",
+				"RolledBackPlan|r2|c|",
+				"RolledBackRelease|r2||",
 				"RollingBackRelease|r1||",
-				"RollingBackPlan|r1|b|", "RollingBackStep|r1|b|s1", "RolledBackStep|r1|b|s1", "RolledBackPlan|r1|b|",
-				"RollingBackPlan|r1|a|", "RollingBackStep|r1|a|s1", "RolledBackStep|r1|a|s1", "RolledBackPlan|r1|a|",
+				"RollingBackPlan|r1|b|",
+				"RollingBackStep|r1|b|s1",
+				"RolledBackStep|r1|b|s1",
+				"RolledBackPlan|r1|b|",
+				"RollingBackPlan|r1|a|",
+				"RollingBackStep|r1|a|s1",
+				"RolledBackStep|r1|a|s1",
+				"RolledBackPlan|r1|a|",
 				"RolledBackRelease|r1||"
 			],
-			Journal().Where( row => row.Contains( "RollingBack" ) || row.Contains( "RolledBack" ) ) );
+			Journal().Where( row => row.Contains( "RollingBack" ) || row.Contains( "RolledBack" ) )
+		);
 	}
 
 	/// <summary>
@@ -208,31 +246,45 @@ public sealed class RealDatabaseDeployment(
 	{
 		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
 
-		InMemoryScripts broken =Scripts();
+		InMemoryScripts broken = Scripts();
 
-		broken.Deploy( "b", "s1","insert into nowhere ( id ) values ( 1 )" );
-		broken.Rollback( "a", "s1","drop table nowhere_at_all" );
+		broken.Deploy( "b", "s1", "insert into nowhere ( id ) values ( 1 )" );
+		broken.Rollback( "a", "s1", "drop table nowhere_at_all" );
 
-		RollbackFailedException error = Assert.Throws<RollbackFailedException>(
-			() => Deploy( releases,broken, DeploymentCommitLevel.Plan, rollback: RollbackTrigger.OnError ) );
+		RollbackFailedException error = Assert.Throws<RollbackFailedException>( () => Deploy(
+				releases,
+				broken,
+				DeploymentCommitLevel.Plan,
+				rollback: RollbackTrigger.OnError
+			)
+		);
 
-		Assert.Equal( ( "r1", "a", "s1" ), (error.Release, error.Plan, error.Step) );
+		Assert.Equal( ( "r1", "a", "s1" ), ( error.Release, error.Plan, error.Step ) );
 
-		Assert.Equal( ["a_s1"], StepTables() );
+		Assert.Equal( [ "a_s1" ], StepTables() );
 		Assert.Empty( Journal().Where( row => row.Contains( "RollingBack" ) || row.Contains( "RolledBack" ) ) );
 	}
 
 	// ------------------------------------------------------------------ helpers
 
 	private void Deploy(
-		IReadOnlyList<ReleaseGroup> releases, IScriptContentReader scripts,
-		DeploymentCommitLevel level = DeploymentCommitLevel.Release, RecordingListener? listener = null,
-		RollbackTrigger rollback = RollbackTrigger.None )
+		IReadOnlyList<ReleaseGroup> releases,
+		IScriptContentReader scripts,
+		DeploymentCommitLevel level = DeploymentCommitLevel.Release,
+		RecordingListener? listener = null,
+		RollbackTrigger rollback = RollbackTrigger.None
+	)
 	{
 		using IDatabaseDriver owned = driver();
 
 		new DeploymentEngine(
-				owned, journaling, scripts, level, listener ?? new RecordingListener(), rollback )
+				owned,
+				journaling,
+				scripts,
+				level,
+				listener ?? new RecordingListener(),
+				rollback
+			)
 			.Deploy( Project, releases );
 	}
 
@@ -243,9 +295,10 @@ public sealed class RealDatabaseDeployment(
 	/// </summary>
 	private static InMemoryScripts Scripts()
 	{
-		InMemoryScripts reader = new (
+		InMemoryScripts reader = new(
 			( plan, step ) => $"create table {plan}_{step} ( id integer primary key )",
-			( plan, step ) => $"drop table {plan}_{step}" );
+			( plan, step ) => $"drop table {plan}_{step}"
+		);
 
 		return reader;
 	}
@@ -255,7 +308,8 @@ public sealed class RealDatabaseDeployment(
 	/// <summary>The journal as 'slot|release|plan|step' rows, in the order they were written.</summary>
 	private List<string> Journal()
 		=> query(
-			"select slot, release, coalesce( plan, '' ), coalesce( step, '' ) from sqetch_journal order by id" );
+			"select slot, release, coalesce( plan, '' ), coalesce( step, '' ) from sqetch_journal order by id"
+		);
 
 	private List<string> Journal( string slot )
 		=> query( $"select release from sqetch_journal where slot = '{slot}' order by id" );

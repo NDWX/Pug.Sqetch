@@ -1,4 +1,5 @@
 using System.Globalization;
+
 using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring.Output;
@@ -6,12 +7,17 @@ namespace Pug.Sqetch.Cli.Commands.Authoring.Output;
 /// <summary>Row projections shared by the table, TSV and CSV renderings.</summary>
 internal static class Rows
 {
-	public static readonly string[] PlanHeaders = ["Name", "Release", "Created", "Created By", "Depends On", "Description"];
+	public static readonly string[] PlanHeaders =
+	[
+		"Name", "Release", "Created", "Created By", "Depends On", "Description"
+	];
 
 	public static readonly string[] ReleaseHeaders =
-		["Name", "State", "Created", "Created By", "Finalized", "Finalized By", "Depends On", "Description"];
+	[
+		"Name", "State", "Created", "Created By", "Finalized", "Finalized By", "Depends On", "Description"
+	];
 
-	public static readonly string[] StepHeaders = ["Name", "Created", "Created By", "Depends On", "Description"];
+	public static readonly string[] StepHeaders = [ "Name", "Created", "Created By", "Depends On", "Description" ];
 
 	public static string[] Plan( ProjectPlan plan )
 		=>
@@ -56,7 +62,7 @@ internal static class Rows
 			name = plan.Definition.Name,
 			description = plan.Definition.Description,
 			release = plan.Release,
-			dependencies = ( plan.Definition as PlanDefinition )?.Dependencies ?? [],
+			dependencies = ( plan.Definition as PlanDefinition )?.Dependencies ?? [ ],
 			registration = plan.Registration
 		};
 
@@ -75,7 +81,7 @@ internal static class Rows
 		{
 			name = step.Definition.Name,
 			description = step.Definition.Description,
-			dependencies = ( step.Definition as StepDefinition )?.Dependencies ?? [],
+			dependencies = ( step.Definition as StepDefinition )?.Dependencies ?? [ ],
 			registration = step.Registration
 		};
 

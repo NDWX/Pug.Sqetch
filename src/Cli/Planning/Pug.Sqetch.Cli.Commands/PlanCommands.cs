@@ -1,8 +1,11 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Planning;
 using Pug.Sqetch.Planning.Models;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
+
 using Rows = Pug.Sqetch.Cli.Commands.Authoring.Output.Rows;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring;
@@ -12,8 +15,7 @@ public sealed class PlanInfoCommand( IAnsiConsole console ) : Command<PlanInfoCo
 {
 	public sealed class Settings : OutputSettings
 	{
-		[CommandOption( "-n|--name <PLAN>" )]
-		public string? Name { get; init; }
+		[CommandOption( "-n|--name <PLAN>" )] public string? Name { get; init; }
 
 		public override ValidationResult Validate()
 		{
@@ -34,15 +36,18 @@ public sealed class PlanInfoCommand( IAnsiConsole console ) : Command<PlanInfoCo
 			throw new UnknownPlanException( settings.Name! );
 
 		ResultWriter.WriteDetails(
-			console, settings.Format, Rows.PlanJson( plan ),
+			console,
+			settings.Format,
+			Rows.PlanJson( plan ),
 			[
-				("Name", plan.Definition.Name),
-				("Description", plan.Definition.Description),
-				("Release", plan.Release.Length == 0 ? "(unreleased)" : plan.Release),
-				("Depends On", Rows.Dependencies( ( plan.Definition as PlanDefinition )?.Dependencies )),
-				("Created", Rows.Timestamp( plan.Registration.Timestamp )),
-				("Created By", plan.Registration.Subject.EmailAddress)
-			] );
+				( "Name", plan.Definition.Name ),
+				( "Description", plan.Definition.Description ),
+				( "Release", plan.Release.Length == 0 ? "(unreleased)" : plan.Release ),
+				( "Depends On", Rows.Dependencies( ( plan.Definition as PlanDefinition )?.Dependencies ) ),
+				( "Created", Rows.Timestamp( plan.Registration.Timestamp ) ),
+				( "Created By", plan.Registration.Subject.EmailAddress )
+			]
+		);
 
 		return 0;
 	}
@@ -72,7 +77,7 @@ public sealed class PlanListCommand( IAnsiConsole console ) : Command<PlanListCo
 		[Description( "Only plans created by this user" )]
 		public string? CreateUser { get; init; }
 
-		internal PlanSearchCriteria Criteria { get; private set; } = new ();
+		internal PlanSearchCriteria Criteria { get; private set; } = new();
 
 		public override ValidationResult Validate()
 		{
@@ -88,7 +93,8 @@ public sealed class PlanListCommand( IAnsiConsole console ) : Command<PlanListCo
 				Release: Release,
 				Released: Released || Release is not null || window is not null,
 				ReleaseFinalizeTimestamp: window,
-				CreateUser: CreateUser );
+				CreateUser: CreateUser
+			);
 
 			return base.Validate();
 		}
@@ -110,8 +116,7 @@ public sealed class PlanCreateCommand( IAnsiConsole console ) : Command<PlanCrea
 {
 	public sealed class Settings : CommandSettings
 	{
-		[CommandOption( "-n|--name <PLAN>" )]
-		public string? Name { get; init; }
+		[CommandOption( "-n|--name <PLAN>" )] public string? Name { get; init; }
 
 		[CommandOption( "-d|--description <TEXT>" )]
 		public string? Description { get; init; }
@@ -141,14 +146,20 @@ public sealed class PlanCreateCommand( IAnsiConsole console ) : Command<PlanCrea
 		using ProjectSession session = ProjectSession.Open();
 
 		session.Project.Add(
-			new PlanDefinition( settings.Name!, settings.Description ?? "", OptionParsing.SplitList( settings.RequirePlans ) ),
-			settings.Release );
+			new PlanDefinition(
+				settings.Name!,
+				settings.Description ?? "",
+				OptionParsing.SplitList( settings.RequirePlans )
+			),
+			settings.Release
+		);
 
 		if( settings.Release is not null )
 			session.Project.AddPlanToRelease( settings.Release, settings.Name!, includeDependencies: false );
 
 		console.WriteLine(
-			session.Paths.RelativeToRoot( session.Paths.PlanDirectory( settings.Release ?? "", settings.Name! ) ) );
+			session.Paths.RelativeToRoot( session.Paths.PlanDirectory( settings.Release ?? "", settings.Name! ) )
+		);
 
 		return 0;
 	}
@@ -158,13 +169,12 @@ public sealed class PlanDeleteCommand : Command<PlanDeleteCommand.Settings>
 {
 	public sealed class Settings : CommandSettings
 	{
-		[CommandOption( "-n|--name <PLAN>" )]
-		public string? Name { get; init; }
+		[CommandOption( "-n|--name <PLAN>" )] public string? Name { get; init; }
 
 		public override ValidationResult Validate()
-			=> string.IsNullOrWhiteSpace( Name )
-				? ValidationResult.Error( "--name is required" )
-				: ValidationResult.Success();
+			=> string.IsNullOrWhiteSpace( Name ) ?
+				ValidationResult.Error( "--name is required" ) :
+				ValidationResult.Success();
 	}
 
 	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
@@ -181,8 +191,7 @@ public sealed class PlanSetReleaseCommand( IAnsiConsole console ) : Command<Plan
 {
 	public sealed class Settings : CommandSettings
 	{
-		[CommandOption( "-p|--plan <PLAN>" )]
-		public string? Plan { get; init; }
+		[CommandOption( "-p|--plan <PLAN>" )] public string? Plan { get; init; }
 
 		[CommandOption( "-r|--release <RELEASE>" )]
 		[Description( "Release to add or move the plan to" )]
@@ -216,24 +225,27 @@ public sealed class PlanSetReleaseCommand( IAnsiConsole console ) : Command<Plan
 	{
 		using ProjectSession session = ProjectSession.Open();
 
-		ProjectPlan plan = session.Stores.InfoStore.GetPlan( settings.Plan! )
-							?? throw new UnknownPlanException( settings.Plan! );
+		ProjectPlan plan = session.Stores.InfoStore.GetPlan( settings.Plan! ) ??
+							throw new UnknownPlanException( settings.Plan! );
 
 		if( settings.Unreleased )
 		{
 			if( plan.Release.Length == 0 )
 			{
 				console.WriteLine( $"plan '{plan.Definition.Name}' is not part of a release" );
+
 				return 0;
 			}
 
 			session.Project.RemovePlanFromRelease( plan.Release, plan.Definition.Name, settings.WithDependants );
+
 			return 0;
 		}
 
 		if( string.Equals( plan.Release, settings.Release, StringComparison.OrdinalIgnoreCase ) )
 		{
 			console.WriteLine( $"plan '{plan.Definition.Name}' is already part of release '{plan.Release}'" );
+
 			return 0;
 		}
 

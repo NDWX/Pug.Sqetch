@@ -16,9 +16,9 @@ public sealed class JournalingStatements
 	/// <summary>Separates statements within one slot when alone on a line.</summary>
 	public const string StatementSeparator = ";;";
 
-	private readonly Dictionary<JournalingSlot, string> _text = new ();
+	private readonly Dictionary<JournalingSlot, string> _text = new();
 
-	private readonly Dictionary<JournalingSlot, IReadOnlyList<string>> _statements = new ();
+	private readonly Dictionary<JournalingSlot, IReadOnlyList<string>> _statements = new();
 
 	/// <summary>
 	/// Throws <see cref="ArgumentException"/> unless every slot is set — callers facing a user
@@ -32,7 +32,9 @@ public sealed class JournalingStatements
 
 		if( missing.Count > 0 )
 			throw new ArgumentException(
-				$"Journaling statements are not set for: {string.Join( ", ", missing )}.", nameof(text) );
+				$"Journaling statements are not set for: {string.Join( ", ", missing )}.",
+				nameof(text)
+			);
 
 		foreach( JournalingSlot slot in JournalingSlots.All )
 		{
@@ -56,9 +58,8 @@ public sealed class JournalingStatements
 		ArgumentNullException.ThrowIfNull( text );
 
 		return JournalingSlots.All
-							.Where( slot => !text.TryGetValue( slot, out string? sql )
-											|| string.IsNullOrWhiteSpace( sql ) )
-							.ToList();
+			.Where( slot => !text.TryGetValue( slot, out string? sql ) || string.IsNullOrWhiteSpace( sql ) )
+			.ToList();
 	}
 
 	/// <summary>
@@ -77,7 +78,8 @@ public sealed class JournalingStatements
 
 		if( JournalingSlots.IsQuery( slot ) && statements.Count > 1 )
 			throw new ArgumentException(
-				$"{slot} is a query and must hold exactly one statement, but holds {statements.Count}." );
+				$"{slot} is a query and must hold exactly one statement, but holds {statements.Count}."
+			);
 
 		return statements;
 	}
@@ -96,11 +98,11 @@ public sealed class JournalingStatements
 		// one that survives would be sent to the server as part of the first statement
 		text = text.TrimStart( '﻿' );
 
-		List<string> statements = [];
-		List<string> lines = [];
+		List<string> statements = [ ];
+		List<string> lines = [ ];
 		bool separated = false;
 
-		using StringReader reader = new ( text );
+		using StringReader reader = new( text );
 
 		while( reader.ReadLine() is { } line )
 			if( line.Trim() == StatementSeparator )
@@ -125,8 +127,9 @@ public sealed class JournalingStatements
 
 		if( statement.Length == 0 )
 			throw new ArgumentException(
-				$"Statement {statements.Count + 1} is empty; every '{StatementSeparator}' separator "
-				+ "must lie between two statements." );
+				$"Statement {statements.Count + 1} is empty; every '{StatementSeparator}' separator " +
+				"must lie between two statements."
+			);
 
 		statements.Add( statement );
 	}

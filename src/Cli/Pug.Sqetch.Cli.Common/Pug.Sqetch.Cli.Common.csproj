@@ -8,9 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj" />
-        <ProjectReference Include="..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj" />
-      <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
+        <ProjectReference Include="..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj"/>
+        <ProjectReference Include="..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj"/>
+        <PackageReference Include="Spectre.Console.Cli" Version="0.55.0"/>
     </ItemGroup>
 
 </Project>

@@ -1,5 +1,7 @@
 using System.Text.Json;
+
 using Pug.Sqetch.Planning.Cli;
+
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Planning.Cli;
@@ -39,7 +41,7 @@ public class JournalingCliTests : IDisposable
 
 	private static CommandAppResult Run( params string[] args )
 	{
-		CommandAppTester tester = new ();
+		CommandAppTester tester = new();
 
 		tester.Configure( SqetchApp.Configure );
 
@@ -64,7 +66,9 @@ public class JournalingCliTests : IDisposable
 		Assert.Contains( before, line => line.StartsWith( "PrepareJournal\t" ) );
 
 		Assert.Equal(
-			0, Run( "journaling", "set", "PrepareJournal", "create table journal( release text )" ).ExitCode );
+			0,
+			Run( "journaling", "set", "PrepareJournal", "create table journal( release text )" ).ExitCode
+		);
 
 		string[] after = Run( "journaling", "list" ).Output.Split( '\n' );
 
@@ -115,7 +119,9 @@ public class JournalingCliTests : IDisposable
 		InitializeProject();
 
 		Assert.Equal(
-			0, Run( "journaling", "set", "ReleaseDeployed", "insert into journal( release ) values( @release )" ).ExitCode );
+			0,
+			Run( "journaling", "set", "ReleaseDeployed", "insert into journal( release ) values( @release )" ).ExitCode
+		);
 
 		CommandAppResult result = Run( "journaling", "print", "ReleaseDeployed" );
 
@@ -157,7 +163,10 @@ public class JournalingCliTests : IDisposable
 			Console.SetIn( original );
 		}
 
-		Assert.Equal( "create table journal( release text )", Run( "journaling", "print", "PrepareJournal" ).Output.Trim() );
+		Assert.Equal(
+			"create table journal( release text )",
+			Run( "journaling", "print", "PrepareJournal" ).Output.Trim()
+		);
 	}
 
 	[Fact]
@@ -243,9 +252,11 @@ public class JournalingCliTests : IDisposable
 		JsonElement row = Assert.Single( json.RootElement.EnumerateArray().ToArray() );
 
 		Assert.Equal( "PlanDeployed", row.GetProperty( "slot" ).GetString() );
+
 		Assert.Equal(
-			["@project", "@release", "@plan", "@description", "@utcTimestamp"],
-			row.GetProperty( "parameters" ).EnumerateArray().Select( x => x.GetString()! ).ToArray() );
+			[ "@project", "@release", "@plan", "@description", "@utcTimestamp" ],
+			row.GetProperty( "parameters" ).EnumerateArray().Select( x => x.GetString()! ).ToArray()
+		);
 	}
 
 	/// <summary>

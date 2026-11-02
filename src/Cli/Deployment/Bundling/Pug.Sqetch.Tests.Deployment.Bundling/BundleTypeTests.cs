@@ -1,6 +1,7 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 
@@ -8,7 +9,7 @@ namespace Pug.Sqetch.Tests.Deployment.Bundling;
 
 public class BundleTypeTests
 {
-	private static MemoryStream Content( string text ) => new ( Encoding.UTF8.GetBytes( text ) );
+	private static MemoryStream Content( string text ) => new( Encoding.UTF8.GetBytes( text ) );
 
 	/// <summary>
 	/// Writes two entries through <paramref name="create"/> and asserts the output stream
@@ -17,7 +18,7 @@ public class BundleTypeTests
 	/// </summary>
 	private static MemoryStream WriteSample( Func<Stream, IBundleWriter> create )
 	{
-		MemoryStream output = new ();
+		MemoryStream output = new();
 
 		using( IBundleWriter writer = create( output ) )
 		{
@@ -41,13 +42,14 @@ public class BundleTypeTests
 	{
 		using MemoryStream output = WriteSample( new ZipBundleType().Create );
 
-		using ZipArchive archive = new ( output, ZipArchiveMode.Read );
+		using ZipArchive archive = new( output, ZipArchiveMode.Read );
 
 		Assert.Equal(
-			["manifest.json", "plans/p1/steps/s1/deploy.sql"],
-			archive.Entries.Select( x => x.FullName ).ToArray() );
+			[ "manifest.json", "plans/p1/steps/s1/deploy.sql" ],
+			archive.Entries.Select( x => x.FullName ).ToArray()
+		);
 
-		using StreamReader reader = new ( archive.GetEntry( "plans/p1/steps/s1/deploy.sql" )!.Open() );
+		using StreamReader reader = new( archive.GetEntry( "plans/p1/steps/s1/deploy.sql" )!.Open() );
 		Assert.Equal( "-- deploy", reader.ReadToEnd() );
 	}
 
@@ -56,7 +58,7 @@ public class BundleTypeTests
 	{
 		using MemoryStream output = WriteSample( new TarBundleType().Create );
 
-		using TarReader reader = new ( output );
+		using TarReader reader = new( output );
 
 		TarEntry first = reader.GetNextEntry()!;
 
@@ -78,10 +80,10 @@ public class BundleTypeTests
 		using MemoryStream output = WriteSample( new TarGzBundleType().Create );
 
 		byte[] bytes = output.ToArray();
-		Assert.Equal( [0x1f, 0x8b], bytes[..2] );
+		Assert.Equal( [ 0x1f, 0x8b ], bytes[..2] );
 
-		using GZipStream gzip = new ( output, CompressionMode.Decompress );
-		using TarReader reader = new ( gzip );
+		using GZipStream gzip = new( output, CompressionMode.Decompress );
+		using TarReader reader = new( gzip );
 
 		Assert.Equal( "manifest.json", reader.GetNextEntry()!.Name );
 		Assert.Equal( "plans/p1/steps/s1/deploy.sql", reader.GetNextEntry()!.Name );
@@ -107,9 +109,11 @@ public class BundleTypeTests
 			}
 
 			Assert.Equal( "manifest", File.ReadAllText( Path.Combine( target, "manifest.json" ) ) );
+
 			Assert.Equal(
 				"-- deploy",
-				File.ReadAllText( Path.Combine( target, "plans", "p1", "steps", "s1", "deploy.sql" ) ) );
+				File.ReadAllText( Path.Combine( target, "plans", "p1", "steps", "s1", "deploy.sql" ) )
+			);
 		}
 		finally
 		{
@@ -127,8 +131,11 @@ public class BundleTypeTests
 			string file = Path.Combine( root, "bundle.zip" );
 			File.WriteAllText( file, "keep" );
 
-			Assert.Contains( "already exists",
-				Assert.Throws<BundlingException>( () => new ZipBundleType().Create( file ) ).Message );
+			Assert.Contains(
+				"already exists",
+				Assert.Throws<BundlingException>( () => new ZipBundleType().Create( file ) ).Message
+			);
+
 			Assert.Equal( "keep", File.ReadAllText( file ) );
 
 			// a non-empty directory target is refused; an empty one is acceptable
@@ -136,8 +143,10 @@ public class BundleTypeTests
 			Directory.CreateDirectory( occupied );
 			File.WriteAllText( Path.Combine( occupied, "existing.txt" ), "" );
 
-			Assert.Contains( "not empty",
-				Assert.Throws<BundlingException>( () => new DirectoryBundleType().Create( occupied ) ).Message );
+			Assert.Contains(
+				"not empty",
+				Assert.Throws<BundlingException>( () => new DirectoryBundleType().Create( occupied ) ).Message
+			);
 
 			Assert.Throws<BundlingException>( () => new DirectoryBundleType().Create( file ) );
 		}
@@ -159,7 +168,7 @@ public class BundleTypeTests
 	[Fact]
 	public void RegistryResolvesKnownNamesCaseInsensitivelyAndRejectsUnknownOnes()
 	{
-		BundleTypeRegistry registry = new ();
+		BundleTypeRegistry registry = new();
 		registry.RegisterBundleTypes();
 
 		Assert.IsType<ZipBundleType>( registry.Create( "ZIP" ) );
@@ -169,6 +178,7 @@ public class BundleTypeTests
 
 		UnknownBundleTypeException unknown =
 			Assert.Throws<UnknownBundleTypeException>( () => registry.Create( "rar" ) );
+
 		Assert.Equal( "rar", unknown.Name );
 		Assert.Contains( "zip", unknown.Message );
 	}
@@ -176,7 +186,7 @@ public class BundleTypeTests
 	[Fact]
 	public void RegistryAcceptsCustomRegistrations()
 	{
-		BundleTypeRegistry registry = new ();
+		BundleTypeRegistry registry = new();
 		registry.RegisterBundleTypes();
 
 		registry.Register( "custom", () => new CustomType() );

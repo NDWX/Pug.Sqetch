@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Deployment.Bundling.Layouts;
@@ -24,7 +25,7 @@ public sealed class DefaultBundleLayout : IBundleLayout
 
 	public const string ManifestEntry = "manifest.json";
 
-	private static readonly JsonSerializerOptions JsonOptions = new ()
+	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		WriteIndented = true,
@@ -37,11 +38,11 @@ public sealed class DefaultBundleLayout : IBundleLayout
 
 	public void Write( Bundle bundle, IBundleWriter writer )
 	{
-		using( MemoryStream manifest = new ( JsonSerializer.SerializeToUtf8Bytes( Manifest( bundle ), JsonOptions ) ) )
+		using( MemoryStream manifest = new( JsonSerializer.SerializeToUtf8Bytes( Manifest( bundle ), JsonOptions ) ) )
 			writer.Add( ManifestEntry, manifest );
 
 		foreach( JournalingSlot slot in JournalingSlots.All )
-			using( MemoryStream statement = new ( Encoding.UTF8.GetBytes( bundle.Journaling.Text( slot ) ) ) )
+			using( MemoryStream statement = new( Encoding.UTF8.GetBytes( bundle.Journaling.Text( slot ) ) ) )
 				writer.Add( JournalingPath( slot ), statement );
 
 		foreach( BundlePlan plan in bundle.Plans )
@@ -75,8 +76,8 @@ public sealed class DefaultBundleLayout : IBundleLayout
 
 	public JournalingStatements ReadJournalingStatements( IBundleReader reader )
 	{
-		Dictionary<JournalingSlot, string?> text = new ();
-		List<string> missing = new ();
+		Dictionary<JournalingSlot, string?> text = new();
+		List<string> missing = new();
 
 		foreach( JournalingSlot slot in JournalingSlots.All )
 		{
@@ -93,14 +94,15 @@ public sealed class DefaultBundleLayout : IBundleLayout
 
 			// StreamReader strips a byte-order mark; one left in place would be sent to the
 			// server as part of the slot's first statement
-			using StreamReader content = new ( entry );
+			using StreamReader content = new( entry );
 
 			text[slot] = content.ReadToEnd();
 		}
 
 		if( missing.Count > 0 )
 			throw new BundlingException(
-				$"Bundle is missing journaling statements: {string.Join( ", ", missing )}." );
+				$"Bundle is missing journaling statements: {string.Join( ", ", missing )}."
+			);
 
 		try
 		{
@@ -125,25 +127,40 @@ public sealed class DefaultBundleLayout : IBundleLayout
 	private static string JournalingPath( JournalingSlot slot ) => $"journaling/{JournalingSlots.FileName( slot )}";
 
 	private static BundleManifest Manifest( Bundle bundle )
-		=> new (
+		=> new(
 			new BundleManifestProject(
-				bundle.Project.Name, bundle.Project.Description, bundle.Project.Engine ),
+				bundle.Project.Name,
+				bundle.Project.Description,
+				bundle.Project.Engine
+			),
 			bundle.Selection,
 			bundle.Releases
 				.Select( release => new BundleManifestRelease(
-							release.Name, release.Description, release.Dependency, release.Finalized ) )
+						release.Name,
+						release.Description,
+						release.Dependency,
+						release.Finalized
+					)
+				)
 				.ToList(),
 			bundle.Plans
 				.Select( plan => new BundleManifestPlan(
-							plan.Name,
-							plan.Description,
-							plan.Release,
-							plan.Dependencies,
-							plan.Steps
-								.Select( step => new BundleManifestStep(
-											step.Name, step.Description, step.Dependencies ) )
-								.ToList() ) )
-				.ToList() );
+						plan.Name,
+						plan.Description,
+						plan.Release,
+						plan.Dependencies,
+						plan.Steps
+							.Select( step => new BundleManifestStep(
+									step.Name,
+									step.Description,
+									step.Dependencies
+								)
+							)
+							.ToList()
+					)
+				)
+				.ToList()
+		);
 
 	/// <summary>
 	/// Deserialization leaves absent members null despite the record signatures; required
@@ -157,7 +174,7 @@ public sealed class DefaultBundleLayout : IBundleLayout
 		if( manifest.Plans is null )
 			throw new InvalidBundleManifestException( "Bundle manifest has no plan list." );
 
-		IReadOnlyList<BundleManifestRelease> releases = manifest.Releases ?? [];
+		IReadOnlyList<BundleManifestRelease> releases = manifest.Releases ?? [ ];
 
 		return manifest with
 		{
@@ -166,15 +183,19 @@ public sealed class DefaultBundleLayout : IBundleLayout
 				Description = manifest.Project.Description ?? "",
 				Engine = manifest.Project.Engine ?? ""
 			},
+
 			// manifest array order is the deployment-order contract, so an omitted
 			// 'dependency' falls back to the preceding release's (already-validated) name
 			Releases = releases
-						.Select( ( release, index ) => NormalizeRelease(
-									release, index == 0 ? "" : releases[index - 1].Name! ) )
-						.ToList(),
+				.Select( ( release, index ) => NormalizeRelease(
+						release,
+						index == 0 ? "" : releases[index - 1].Name
+					)
+				)
+				.ToList(),
 			Plans = manifest.Plans
-						.Select( NormalizePlan )
-						.ToList()
+				.Select( NormalizePlan )
+				.ToList()
 		};
 	}
 
@@ -199,10 +220,10 @@ public sealed class DefaultBundleLayout : IBundleLayout
 		{
 			Description = plan.Description ?? "",
 			Release = plan.Release ?? "",
-			Dependencies = plan.Dependencies ?? [],
-			Steps = ( plan.Steps ?? [] )
-					.Select( step => NormalizeStep( plan.Name, step ) )
-					.ToList()
+			Dependencies = plan.Dependencies ?? [ ],
+			Steps = ( plan.Steps ?? [ ] )
+			.Select( step => NormalizeStep( plan.Name, step ) )
+			.ToList()
 		};
 	}
 
@@ -210,12 +231,13 @@ public sealed class DefaultBundleLayout : IBundleLayout
 	{
 		if( string.IsNullOrEmpty( step.Name ) )
 			throw new InvalidBundleManifestException(
-				$"Bundle manifest contains an unnamed step in plan '{plan}'." );
+				$"Bundle manifest contains an unnamed step in plan '{plan}'."
+			);
 
 		return step with
 		{
 			Description = step.Description ?? "",
-			Dependencies = step.Dependencies ?? []
+			Dependencies = step.Dependencies ?? [ ]
 		};
 	}
 

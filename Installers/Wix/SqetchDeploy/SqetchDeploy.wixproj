@@ -1,11 +1,11 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
 
-	<PropertyGroup>
-		<ProductName>sqetch-deploy</ProductName>
-		<ProductDescription>Sqetch deploy: deploy Sqetch bundles to a database through pluggable database drivers</ProductDescription>
-		<UpgradeCode>13FBC486-1A1B-4D5D-A95B-B4604D9461BE</UpgradeCode>
-	</PropertyGroup>
+    <PropertyGroup>
+        <ProductName>sqetch-deploy</ProductName>
+        <ProductDescription>Sqetch deploy: deploy Sqetch bundles to a database through pluggable database drivers</ProductDescription>
+        <UpgradeCode>13FBC486-1A1B-4D5D-A95B-B4604D9461BE</UpgradeCode>
+    </PropertyGroup>
 
-	<Import Project="..\Shared\Installer.props" />
+    <Import Project="..\Shared\Installer.props"/>
 
 </Project>

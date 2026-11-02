@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\..\Pug.Sqetch.Planning.Abstractions\Pug.Sqetch.Planning.Abstractions.csproj" />
-        <ProjectReference Include="..\..\Pug.Sqetch.Deployment.Bundling.Abstractions\Pug.Sqetch.Deployment.Bundling.Abstractions.csproj" />
+        <ProjectReference Include="..\..\..\..\Pug.Sqetch.Planning.Abstractions\Pug.Sqetch.Planning.Abstractions.csproj"/>
+        <ProjectReference Include="..\..\Pug.Sqetch.Deployment.Bundling.Abstractions\Pug.Sqetch.Deployment.Bundling.Abstractions.csproj"/>
     </ItemGroup>
 
 </Project>

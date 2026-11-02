@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
@@ -13,7 +14,7 @@ namespace Pug.Sqetch.Cli;
 /// </summary>
 public static class ResultWriter
 {
-	private static readonly JsonSerializerOptions JsonOptions = new ()
+	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		WriteIndented = true,
@@ -21,26 +22,35 @@ public static class ResultWriter
 	};
 
 	public static void WriteRows<T>(
-		IAnsiConsole console, OutputFormat format,
-		string[] headers, IReadOnlyList<T> items, Func<T, string[]> row, Func<T, object> json )
+		IAnsiConsole console,
+		OutputFormat format,
+		string[] headers,
+		IReadOnlyList<T> items,
+		Func<T, string[]> row,
+		Func<T, object> json
+	)
 	{
 		switch( format )
 		{
 			case OutputFormat.Json:
 				WriteJson( console, items.Select( json ) );
-				break;
+
+			break;
 
 			case OutputFormat.Csv:
-				WriteLines( console, [ToCsvLine( headers ), ..items.Select( x => ToCsvLine( row( x ) ) )] );
-				break;
+				WriteLines( console, [ ToCsvLine( headers ), .. items.Select( x => ToCsvLine( row( x ) ) ) ] );
+
+			break;
 
 			case OutputFormat.Auto when console.Profile.Capabilities.Interactive:
 				console.Write( BuildTable( headers, items.Select( row ) ) );
-				break;
+
+			break;
 
 			default:
 				WriteLines( console, items.Select( x => string.Join( '\t', row( x ) ) ).ToList() );
-				break;
+
+			break;
 		}
 	}
 
@@ -53,29 +63,35 @@ public static class ResultWriter
 	/// sections would otherwise be indistinguishable.
 	/// </summary>
 	public static void WriteSections(
-		IAnsiConsole console, OutputFormat format, object json, IReadOnlyList<ResultSection> sections )
+		IAnsiConsole console,
+		OutputFormat format,
+		object json,
+		IReadOnlyList<ResultSection> sections
+	)
 	{
 		switch( format )
 		{
 			case OutputFormat.Json:
 				WriteJson( console, json );
-				break;
+
+			break;
 
 			case OutputFormat.Csv:
-				List<string> lines = [];
+				List<string> lines = [ ];
 
 				foreach( ResultSection section in sections )
 				{
 					if( lines.Count > 0 )
 						lines.Add( "" );
 
-					lines.Add( ToCsvLine( [section.Key] ) );
+					lines.Add( ToCsvLine( [ section.Key ] ) );
 					lines.Add( ToCsvLine( section.Headers ) );
 					lines.AddRange( section.Rows.Select( ToCsvLine ) );
 				}
 
 				WriteLines( console, lines );
-				break;
+
+			break;
 
 			case OutputFormat.Auto when console.Profile.Capabilities.Interactive:
 				foreach( ResultSection section in sections )
@@ -87,15 +103,19 @@ public static class ResultWriter
 					console.Write( table );
 				}
 
-				break;
+			break;
 
 			default:
 				WriteLines(
 					console,
 					sections
-						.SelectMany( section => section.Rows.Select( row => $"{section.Key}\t{string.Join( '\t', row )}" ) )
-						.ToList() );
-				break;
+						.SelectMany( section =>
+							section.Rows.Select( row => $"{section.Key}\t{string.Join( '\t', row )}" )
+						)
+						.ToList()
+				);
+
+			break;
 		}
 	}
 
@@ -104,14 +124,18 @@ public static class ResultWriter
 	/// JSON serializes <paramref name="details"/> itself, CSV emits one header + one row.
 	/// </summary>
 	public static void WriteDetails(
-		IAnsiConsole console, OutputFormat format,
-		object details, (string Label, string Value)[] pairs )
+		IAnsiConsole console,
+		OutputFormat format,
+		object details,
+		(string Label, string Value)[] pairs
+	)
 	{
 		switch( format )
 		{
 			case OutputFormat.Json:
 				WriteJson( console, details );
-				break;
+
+			break;
 
 			case OutputFormat.Csv:
 				WriteLines(
@@ -119,21 +143,25 @@ public static class ResultWriter
 					[
 						ToCsvLine( pairs.Select( x => x.Label ).ToArray() ),
 						ToCsvLine( pairs.Select( x => x.Value ).ToArray() )
-					] );
-				break;
+					]
+				);
+
+			break;
 
 			case OutputFormat.Auto when console.Profile.Capabilities.Interactive:
 				Table table = new Table().HideHeaders().AddColumns( "", "" );
 
-				foreach( (string label, string value) in pairs )
+				foreach( ( string label, string value ) in pairs )
 					table.AddRow( new Text( label, new Style( decoration: Decoration.Bold ) ), new Text( value ) );
 
 				console.Write( table );
-				break;
+
+			break;
 
 			default:
 				WriteLines( console, pairs.Select( x => $"{x.Label}\t{x.Value}" ).ToList() );
-				break;
+
+			break;
 		}
 	}
 
@@ -169,7 +197,7 @@ public static class ResultWriter
 
 	private static Table BuildTable( string[] headers, IEnumerable<string[]> rows )
 	{
-		Table table = new ();
+		Table table = new();
 
 		foreach( string header in headers )
 			table.AddColumn( new TableColumn( new Text( header, new Style( decoration: Decoration.Bold ) ) ) );
@@ -182,7 +210,7 @@ public static class ResultWriter
 
 	private static string ToCsvLine( string[] cells )
 	{
-		StringBuilder line = new ();
+		StringBuilder line = new();
 
 		for( int index = 0; index < cells.Length; index++ )
 		{

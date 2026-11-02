@@ -36,12 +36,19 @@ public sealed class FileSystemProjectStores : IDisposable
 	/// </summary>
 	public ProjectPaths Paths => _session.Paths;
 
-	public static FileSystemProjectStores Open( string path, ReleaseShardingStrategyRegistry? shardingStrategies = null )
-		=> new ( new ProjectStoreSession( path, shardingStrategies ?? new ReleaseShardingStrategyRegistry() ) );
+	public static FileSystemProjectStores Open(
+		string path,
+		ReleaseShardingStrategyRegistry? shardingStrategies = null
+	)
+		=> new( new ProjectStoreSession( path, shardingStrategies ?? new ReleaseShardingStrategyRegistry() ) );
 
 	public static FileSystemProjectStores Initialize(
-		ProjectDefinition definition, ActionContext context, string path,
-		ShardingConfiguration? releaseSharding = null, ReleaseShardingStrategyRegistry? shardingStrategies = null )
+		ProjectDefinition definition,
+		ActionContext context,
+		string path,
+		ShardingConfiguration? releaseSharding = null,
+		ReleaseShardingStrategyRegistry? shardingStrategies = null
+	)
 	{
 		ArgumentNullException.ThrowIfNull( definition );
 		ArgumentNullException.ThrowIfNull( context );
@@ -54,7 +61,8 @@ public sealed class FileSystemProjectStores : IDisposable
 
 		ReleaseShardingStrategyRegistry registry = shardingStrategies ?? new ReleaseShardingStrategyRegistry();
 
-		ShardingConfiguration sharding = releaseSharding ?? new ShardingConfiguration( FlatShardingStrategy.StrategyName );
+		ShardingConfiguration sharding =
+			releaseSharding ?? new ShardingConfiguration( FlatShardingStrategy.StrategyName );
 
 		// resolve before persisting so an unknown strategy name fails here, not on open
 		registry.Create( sharding );
@@ -66,8 +74,13 @@ public sealed class FileSystemProjectStores : IDisposable
 			Path.Combine( root, FileNames.ProjectFile ),
 			new ProjectDocument(
 				Format,
-				definition.Name, definition.Description, definition.Engine,
-				ActionDocument.From( context ), sharding ) );
+				definition.Name,
+				definition.Description,
+				definition.Engine,
+				ActionDocument.From( context ),
+				sharding
+			)
+		);
 
 		AtomicFile.WriteAllText( Path.Combine( root, FileNames.PlanIndexFile ), string.Empty );
 

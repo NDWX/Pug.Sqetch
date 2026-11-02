@@ -1,4 +1,5 @@
 using System.Data;
+
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
 
@@ -44,9 +45,12 @@ public sealed class StatementJournal
 	/// </summary>
 	public void PrepareJournal( IDatabaseTransaction transaction )
 		=> Execute(
-			JournalingSlot.PrepareJournal, Parameters( JournalingSlot.PrepareJournal ), transaction,
-			"PrepareJournal statements must be safe to run again against a database they have already "
-			+ "prepared, since prepare runs on every deployment." );
+			JournalingSlot.PrepareJournal,
+			Parameters( JournalingSlot.PrepareJournal ),
+			transaction,
+			"PrepareJournal statements must be safe to run again against a database they have already " +
+			"prepared, since prepare runs on every deployment."
+		);
 
 	/// <summary>
 	/// The release the journal is at, or null for a fresh database. Reads columns by ordinal, not
@@ -64,24 +68,31 @@ public sealed class StatementJournal
 
 		if( reader.FieldCount < 2 )
 			throw new JournalingStatementException(
-				slot, 1,
-				$"must select at least two columns (release name, completed) but selected {reader.FieldCount}." );
+				slot,
+				1,
+				$"must select at least two columns (release name, completed) but selected {reader.FieldCount}."
+			);
 
 		if( !reader.Read() )
 			return null;
 
 		if( reader.IsDBNull( 0 ) )
 			throw new JournalingStatementException(
-				slot, 1,
-				"column 0 (release name) is NULL; the unreleased-plans pseudo-release is the empty "
-				+ "string, never NULL." );
+				slot,
+				1,
+				"column 0 (release name) is NULL; the unreleased-plans pseudo-release is the empty " +
+				"string, never NULL."
+			);
 
 		string name = reader.GetValue( 0 ).ToString() ?? "";
 		bool completed = Completed( slot, reader.GetValue( 1 ) );
 
 		if( reader.Read() )
 			throw new JournalingStatementException(
-				slot, 1, "returned more than one row; a journal reporting two latest releases is corrupt." );
+				slot,
+				1,
+				"returned more than one row; a journal reporting two latest releases is corrupt."
+			);
 
 		return new JournaledRelease( name, completed );
 	}
@@ -96,7 +107,7 @@ public sealed class StatementJournal
 
 		using IDataReader reader = ExecuteQuery( JournalingSlot.GetDeployedPlans, transaction, release: release );
 
-		List<string> plans = [];
+		List<string> plans = [ ];
 
 		while( reader.Read() )
 		{
@@ -113,71 +124,109 @@ public sealed class StatementJournal
 		=> Execute(
 			JournalingSlot.DeployingRelease,
 			Parameters( JournalingSlot.DeployingRelease, release: release, description: description ),
-			transaction );
+			transaction
+		);
 
 	public void DeployingPlan( string release, string plan, string description, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.DeployingPlan,
 			Parameters( JournalingSlot.DeployingPlan, release: release, plan: plan, description: description ),
-			transaction );
+			transaction
+		);
 
 	public void DeployingStep(
-		string release, string plan, string step, string description, IDatabaseTransaction transaction )
+		string release,
+		string plan,
+		string step,
+		string description,
+		IDatabaseTransaction transaction
+	)
 		=> Execute(
 			JournalingSlot.DeployingStep,
 			Parameters(
-				JournalingSlot.DeployingStep, release: release, plan: plan, step: step, description: description ),
-			transaction );
+				JournalingSlot.DeployingStep,
+				release: release,
+				plan: plan,
+				step: step,
+				description: description
+			),
+			transaction
+		);
 
 	public void StepDeployed(
-		string release, string plan, string step, string description, IDatabaseTransaction transaction )
+		string release,
+		string plan,
+		string step,
+		string description,
+		IDatabaseTransaction transaction
+	)
 		=> Execute(
 			JournalingSlot.StepDeployed,
 			Parameters(
-				JournalingSlot.StepDeployed, release: release, plan: plan, step: step, description: description ),
-			transaction );
+				JournalingSlot.StepDeployed,
+				release: release,
+				plan: plan,
+				step: step,
+				description: description
+			),
+			transaction
+		);
 
 	public void PlanDeployed( string release, string plan, string description, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.PlanDeployed,
 			Parameters( JournalingSlot.PlanDeployed, release: release, plan: plan, description: description ),
-			transaction );
+			transaction
+		);
 
 	public void ReleaseDeployed( string release, string description, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.ReleaseDeployed,
 			Parameters( JournalingSlot.ReleaseDeployed, release: release, description: description ),
-			transaction );
+			transaction
+		);
 
 	public void RollingBackRelease( string release, IDatabaseTransaction transaction )
 		=> Execute(
-			JournalingSlot.RollingBackRelease, Parameters( JournalingSlot.RollingBackRelease, release: release ),
-			transaction );
+			JournalingSlot.RollingBackRelease,
+			Parameters( JournalingSlot.RollingBackRelease, release: release ),
+			transaction
+		);
 
 	public void RollingBackPlan( string release, string plan, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.RollingBackPlan,
-			Parameters( JournalingSlot.RollingBackPlan, release: release, plan: plan ), transaction );
+			Parameters( JournalingSlot.RollingBackPlan, release: release, plan: plan ),
+			transaction
+		);
 
 	public void RollingBackStep( string release, string plan, string step, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.RollingBackStep,
-			Parameters( JournalingSlot.RollingBackStep, release: release, plan: plan, step: step ), transaction );
+			Parameters( JournalingSlot.RollingBackStep, release: release, plan: plan, step: step ),
+			transaction
+		);
 
 	public void RolledBackStep( string release, string plan, string step, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.RolledBackStep,
-			Parameters( JournalingSlot.RolledBackStep, release: release, plan: plan, step: step ), transaction );
+			Parameters( JournalingSlot.RolledBackStep, release: release, plan: plan, step: step ),
+			transaction
+		);
 
 	public void RolledBackPlan( string release, string plan, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.RolledBackPlan,
-			Parameters( JournalingSlot.RolledBackPlan, release: release, plan: plan ), transaction );
+			Parameters( JournalingSlot.RolledBackPlan, release: release, plan: plan ),
+			transaction
+		);
 
 	public void RolledBackRelease( string release, IDatabaseTransaction transaction )
 		=> Execute(
-			JournalingSlot.RolledBackRelease, Parameters( JournalingSlot.RolledBackRelease, release: release ),
-			transaction );
+			JournalingSlot.RolledBackRelease,
+			Parameters( JournalingSlot.RolledBackRelease, release: release ),
+			transaction
+		);
 
 	/// <summary>
 	/// Runs every statement of <paramref name="slot"/> in order, wrapping a driver failure in
@@ -186,8 +235,11 @@ public sealed class StatementJournal
 	/// line to look at.
 	/// </summary>
 	private void Execute(
-		JournalingSlot slot, IReadOnlyList<JournalingParameter> parameters, IDatabaseTransaction transaction,
-		string? failureHint = null )
+		JournalingSlot slot,
+		IReadOnlyList<JournalingParameter> parameters,
+		IDatabaseTransaction transaction,
+		string? failureHint = null
+	)
 	{
 		IReadOnlyList<string> statements = _statements.Statements( slot );
 
@@ -234,8 +286,12 @@ public sealed class StatementJournal
 	/// statements records one instant rather than a spread of them.
 	/// </summary>
 	private JournalingParameter[] Parameters(
-		JournalingSlot slot, string? release = null, string? plan = null, string? step = null,
-		string? description = null )
+		JournalingSlot slot,
+		string? release = null,
+		string? plan = null,
+		string? step = null,
+		string? description = null
+	)
 	{
 		IReadOnlyList<string> names = JournalingSlots.ParameterNames( slot );
 		JournalingParameter[] parameters = new JournalingParameter[names.Count];
@@ -243,7 +299,9 @@ public sealed class StatementJournal
 
 		for( int index = 0; index < names.Count; index++ )
 			parameters[index] = new JournalingParameter(
-				names[index], Value( names[index], release, plan, step, description, utcNow ) );
+				names[index],
+				Value( names[index], release, plan, step, description, utcNow )
+			);
 
 		return parameters;
 	}
@@ -266,7 +324,13 @@ public sealed class StatementJournal
 	}
 
 	private object Value(
-		string name, string? release, string? plan, string? step, string? description, DateTime utcNow )
+		string name,
+		string? release,
+		string? plan,
+		string? step,
+		string? description,
+		DateTime utcNow
+	)
 		=> name switch
 		{
 			JournalingSlots.Parameters.Project => _project,
@@ -289,7 +353,10 @@ public sealed class StatementJournal
 		=> value switch
 		{
 			DBNull => throw new JournalingStatementException(
-				slot, 1, "column 1 (completed) is NULL; there is no valid coercion for NULL." ),
+				slot,
+				1,
+				"column 1 (completed) is NULL; there is no valid coercion for NULL."
+			),
 
 			bool boolean => boolean,
 
@@ -301,7 +368,10 @@ public sealed class StatementJournal
 			string text => CompletedText( slot, text ),
 
 			_ => throw new JournalingStatementException(
-				slot, 1, $"column 1 (completed) has an unsupported type '{value.GetType()}'." )
+				slot,
+				1,
+				$"column 1 (completed) has an unsupported type '{value.GetType()}'."
+			)
 		};
 
 	private static bool CompletedText( string slot, string text )
@@ -310,6 +380,9 @@ public sealed class StatementJournal
 			"1" or "y" or "yes" or "t" or "true" => true,
 			"0" or "n" or "no" or "f" or "false" => false,
 			_ => throw new JournalingStatementException(
-				slot, 1, $"column 1 (completed) has an unrecognized value '{text}'." )
+				slot,
+				1,
+				$"column 1 (completed) has an unrecognized value '{text}'."
+			)
 		};
 }

@@ -12,4 +12,5 @@ public record ReleaseSearchCriteria(
 	Range<DateTime>? CreateTimestamp = null,
 	Range<DateTime>? FinalizeTimestamp = null,
 	string? CreateUser = null,
-	string? FinalizeUser = null );
+	string? FinalizeUser = null
+);

@@ -9,7 +9,7 @@
 
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj" />
+        <ProjectReference Include="..\..\..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj"/>
     </ItemGroup>
 
 </Project>

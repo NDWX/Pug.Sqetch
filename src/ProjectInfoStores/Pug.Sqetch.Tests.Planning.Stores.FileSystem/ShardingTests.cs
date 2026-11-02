@@ -11,7 +11,7 @@ public class ShardingTests
 	[InlineData( "hotfix", "hotfix" )]
 	public void NamePrefixStrategyShardsByFirstSegment( string release, string shard )
 	{
-		VersionPrefixShardingStrategy strategy = new ();
+		VersionPrefixShardingStrategy strategy = new();
 
 		Assert.Equal( shard, strategy.GetShardPath( release ) );
 	}
@@ -26,7 +26,7 @@ public class ShardingTests
 	[InlineData( "2026", "3", false )]
 	public void NamePrefixStrategyNarrowsCandidateShards( string shard, string prefix, bool candidate )
 	{
-		VersionPrefixShardingStrategy strategy = new ();
+		VersionPrefixShardingStrategy strategy = new();
 
 		Assert.Equal( candidate, strategy.MayContainMatch( shard, prefix ) );
 	}
@@ -34,7 +34,7 @@ public class ShardingTests
 	[Fact]
 	public void CustomStrategyPlugsInThroughTheRegistry()
 	{
-		ReleaseShardingStrategyRegistry registry = new ();
+		ReleaseShardingStrategyRegistry registry = new();
 
 		registry.Register( "by-length", _ => new ByLengthStrategy() );
 
@@ -46,18 +46,23 @@ public class ShardingTests
 
 			// sharding only applies to finalized releases
 			Assert.True( File.Exists( Path.Combine( project.Root, "releases", "alpha", "release.json" ) ) );
+
 			Assert.Equal(
-				["alpha"],
-				stores.InfoStore.ListReleases( new ReleaseSearchCriteria() ).Select( x => x.Definition.Name ).ToArray() );
+				[ "alpha" ],
+				stores.InfoStore.ListReleases( new ReleaseSearchCriteria() ).Select( x => x.Definition.Name ).ToArray()
+			);
 
 			stores.InfoStore.SetReleaseContext( "alpha", TestData.Context() );
 
 			Assert.True( File.Exists( Path.Combine( project.Root, "releases", "5", "alpha", "release.json" ) ) );
 			Assert.False( Directory.Exists( Path.Combine( project.Root, "releases", "alpha" ) ) );
+
 			Assert.Equal(
-				["alpha"],
+				[ "alpha" ],
 				stores.InfoStore.ListReleases( new ReleaseSearchCriteria( Finalized: true ) )
-						.Select( x => x.Definition.Name ).ToArray() );
+					.Select( x => x.Definition.Name )
+					.ToArray()
+			);
 		}
 
 		// opening without the custom registration must fail loudly, not misplace files
@@ -69,10 +74,13 @@ public class ShardingTests
 	{
 		string root = Path.Combine( Path.GetTempPath(), "sqetch-tests", Guid.NewGuid().ToString( "N" ) );
 
-		Assert.Throws<ProjectStoreException>(
-			() => FileSystemProjectStores.Initialize(
-				new ProjectDefinition( "p", "", "postgres" ), TestData.Context(), root,
-				new ShardingConfiguration( "no-such-strategy" ) ) );
+		Assert.Throws<ProjectStoreException>( () => FileSystemProjectStores.Initialize(
+				new ProjectDefinition( "p", "", "postgres" ),
+				TestData.Context(),
+				root,
+				new ShardingConfiguration( "no-such-strategy" )
+			)
+		);
 	}
 
 	private sealed class ByLengthStrategy : IReleaseShardingStrategy

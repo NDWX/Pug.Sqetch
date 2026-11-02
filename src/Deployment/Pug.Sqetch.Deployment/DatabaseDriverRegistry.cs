@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+
 using Pug.Sqetch.DatabaseDriver;
 
 namespace Pug.Sqetch.Deployment;
@@ -9,7 +10,9 @@ namespace Pug.Sqetch.Deployment;
 /// </summary>
 public class DatabaseDriverRegistry : IDatabaseDriverRegistry
 {
-	private readonly Dictionary<string, Func<IDatabaseDriverFactory>> _factories = new ( StringComparer.OrdinalIgnoreCase );
+	private readonly Dictionary<string, Func<IDatabaseDriverFactory>> _factories = new(
+		StringComparer.OrdinalIgnoreCase
+	);
 
 	public IEnumerable<string> Names => _factories.Keys;
 
@@ -26,15 +29,17 @@ public class DatabaseDriverRegistry : IDatabaseDriverRegistry
 		if( _factories.TryGetValue( name, out Func<IDatabaseDriverFactory>? create ) )
 		{
 			factory = create();
+
 			return true;
 		}
 
 		factory = null;
+
 		return false;
 	}
 
 	public IDatabaseDriverFactory Create( string name )
-		=> TryCreate( name, out IDatabaseDriverFactory? factory )
-			? factory
-			: throw new UnknownDatabaseDriverException( name, Names );
+		=> TryCreate( name, out IDatabaseDriverFactory? factory ) ?
+			factory :
+			throw new UnknownDatabaseDriverException( name, Names );
 }

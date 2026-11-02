@@ -1,4 +1,5 @@
 using System.Data.Common;
+
 using Pug.Sqetch.DatabaseDriver;
 
 namespace Pug.Sqetch.DatabaseDrivers.Ado;
@@ -49,7 +50,8 @@ public class AdoDatabaseDriver : IDatabaseDriver
 		// internals instead of about the caller
 		if( _transaction is { Finished: false } )
 			throw new InvalidOperationException(
-				"a transaction is already open on this connection; commit or roll it back first." );
+				"a transaction is already open on this connection; commit or roll it back first."
+			);
 
 		DbConnection connection = Connection();
 

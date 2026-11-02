@@ -7,9 +7,11 @@ namespace Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 public class UnsupportedProjectFormatException : ProjectStoreException
 {
 	public UnsupportedProjectFormatException( string root, int format, int supported )
-		: base( format < 1
-			? $"'{root}' declares project format {format}, which is not a valid format."
-			: $"'{root}' is a format {format} Sqetch project; this version reads up to format {supported}. Upgrade Sqetch to work with it." )
+		: base(
+			format < 1 ?
+				$"'{root}' declares project format {format}, which is not a valid format." :
+				$"'{root}' is a format {format} Sqetch project; this version reads up to format {supported}. Upgrade Sqetch to work with it."
+		)
 	{
 		Root = root;
 		Format = format;

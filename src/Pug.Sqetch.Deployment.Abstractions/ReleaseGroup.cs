@@ -12,7 +12,8 @@ public sealed record ReleaseGroup(
 	string Name,
 	string Description,
 	string Dependency,
-	IReadOnlyList<DeployablePlan> Plans )
+	IReadOnlyList<DeployablePlan> Plans
+)
 {
 	public bool HasDependency => !string.IsNullOrEmpty( Dependency );
 }

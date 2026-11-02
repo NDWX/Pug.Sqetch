@@ -73,37 +73,47 @@ public static class JournalingSlots
 	public static IReadOnlyList<string> ParameterNames( JournalingSlot slot )
 		=> slot switch
 		{
-			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease =>
-				[Parameters.Project],
+			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease => [ Parameters.Project ],
 
-			JournalingSlot.GetDeployedPlans =>
-				[Parameters.Project, Parameters.Release],
+			JournalingSlot.GetDeployedPlans => [ Parameters.Project, Parameters.Release ],
 
 			JournalingSlot.RollingBackRelease or JournalingSlot.RolledBackRelease =>
-				[Parameters.Project, Parameters.Release, Parameters.UtcTimestamp],
+			[
+				Parameters.Project, Parameters.Release, Parameters.UtcTimestamp
+			],
 
 			JournalingSlot.RollingBackPlan or JournalingSlot.RolledBackPlan =>
-				[Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.UtcTimestamp],
+			[
+				Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.UtcTimestamp
+			],
 
 			JournalingSlot.RollingBackStep or JournalingSlot.RolledBackStep =>
 			[
-				Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.Step,
-				Parameters.UtcTimestamp
+				Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.Step, Parameters.UtcTimestamp
 			],
 
 			JournalingSlot.DeployingRelease or JournalingSlot.ReleaseDeployed =>
-				[Parameters.Project, Parameters.Release, Parameters.Description, Parameters.UtcTimestamp],
+			[
+				Parameters.Project, Parameters.Release, Parameters.Description, Parameters.UtcTimestamp
+			],
 
 			JournalingSlot.DeployingPlan or JournalingSlot.PlanDeployed =>
 			[
-				Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.Description,
+				Parameters.Project,
+				Parameters.Release,
+				Parameters.Plan,
+				Parameters.Description,
 				Parameters.UtcTimestamp
 			],
 
 			JournalingSlot.DeployingStep or JournalingSlot.StepDeployed =>
 			[
-				Parameters.Project, Parameters.Release, Parameters.Plan, Parameters.Step,
-				Parameters.Description, Parameters.UtcTimestamp
+				Parameters.Project,
+				Parameters.Release,
+				Parameters.Plan,
+				Parameters.Step,
+				Parameters.Description,
+				Parameters.UtcTimestamp
 			],
 
 			_ => throw new ArgumentOutOfRangeException( nameof(slot), slot, "Unknown journaling slot." )

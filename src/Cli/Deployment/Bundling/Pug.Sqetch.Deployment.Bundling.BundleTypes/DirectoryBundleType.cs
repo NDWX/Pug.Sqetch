@@ -41,7 +41,7 @@ public sealed class DirectoryBundleType : IBundleType
 
 			Directory.CreateDirectory( Path.GetDirectoryName( target )! );
 
-			using FileStream file = new ( target, FileMode.CreateNew, FileAccess.Write );
+			using FileStream file = new( target, FileMode.CreateNew, FileAccess.Write );
 
 			content.CopyTo( file );
 		}

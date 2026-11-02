@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+
 using Pug.Sqetch.DatabaseDriver;
 
 namespace Pug.Sqetch.DatabaseDrivers.Ado;
@@ -22,7 +23,7 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 	/// connection would fail the next command if it ever did not, and that failure would name the
 	/// provider's internals rather than the leak.
 	/// </summary>
-	private readonly List<(DbCommand Command, DbDataReader Reader)> _queries = [];
+	private readonly List<(DbCommand Command, DbDataReader Reader)> _queries = [ ];
 
 	internal AdoDatabaseTransaction( DbTransaction transaction, TimeSpan stepScriptTimeout )
 	{
@@ -109,8 +110,8 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 
 	private DbCommand Command( string text )
 	{
-		DbCommand command = _transaction.Connection?.CreateCommand()
-							?? throw new InvalidOperationException( "the transaction's connection is gone." );
+		DbCommand command = _transaction.Connection?.CreateCommand() ??
+							throw new InvalidOperationException( "the transaction's connection is gone." );
 
 		command.Transaction = _transaction;
 		command.CommandText = text;
@@ -139,7 +140,7 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 
 	private void CloseReaders()
 	{
-		foreach( (DbCommand command, DbDataReader reader) in _queries )
+		foreach( ( DbCommand command, DbDataReader reader ) in _queries )
 		{
 			if( !reader.IsClosed )
 				reader.Dispose();
@@ -156,7 +157,7 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 	/// up to one second rather than down to none at all.
 	/// </summary>
 	private static int CommandTimeout( TimeSpan timeout )
-		=> timeout == Timeout.InfiniteTimeSpan || timeout < TimeSpan.Zero
-			? 0
-			: Math.Max( 1, (int)Math.Ceiling( timeout.TotalSeconds ) );
+		=> timeout == Timeout.InfiniteTimeSpan || timeout < TimeSpan.Zero ?
+			0 :
+			Math.Max( 1, (int)Math.Ceiling( timeout.TotalSeconds ) );
 }

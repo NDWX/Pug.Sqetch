@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using Spectre.Console.Cli;
 
 namespace Pug.Sqetch.Deployment.Cli;
@@ -12,7 +13,7 @@ namespace Pug.Sqetch.Deployment.Cli;
 /// </summary>
 public sealed class TypeRegistrar : ITypeRegistrar
 {
-	private readonly Dictionary<Type, List<Func<object?>>> _registrations = new ();
+	private readonly Dictionary<Type, List<Func<object?>>> _registrations = new();
 	private readonly Resolver _resolver;
 
 	public TypeRegistrar() => _resolver = new Resolver( this );
@@ -25,7 +26,7 @@ public sealed class TypeRegistrar : ITypeRegistrar
 
 	public void RegisterLazy( Type service, Func<object> factory )
 	{
-		Lazy<object> lazy = new ( factory );
+		Lazy<object> lazy = new( factory );
 
 		Registrations( service ).Add( () => lazy.Value );
 	}
@@ -47,7 +48,8 @@ public sealed class TypeRegistrar : ITypeRegistrar
 			if( type is null )
 				return null;
 
-			if( registrar._registrations.TryGetValue( type, out List<Func<object?>>? registered ) && registered.Count > 0 )
+			if( registrar._registrations.TryGetValue( type, out List<Func<object?>>? registered ) &&
+				registered.Count > 0 )
 				return registered[^1]();
 
 			if( type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>) )
@@ -63,20 +65,20 @@ public sealed class TypeRegistrar : ITypeRegistrar
 		{
 			ConstructorInfo? constructor = type.GetConstructors().MaxBy( x => x.GetParameters().Length );
 
-			return constructor is null
-				? Activator.CreateInstance( type )
-				: constructor.Invoke(
+			return constructor is null ?
+				Activator.CreateInstance( type ) :
+				constructor.Invoke(
 					constructor.GetParameters()
-								.Select( parameter => Resolve( parameter.ParameterType ) )
-								.ToArray() );
+						.Select( parameter => Resolve( parameter.ParameterType ) )
+						.ToArray()
+				);
 		}
 
 		private Array ResolveAll( Type item )
 		{
 			object?[] instances =
-				registrar._registrations.TryGetValue( item, out List<Func<object?>>? registered )
-					? registered.Select( create => create() ).ToArray()
-					: [];
+				registrar._registrations.TryGetValue( item, out List<Func<object?>>? registered ) ?
+					registered.Select( create => create() ).ToArray() : [ ];
 
 			Array array = Array.CreateInstance( item, instances.Length );
 

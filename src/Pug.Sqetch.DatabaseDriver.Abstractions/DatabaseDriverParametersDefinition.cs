@@ -13,5 +13,6 @@ namespace Pug.Sqetch.DatabaseDriver;
 /// List of minimum required parameter grouping options. At least one grouping must be provided for successful creation of a database driver instance.
 /// </param>
 public record DatabaseDriverParametersDefinition(
-    IEnumerable<DatabaseDriverParameterDefinition> Parameters,
-    ICollection<ICollection<string>> RequiredParametersOptions);
+	IEnumerable<DatabaseDriverParameterDefinition> Parameters,
+	ICollection<ICollection<string>> RequiredParametersOptions
+);

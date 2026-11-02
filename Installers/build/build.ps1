@@ -29,11 +29,11 @@
 
 [CmdletBinding()]
 param(
-	[Parameter( Mandatory )]
-	[ValidateSet( 'identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'push-tool', 'checksums', 'release', 'smoke-image', 'push-image', 'mise-config' )]
+	[Parameter(Mandatory)]
+	[ValidateSet('identify', 'test', 'publish', 'package', 'smoke', 'pack-tool', 'smoke-tool', 'push-tool', 'checksums', 'release', 'smoke-image', 'push-image', 'mise-config')]
 	[string] $Stage,
 
-	[ValidateSet( 'sqetch', 'sqetch-deploy' )]
+	[ValidateSet('sqetch', 'sqetch-deploy')]
 	[string] $Product,
 
 	# the git ref being built; identify reads the product and version from a release tag
@@ -74,21 +74,33 @@ $ErrorActionPreference = 'Stop'
 . ( Join-Path $PSScriptRoot 'Common.ps1' )
 . ( Join-Path $PSScriptRoot 'Image.ps1' )
 
-if( $IsWindows ) { . ( Join-Path $PSScriptRoot 'Windows.ps1' ) }
-elseif( $IsMacOS ) { . ( Join-Path $PSScriptRoot 'MacOS.ps1' ) }
-elseif( $IsLinux ) { . ( Join-Path $PSScriptRoot 'Linux.ps1' ) }
-else { throw 'unsupported platform' }
+if( $IsWindows )
+{
+	. ( Join-Path $PSScriptRoot 'Windows.ps1' )
+}
+elseif( $IsMacOS )
+{
+	. ( Join-Path $PSScriptRoot 'MacOS.ps1' )
+}
+elseif( $IsLinux )
+{
+	. ( Join-Path $PSScriptRoot 'Linux.ps1' )
+}
+else
+{
+	throw 'unsupported platform'
+}
 
-$script:DockerViaSg = [bool] $DockerViaSg
+$script:DockerViaSg = [bool]$DockerViaSg
 
 # Runs gh and returns its stdout, or just prints the command under -DryRun.
 function Invoke-GitHub
 {
-	param( [Parameter( Mandatory )] [string[]] $Arguments )
+	param( [Parameter(Mandatory)] [string[]] $Arguments )
 
 	if( $DryRun )
 	{
-		Write-Host "[dry run] gh $( $Arguments -join ' ' )"
+		Write-Host "[dry run] gh $($Arguments -join ' ')"
 		return $null
 	}
 
@@ -99,7 +111,7 @@ function Invoke-GitHub
 # run left. A published release is an error: its assets cannot be replaced.
 function Publish-GitHubRelease
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	if( -not $Tag )
 	{
@@ -115,15 +127,15 @@ function Publish-GitHubRelease
 
 	if( -not $files )
 	{
-		throw "nothing to release: $( $Context.DistDir ) is empty"
+		throw "nothing to release: $($Context.DistDir) is empty"
 	}
 
 	if( $files.Name -notcontains 'SHA256SUMS' )
 	{
-		throw "$( $Context.DistDir ) has no SHA256SUMS; run -Stage checksums first"
+		throw "$($Context.DistDir) has no SHA256SUMS; run -Stage checksums first"
 	}
 
-	$title = $Title ? $Title : "$( $Context.Name ) $( $Context.Version )"
+	$title = $Title ? $Title : "$($Context.Name) $($Context.Version)"
 	$notes = "$title. Verify downloads against SHA256SUMS."
 
 	if( -not $Context.Sign )
@@ -148,12 +160,12 @@ function Publish-GitHubRelease
 
 	if( -not $found )
 	{
-		Write-Host "creating draft release $Tag '$title'$( $Prerelease ? ' (pre-release)' : '' )"
+		Write-Host "creating draft release $Tag '$title'$($Prerelease ? ' (pre-release)' : '')"
 
 		$null = Invoke-GitHub -Arguments ( @(
 			'release', 'create', $Tag, '--draft', '--verify-tag', '--title', $title,
 			'--notes', $notes ) +
-			( $Prerelease ? @( '--prerelease' ) : @() ) + $paths )
+				( $Prerelease ? @( '--prerelease' ) : @() ) + $paths )
 
 		return
 	}
@@ -162,7 +174,7 @@ function Publish-GitHubRelease
 
 	$null = Invoke-GitHub -Arguments ( @(
 		'release', 'edit', $Tag, '--title', $title, '--notes', $notes,
-		"--prerelease=$( $Prerelease ? 'true' : 'false' )" ) )
+		"--prerelease=$($Prerelease ? 'true' : 'false')" ) )
 
 	# a re-run's pre-release version carries a new stamp, so its file names differ from the draft's
 	# (a draft without assets has none to enumerate, which StrictMode would otherwise reject)
@@ -179,15 +191,15 @@ if( $Stage -eq 'identify' )
 	$identity = Resolve-BuildIdentity -Ref $Ref -ProductName $Product
 
 	Write-StageOutputs ( [ordered]@{
-		product      = $identity.Product
-		project      = $identity.Project
+		product = $identity.Product
+		project = $identity.Project
 		base_version = $identity.BaseVersion
-		version      = $identity.Version
-		signed       = $identity.Signed
-		prerelease   = $identity.Prerelease
-		release      = $identity.Release
-		tag          = $identity.Tag
-		image        = $identity.Image
+		version = $identity.Version
+		signed = $identity.Signed
+		prerelease = $identity.Prerelease
+		release = $identity.Release
+		tag = $identity.Tag
+		image = $identity.Image
 	} )
 
 	return
@@ -208,13 +220,13 @@ if( -not $Product )
 
 if( -not $Version )
 {
-	$Version = "$( Get-ProjectVersion ( Get-Product $Product ) )-dev.$( Get-BuildStamp )"
+	$Version = "$(Get-ProjectVersion ( Get-Product $Product ))-dev.$(Get-BuildStamp)"
 }
 
 $context = New-BuildContext -ProductName $Product -Version $Version -ArtifactsDir $ArtifactsDir -Sign:$Sign
 $rids = $Rid ? @( $Rid | ForEach-Object { $_ -split ',' } | Where-Object { $_ } ) : @( Get-HostRid )
 
-Write-Host "$Stage $( $context.Name ) $( $context.Version ) [$( $rids -join ', ' )]$( $context.Sign ? ' signed' : '' )"
+Write-Host "$Stage $($context.Name) $($context.Version) [$($rids -join ', ')]$($context.Sign ? ' signed' : '')"
 
 switch( $Stage )
 {
@@ -291,4 +303,4 @@ switch( $Stage )
 	}
 }
 
-Get-ChildItem -File -Path $context.DistDir -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  dist/$( $_.Name )" }
+Get-ChildItem -File -Path $context.DistDir -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  dist/$($_.Name)" }

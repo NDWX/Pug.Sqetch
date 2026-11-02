@@ -9,8 +9,9 @@ internal sealed class DirectoryBundleReader( string root, bool deleteOnDispose )
 {
 	public IEnumerable<string> Entries
 		=> Directory.EnumerateFiles( root, "*", SearchOption.AllDirectories )
-					.Select( file => Path.GetRelativePath( root, file )
-										.Replace( Path.DirectorySeparatorChar, '/' ) );
+			.Select( file => Path.GetRelativePath( root, file )
+				.Replace( Path.DirectorySeparatorChar, '/' )
+			);
 
 	public bool Contains( string path ) => File.Exists( Target( path ) );
 
@@ -33,6 +34,7 @@ internal sealed class DirectoryBundleReader( string root, bool deleteOnDispose )
 		}
 		catch( IOException )
 		{
+			// ignore if directory no longer exists
 		}
 	}
 

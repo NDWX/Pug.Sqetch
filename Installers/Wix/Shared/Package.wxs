@@ -15,67 +15,72 @@
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
-	<!-- Whether this run installs per machine. Once Windows Installer has settled the context it resets
-	     ALLUSERS to 1 or to empty, so the first term is the usual one; the rest cover the moment before. -->
-	<?define PerMachine = "ALLUSERS=1 OR (ALLUSERS=2 AND Privileged AND NOT MSIINSTALLPERUSER)" ?>
+    <!-- Whether this run installs per machine. Once Windows Installer has settled the context it resets
+         ALLUSERS to 1 or to empty, so the first term is the usual one; the rest cover the moment before. -->
+    <?define PerMachine = "ALLUSERS=1 OR (ALLUSERS=2 AND Privileged AND NOT MSIINSTALLPERUSER)" ?>
 
-	<Package
-		Name="$(ProductDisplayName)"
-		Manufacturer="Pug"
-		Version="$(ProductVersion)"
-		UpgradeCode="$(UpgradeCode)"
-		Language="1033"
-		Scope="perUserOrMachine">
+    <Package
+            Name="$(ProductDisplayName)"
+            Manufacturer="Pug"
+            Version="$(ProductVersion)"
+            UpgradeCode="$(UpgradeCode)"
+            Language="1033"
+            Scope="perUserOrMachine">
 
-		<SummaryInformation Description="$(ProductDescription)" />
+        <SummaryInformation Description="$(ProductDescription)"/>
 
-		<!-- Pre-releases share ProductVersion X.Y.Z with the final release, so a same-version install must
-		     replace what is there. -->
-		<MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <!-- Pre-releases share ProductVersion X.Y.Z with the final release, so a same-version install must
+             replace what is there. -->
+        <MajorUpgrade AllowSameVersionUpgrades="yes"
+                      DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
 
-		<MediaTemplate EmbedCab="yes" />
+        <MediaTemplate EmbedCab="yes"/>
 
-		<!-- nothing to modify: the one feature is the whole product -->
-		<Property Id="ARPNOMODIFY" Value="1" />
-		<Property Id="ARPURLINFOABOUT" Value="https://github.com/NDWX/Pug.Sqetch" />
+        <!-- nothing to modify: the one feature is the whole product -->
+        <Property Id="ARPNOMODIFY" Value="1"/>
+        <Property Id="ARPURLINFOABOUT" Value="https://github.com/NDWX/Pug.Sqetch"/>
 
-		<!-- The Id has lower-case letters on purpose: Windows Installer treats an all-upper-case property
-		     as public, which a command line can set (INSTALLFOLDER=D:\elsewhere), so this one is private
-		     and the install location is never an option. -->
-		<StandardDirectory Id="ProgramFiles6432Folder">
-			<Directory Id="InstallFolder" Name="$(ProductName)" />
-		</StandardDirectory>
+        <!-- The Id has lower-case letters on purpose: Windows Installer treats an all-upper-case property
+             as public, which a command line can set (INSTALLFOLDER=D:\elsewhere), so this one is private
+             and the install location is never an option. -->
+        <StandardDirectory Id="ProgramFiles6432Folder">
+            <Directory Id="InstallFolder" Name="$(ProductName)"/>
+        </StandardDirectory>
 
-		<Feature Id="Main" Title="$(ProductName)" Level="1" AllowAbsent="no" AllowAdvertise="no">
-			<ComponentGroupRef Id="ProductFiles" />
-			<ComponentGroupRef Id="PathEntries" />
-		</Feature>
+        <Feature Id="Main" Title="$(ProductName)" Level="1" AllowAbsent="no" AllowAdvertise="no">
+            <ComponentGroupRef Id="ProductFiles"/>
+            <ComponentGroupRef Id="PathEntries"/>
+        </Feature>
 
-		<UIRef Id="ScopeUI" />
-	</Package>
+        <UIRef Id="ScopeUI"/>
+    </Package>
 
-	<Fragment>
-		<!-- the publish directory: the executable, the licence texts and, for sqetch-deploy, e_sqlite3.dll -->
-		<ComponentGroup Id="ProductFiles" Directory="InstallFolder">
-			<Files Include="$(ProductSourceDir)\**" />
-		</ComponentGroup>
-	</Fragment>
+    <Fragment>
+        <!-- the publish directory: the executable, the licence texts and, for sqetch-deploy, e_sqlite3.dll -->
+        <ComponentGroup Id="ProductFiles" Directory="InstallFolder">
+            <Files Include="$(ProductSourceDir)\**"/>
+        </ComponentGroup>
+    </Fragment>
 
-	<Fragment>
-		<!-- Exactly one of these is installed. The registry value is only each component's key path; the
-		     environment entry is the point. The path is appended to PATH and taken out again on uninstall.
-		     PathMachine's key is HKMU, not HKLM: a perUserOrMachine package fails ICE105 for any HKLM entry,
-		     and under its per-machine condition HKMU always resolves to HKLM anyway. -->
-		<ComponentGroup Id="PathEntries" Directory="InstallFolder">
-			<Component Id="PathMachine" Condition="$(PerMachine)">
-				<RegistryValue Root="HKMU" Key="Software\Pug\$(ProductName)" Name="PathMachine" Type="integer" Value="1" KeyPath="yes" />
-				<Environment Id="PathMachineEntry" Name="PATH" Value="[InstallFolder]" Action="set" Part="last" Permanent="no" System="yes" />
-			</Component>
-			<Component Id="PathUser" Condition="NOT ($(PerMachine))">
-				<RegistryValue Root="HKCU" Key="Software\Pug\$(ProductName)" Name="PathUser" Type="integer" Value="1" KeyPath="yes" />
-				<Environment Id="PathUserEntry" Name="PATH" Value="[InstallFolder]" Action="set" Part="last" Permanent="no" System="no" />
-			</Component>
-		</ComponentGroup>
-	</Fragment>
+    <Fragment>
+        <!-- Exactly one of these is installed. The registry value is only each component's key path; the
+             environment entry is the point. The path is appended to PATH and taken out again on uninstall.
+             PathMachine's key is HKMU, not HKLM: a perUserOrMachine package fails ICE105 for any HKLM entry,
+             and under its per-machine condition HKMU always resolves to HKLM anyway. -->
+        <ComponentGroup Id="PathEntries" Directory="InstallFolder">
+            <Component Id="PathMachine" Condition="$(PerMachine)">
+                <RegistryValue Root="HKMU" Key="Software\Pug\$(ProductName)" Name="PathMachine" Type="integer" Value="1"
+                               KeyPath="yes"/>
+                <Environment Id="PathMachineEntry" Name="PATH" Value="[InstallFolder]" Action="set" Part="last"
+                             Permanent="no" System="yes"/>
+            </Component>
+            <Component Id="PathUser" Condition="NOT ($(PerMachine))">
+                <RegistryValue Root="HKCU" Key="Software\Pug\$(ProductName)" Name="PathUser" Type="integer" Value="1"
+                               KeyPath="yes"/>
+                <Environment Id="PathUserEntry" Name="PATH" Value="[InstallFolder]" Action="set" Part="last"
+                             Permanent="no" System="no"/>
+            </Component>
+        </ComponentGroup>
+    </Fragment>
 
 </Wix>

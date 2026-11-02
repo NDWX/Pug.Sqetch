@@ -19,14 +19,16 @@ public class JournalingStatementsTests
 	[Fact]
 	public void TextWithNoSeparatorIsOneStatement()
 		=> Assert.Equal(
-			["insert into journal( release ) values( @release )"],
-			JournalingStatements.Split( "insert into journal( release ) values( @release )\n" ) );
+			[ "insert into journal( release ) values( @release )" ],
+			JournalingStatements.Split( "insert into journal( release ) values( @release )\n" )
+		);
 
 	[Fact]
 	public void SeparatorLinesSplitStatementsInOrder()
 		=> Assert.Equal(
-			["first", "second", "third"],
-			JournalingStatements.Split( "first\n;;\nsecond\n;;\nthird" ) );
+			[ "first", "second", "third" ],
+			JournalingStatements.Split( "first\n;;\nsecond\n;;\nthird" )
+		);
 
 	/// <summary>
 	/// There is no .gitattributes guarantee for anything but .sql, and a Windows checkout with
@@ -38,11 +40,11 @@ public class JournalingStatementsTests
 	[InlineData( "first\r;;\rsecond" )]
 	[InlineData( "first\n;;\r\nsecond" )]
 	public void LineEndingsDoNotAffectSplitting( string text )
-		=> Assert.Equal( ["first", "second"], JournalingStatements.Split( text ) );
+		=> Assert.Equal( [ "first", "second" ], JournalingStatements.Split( text ) );
 
 	[Fact]
 	public void SeparatorLineMayBePaddedWithWhitespace()
-		=> Assert.Equal( ["first", "second"], JournalingStatements.Split( "first\n  \t ;;\t  \nsecond" ) );
+		=> Assert.Equal( [ "first", "second" ], JournalingStatements.Split( "first\n  \t ;;\t  \nsecond" ) );
 
 	/// <summary>
 	/// Sqetch never parses SQL, so a separator only counts when it is the whole line. Anything else
@@ -51,21 +53,21 @@ public class JournalingStatementsTests
 	[Fact]
 	public void SeparatorNotAloneOnItsLineIsLeftAlone()
 	{
-		Assert.Equal( ["select 1 ;; select 2"], JournalingStatements.Split( "select 1 ;; select 2" ) );
-		Assert.Equal( ["do $$ begin ;; end $$"], JournalingStatements.Split( "do $$ begin ;; end $$" ) );
+		Assert.Equal( [ "select 1 ;; select 2" ], JournalingStatements.Split( "select 1 ;; select 2" ) );
+		Assert.Equal( [ "do $$ begin ;; end $$" ], JournalingStatements.Split( "do $$ begin ;; end $$" ) );
 	}
 
 	[Fact]
 	public void BlankLinesAndCommentsInsideAStatementSurvive()
 		=> Assert.Equal(
-			["-- note\n\ninsert into journal\nvalues( @release )"],
-			JournalingStatements.Split( "-- note\n\ninsert into journal\nvalues( @release )\n" ) );
+			[ "-- note\n\ninsert into journal\nvalues( @release )" ],
+			JournalingStatements.Split( "-- note\n\ninsert into journal\nvalues( @release )\n" )
+		);
 
 	[Fact]
 	public void ATrailingSeparatorIsAnError()
 	{
-		ArgumentException error = Assert.Throws<ArgumentException>(
-			() => JournalingStatements.Split( "first\n;;\n" ) );
+		ArgumentException error = Assert.Throws<ArgumentException>( () => JournalingStatements.Split( "first\n;;\n" ) );
 
 		Assert.Contains( "Statement 2 is empty", error.Message );
 	}
@@ -73,23 +75,24 @@ public class JournalingStatementsTests
 	[Fact]
 	public void ConsecutiveSeparatorsAreAnError()
 	{
-		ArgumentException error = Assert.Throws<ArgumentException>(
-			() => JournalingStatements.Split( "first\n;;\n;;\nsecond" ) );
+		ArgumentException error =
+			Assert.Throws<ArgumentException>( () => JournalingStatements.Split( "first\n;;\n;;\nsecond" ) );
 
 		Assert.Contains( "Statement 2 is empty", error.Message );
 	}
 
 	[Fact]
 	public void ALeadingByteOrderMarkIsNotPartOfTheFirstStatement()
-		=> Assert.Equal( ["select 1"], JournalingStatements.Split( "﻿select 1" ) );
+		=> Assert.Equal( [ "select 1" ], JournalingStatements.Split( "﻿select 1" ) );
 
 	// ------------------------------------------------------------------ slot rules
 
 	[Fact]
 	public void AQuerySlotMustHoldExactlyOneStatement()
 	{
-		ArgumentException error = Assert.Throws<ArgumentException>(
-			() => JournalingStatements.Parse( JournalingSlot.GetLatestRelease, "select 1\n;;\nselect 2" ) );
+		ArgumentException error = Assert.Throws<ArgumentException>( () =>
+			JournalingStatements.Parse( JournalingSlot.GetLatestRelease, "select 1\n;;\nselect 2" )
+		);
 
 		Assert.Contains( "GetLatestRelease is a query", error.Message );
 		Assert.Contains( "holds 2", error.Message );
@@ -98,13 +101,16 @@ public class JournalingStatementsTests
 	[Fact]
 	public void ANonQuerySlotMayHoldSeveralStatements()
 		=> Assert.Equal(
-			2, JournalingStatements.Parse( JournalingSlot.PrepareJournal, "create a\n;;\ncreate b" ).Count );
+			2,
+			JournalingStatements.Parse( JournalingSlot.PrepareJournal, "create a\n;;\ncreate b" ).Count
+		);
 
 	[Fact]
 	public void ASlotMustHoldAtLeastOneStatement()
 	{
-		ArgumentException error = Assert.Throws<ArgumentException>(
-			() => JournalingStatements.Parse( JournalingSlot.PrepareJournal, "\n  \n" ) );
+		ArgumentException error = Assert.Throws<ArgumentException>( () =>
+			JournalingStatements.Parse( JournalingSlot.PrepareJournal, "\n  \n" )
+		);
 
 		Assert.Contains( "PrepareJournal holds no statement", error.Message );
 	}
@@ -145,22 +151,26 @@ public class JournalingStatementsTests
 	public void EverySlotIsGivenTheProjectName()
 		=> Assert.All(
 			JournalingSlots.All,
-			slot => Assert.Contains( JournalingSlots.Parameters.Project, JournalingSlots.ParameterNames( slot ) ) );
+			slot => Assert.Contains( JournalingSlots.Parameters.Project, JournalingSlots.ParameterNames( slot ) )
+		);
 
 	[Fact]
 	public void ParametersNarrowToTheUnitTheSlotNames()
 	{
 		Assert.Equal(
-			["project", "release", "description", "utcTimestamp"],
-			JournalingSlots.ParameterNames( JournalingSlot.ReleaseDeployed ) );
+			[ "project", "release", "description", "utcTimestamp" ],
+			JournalingSlots.ParameterNames( JournalingSlot.ReleaseDeployed )
+		);
 
 		Assert.Equal(
-			["project", "release", "plan", "description", "utcTimestamp"],
-			JournalingSlots.ParameterNames( JournalingSlot.PlanDeployed ) );
+			[ "project", "release", "plan", "description", "utcTimestamp" ],
+			JournalingSlots.ParameterNames( JournalingSlot.PlanDeployed )
+		);
 
 		Assert.Equal(
-			["project", "release", "plan", "step", "description", "utcTimestamp"],
-			JournalingSlots.ParameterNames( JournalingSlot.StepDeployed ) );
+			[ "project", "release", "plan", "step", "description", "utcTimestamp" ],
+			JournalingSlots.ParameterNames( JournalingSlot.StepDeployed )
+		);
 	}
 
 	/// <summary>
@@ -172,15 +182,15 @@ public class JournalingStatementsTests
 	public void EveryWritingSlotIsGivenTheUtcTimestampLastAndNoOtherSlotIsGivenItAtAll()
 		=> Assert.All(
 			JournalingSlots.All,
-			slot =>
-			{
+			slot => {
 				IReadOnlyList<string> names = JournalingSlots.ParameterNames( slot );
 
 				if( JournalingSlots.Writes( slot ) )
 					Assert.Equal( JournalingSlots.Parameters.UtcTimestamp, names[^1] );
 				else
 					Assert.DoesNotContain( JournalingSlots.Parameters.UtcTimestamp, names );
-			} );
+			}
+		);
 
 	[Fact]
 	public void TheQueriesAndPrepareAreNotWritingSlots()
@@ -190,9 +200,10 @@ public class JournalingStatementsTests
 		Assert.False( JournalingSlots.Writes( JournalingSlot.PrepareJournal ) );
 
 		Assert.All(
-			JournalingSlots.All.Where(
-				slot => !JournalingSlots.IsQuery( slot ) && slot != JournalingSlot.PrepareJournal ),
-			slot => Assert.True( JournalingSlots.Writes( slot ) ) );
+			JournalingSlots.All.Where( slot => !JournalingSlots.IsQuery( slot ) && slot != JournalingSlot.PrepareJournal
+			),
+			slot => Assert.True( JournalingSlots.Writes( slot ) )
+		);
 	}
 
 	/// <summary>
@@ -207,14 +218,16 @@ public class JournalingStatementsTests
 	[InlineData( JournalingSlot.RolledBackRelease )]
 	public void RollbackSlotsAreGivenNoDescription( JournalingSlot slot )
 		=> Assert.DoesNotContain(
-			JournalingSlots.Parameters.Description, JournalingSlots.ParameterNames( slot ) );
+			JournalingSlots.Parameters.Description,
+			JournalingSlots.ParameterNames( slot )
+		);
 
 	[Fact]
 	public void TheQueriesTakeOnlyWhatTheyFilterOn()
 	{
-		Assert.Equal( ["project"], JournalingSlots.ParameterNames( JournalingSlot.GetLatestRelease ) );
-		Assert.Equal( ["project", "release"], JournalingSlots.ParameterNames( JournalingSlot.GetDeployedPlans ) );
-		Assert.Equal( ["project"], JournalingSlots.ParameterNames( JournalingSlot.PrepareJournal ) );
+		Assert.Equal( [ "project" ], JournalingSlots.ParameterNames( JournalingSlot.GetLatestRelease ) );
+		Assert.Equal( [ "project", "release" ], JournalingSlots.ParameterNames( JournalingSlot.GetDeployedPlans ) );
+		Assert.Equal( [ "project" ], JournalingSlots.ParameterNames( JournalingSlot.PrepareJournal ) );
 	}
 
 	// ------------------------------------------------------------------ slot names on a command line
@@ -251,8 +264,9 @@ public class JournalingStatementsTests
 		text.Remove( JournalingSlot.DeployingPlan );
 
 		Assert.Equal(
-			[JournalingSlot.DeployingPlan, JournalingSlot.PrepareJournal, JournalingSlot.GetDeployedPlans],
-			JournalingStatements.Missing( text ) );
+			[ JournalingSlot.DeployingPlan, JournalingSlot.PrepareJournal, JournalingSlot.GetDeployedPlans ],
+			JournalingStatements.Missing( text )
+		);
 
 		ArgumentException error = Assert.Throws<ArgumentException>( () => new JournalingStatements( text ) );
 
@@ -268,12 +282,12 @@ public class JournalingStatementsTests
 
 		text[JournalingSlot.PrepareJournal] = "create table a\n;;\ncreate table b";
 
-		JournalingStatements statements = new ( text );
+		JournalingStatements statements = new( text );
 
 		Assert.Empty( JournalingStatements.Missing( text ) );
 		Assert.Equal( "create table a\n;;\ncreate table b", statements.Text( JournalingSlot.PrepareJournal ) );
-		Assert.Equal( ["create table a", "create table b"], statements.Statements( JournalingSlot.PrepareJournal ) );
-		Assert.Equal( ["-- DeployingStep"], statements.Statements( JournalingSlot.DeployingStep ) );
+		Assert.Equal( [ "create table a", "create table b" ], statements.Statements( JournalingSlot.PrepareJournal ) );
+		Assert.Equal( [ "-- DeployingStep" ], statements.Statements( JournalingSlot.DeployingStep ) );
 	}
 
 	private static Dictionary<JournalingSlot, string?> Complete()

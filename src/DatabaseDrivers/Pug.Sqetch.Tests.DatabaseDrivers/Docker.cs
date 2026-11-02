@@ -10,13 +10,13 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// </summary>
 public static class Docker
 {
-	private static readonly Lazy<bool> Probe = new ( Reachable );
+	private static readonly Lazy<bool> Probe = new( Reachable );
 
 	public static bool Available => Probe.Value;
 
 	public static string Reason =>
-		"requires a reachable Docker daemon; run the suite under 'sg docker -c \"dotnet test ...\"' if the "
-		+ "account's group membership predates this shell";
+		"requires a reachable Docker daemon; run the suite under 'sg docker -c \"dotnet test ...\"' if the " +
+		"account's group membership predates this shell";
 
 	private static bool Reachable()
 	{
@@ -27,7 +27,7 @@ public static class Docker
 
 		try
 		{
-			using Socket socket = new ( AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified );
+			using Socket socket = new( AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified );
 
 			socket.Connect( new UnixDomainSocketEndPoint( host["unix://".Length..] ) );
 

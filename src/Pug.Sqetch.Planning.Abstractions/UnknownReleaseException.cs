@@ -5,7 +5,7 @@ public class UnknownReleaseException
 {
 	public string ReleaseName { get; }
 
-	public UnknownReleaseException(string releaseName)
+	public UnknownReleaseException( string releaseName )
 	{
 		ReleaseName = releaseName;
 	}

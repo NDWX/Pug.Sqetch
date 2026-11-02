@@ -1,11 +1,12 @@
 using System.Text;
+
 using Pug.Sqetch.Deployment.Bundling;
 
 namespace Pug.Sqetch.Tests.Deployment.Bundling;
 
 public class BundleMetadataTests
 {
-	private static readonly DateTime Bundled = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
+	private static readonly DateTime Bundled = new( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
 
 	private const string Valid =
 		"format=1\nlayout=default\nbundler=sqetch-deploy\nbundler-version=0.1.0\nbundled=2026-10-17T03:15:42Z\n";
@@ -13,7 +14,7 @@ public class BundleMetadataTests
 	[Fact]
 	public void ToTextWritesTheFiveKeysInOrderWithLfEndingsAndNoByteOrderMark()
 	{
-		BundleMetadata metadata = new ( 1, "default", "sqetch-deploy", "0.1.0", Bundled );
+		BundleMetadata metadata = new( 1, "default", "sqetch-deploy", "0.1.0", Bundled );
 
 		Assert.Equal( Valid, metadata.ToText() );
 		Assert.DoesNotContain( '\r', metadata.ToText() );
@@ -23,7 +24,7 @@ public class BundleMetadataTests
 	[Fact]
 	public void ParseReadsWhatToTextWrote()
 	{
-		BundleMetadata metadata = new ( 3, "default", "sqetch-deploy", "0.1.0+abc123", Bundled );
+		BundleMetadata metadata = new( 3, "default", "sqetch-deploy", "0.1.0+abc123", Bundled );
 
 		BundleMetadata parsed = BundleMetadata.Parse( metadata.ToText() );
 
@@ -35,8 +36,9 @@ public class BundleMetadataTests
 	public void CommentsBlankLinesWhitespaceAndUnknownKeysAreIgnored()
 	{
 		BundleMetadata parsed = BundleMetadata.Parse(
-			"# written by hand\n\n  format = 1  \n\t# another\nlayout=default\nfuture-key=whatever\n"
-			+ "future-key=again\nbundler =sqetch-deploy\n   \nbundler-version= 0.1.0\nbundled=2026-10-17T03:15:42Z" );
+			"# written by hand\n\n  format = 1  \n\t# another\nlayout=default\nfuture-key=whatever\n" +
+			"future-key=again\nbundler =sqetch-deploy\n   \nbundler-version= 0.1.0\nbundled=2026-10-17T03:15:42Z"
+		);
 
 		Assert.Equal( new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ), parsed );
 	}
@@ -54,7 +56,8 @@ public class BundleMetadataTests
 	{
 		Assert.Equal(
 			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ),
-			BundleMetadata.Parse( Valid.Replace( "\n", "\r\n" ) ) );
+			BundleMetadata.Parse( Valid.Replace( "\n", "\r\n" ) )
+		);
 	}
 
 	[Fact]
@@ -62,7 +65,10 @@ public class BundleMetadataTests
 	{
 		Assert.Equal( 1, BundleMetadata.Parse( "﻿" + Valid ).Format );
 
-		InMemoryReader reader = new ( BundleMetadata.EntryName, [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes( Valid )] );
+		InMemoryReader reader = new(
+			BundleMetadata.EntryName,
+			[ .. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes( Valid ) ]
+		);
 
 		Assert.Equal( 1, BundleMetadata.Read( reader ).Format );
 	}
@@ -77,8 +83,8 @@ public class BundleMetadataTests
 	{
 		string without = string.Join( "\n", Valid.Split( '\n' ).Where( x => !x.StartsWith( key + "=" ) ) );
 
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( without ) );
+		InvalidBundleMetadataException error =
+			Assert.Throws<InvalidBundleMetadataException>( () => BundleMetadata.Parse( without ) );
 
 		Assert.Contains( $"has no '{key}'", error.Message );
 	}
@@ -90,10 +96,12 @@ public class BundleMetadataTests
 	public void TextValuesMustNotBeEmpty( string key )
 	{
 		string empty = string.Join(
-			"\n", Valid.Split( '\n' ).Select( x => x.StartsWith( key + "=" ) ? key + "=" : x ) );
+			"\n",
+			Valid.Split( '\n' ).Select( x => x.StartsWith( key + "=" ) ? key + "=" : x )
+		);
 
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( empty ) );
+		InvalidBundleMetadataException error =
+			Assert.Throws<InvalidBundleMetadataException>( () => BundleMetadata.Parse( empty ) );
 
 		Assert.Contains( key, error.Message );
 	}
@@ -101,8 +109,8 @@ public class BundleMetadataTests
 	[Fact]
 	public void ADuplicateKeyIsInvalid()
 	{
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( Valid + "layout=other\n" ) );
+		InvalidBundleMetadataException error =
+			Assert.Throws<InvalidBundleMetadataException>( () => BundleMetadata.Parse( Valid + "layout=other\n" ) );
 
 		Assert.Contains( "'layout' more than once", error.Message );
 		Assert.Contains( "line 6", error.Message );
@@ -111,8 +119,10 @@ public class BundleMetadataTests
 	[Fact]
 	public void ALineWithoutAnEqualsSignIsInvalidAndNamesItsLineNumber()
 	{
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( "format=1\n# note\n\nnonsense\n" ) );
+		InvalidBundleMetadataException error =
+			Assert.Throws<InvalidBundleMetadataException>( () =>
+				BundleMetadata.Parse( "format=1\n# note\n\nnonsense\n" )
+			);
 
 		Assert.Contains( "line 4", error.Message );
 	}
@@ -132,8 +142,9 @@ public class BundleMetadataTests
 	[InlineData( "99999999999" )]
 	public void TheFormatMustBeAPositiveWholeNumber( string value )
 	{
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( Valid.Replace( "format=1", $"format={value}" ) ) );
+		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>( () =>
+			BundleMetadata.Parse( Valid.Replace( "format=1", $"format={value}" ) )
+		);
 
 		Assert.Contains( "'format'", error.Message );
 	}
@@ -148,8 +159,9 @@ public class BundleMetadataTests
 	[InlineData( "yesterday" )]
 	public void TheBundledInstantMustBeExactlyAUtcInstantToTheSecond( string value )
 	{
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Parse( Valid.Replace( "2026-10-17T03:15:42Z", value ) ) );
+		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>( () =>
+			BundleMetadata.Parse( Valid.Replace( "2026-10-17T03:15:42Z", value ) )
+		);
 
 		Assert.Contains( "'bundled'", error.Message );
 	}
@@ -159,7 +171,7 @@ public class BundleMetadataTests
 	[InlineData( DateTimeKind.Unspecified )]
 	public void ANonUtcBundledInstantIsRefusedOnWrite( DateTimeKind kind )
 	{
-		BundleMetadata metadata = new ( 1, "default", "sqetch-deploy", "0.1.0", DateTime.SpecifyKind( Bundled, kind ) );
+		BundleMetadata metadata = new( 1, "default", "sqetch-deploy", "0.1.0", DateTime.SpecifyKind( Bundled, kind ) );
 
 		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>( metadata.ToText );
 
@@ -172,7 +184,7 @@ public class BundleMetadataTests
 	[InlineData( -1 )]
 	public void ANonPositiveFormatIsRefusedOnWrite( int format )
 	{
-		BundleMetadata metadata = new ( format, "default", "sqetch-deploy", "0.1.0", Bundled );
+		BundleMetadata metadata = new( format, "default", "sqetch-deploy", "0.1.0", Bundled );
 
 		Assert.Throws<InvalidBundleMetadataException>( metadata.ToText );
 	}
@@ -180,57 +192,65 @@ public class BundleMetadataTests
 	[Fact]
 	public void ValuesThatWouldSpanLinesOrBeBlankAreRefusedOnWrite()
 	{
-		Assert.Throws<InvalidBundleMetadataException>(
-			() => new BundleMetadata( 1, "default", "sqetch\ndeploy", "0.1.0", Bundled ).ToText() );
-		Assert.Throws<InvalidBundleMetadataException>(
-			() => new BundleMetadata( 1, "", "sqetch-deploy", "0.1.0", Bundled ).ToText() );
+		Assert.Throws<InvalidBundleMetadataException>( () =>
+			new BundleMetadata( 1, "default", "sqetch\ndeploy", "0.1.0", Bundled ).ToText()
+		);
+
+		Assert.Throws<InvalidBundleMetadataException>( () =>
+			new BundleMetadata( 1, "", "sqetch-deploy", "0.1.0", Bundled ).ToText()
+		);
 	}
 
 	[Fact]
 	public void WriteAddsTheTextAsTheMetadataEntry()
 	{
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ).Write( writer );
 
 		Assert.Equal( "META-DATA", BundleMetadata.EntryName );
-		Assert.Equal( [(BundleMetadata.EntryName, Valid)], writer.Entries );
+		Assert.Equal( [ ( BundleMetadata.EntryName, Valid ) ], writer.Entries );
 	}
 
 	[Fact]
 	public void ReadParsesTheMetadataEntry()
 	{
-		InMemoryReader reader = new ( BundleMetadata.EntryName, Encoding.UTF8.GetBytes( Valid ) );
+		InMemoryReader reader = new( BundleMetadata.EntryName, Encoding.UTF8.GetBytes( Valid ) );
 
 		Assert.Equal(
 			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ),
-			BundleMetadata.Read( reader ) );
+			BundleMetadata.Read( reader )
+		);
 	}
 
 	[Fact]
 	public void ReadRefusesABundleWithoutTheEntryOrWithADifferentlyCasedOne()
 	{
-		InvalidBundleMetadataException missing = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Read( new InMemoryReader( "other", [] ) ) );
+		InvalidBundleMetadataException missing =
+			Assert.Throws<InvalidBundleMetadataException>( () =>
+				BundleMetadata.Read( new InMemoryReader( "other", [ ] ) )
+			);
 
 		Assert.Contains( "META-DATA", missing.Message );
 
-		Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Read( new InMemoryReader( "meta-data", Encoding.UTF8.GetBytes( Valid ) ) ) );
+		Assert.Throws<InvalidBundleMetadataException>( () =>
+			BundleMetadata.Read( new InMemoryReader( "meta-data", Encoding.UTF8.GetBytes( Valid ) ) )
+		);
 	}
 
 	[Fact]
 	public void ReadRefusesBytesThatAreNotUtf8()
 	{
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleMetadata.Read( new InMemoryReader( BundleMetadata.EntryName, [0xFF, 0xFE, 0xFD, 0x80] ) ) );
+		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>( () =>
+			BundleMetadata.Read( new InMemoryReader( BundleMetadata.EntryName, [ 0xFF, 0xFE, 0xFD, 0x80 ] ) )
+		);
 
 		Assert.Contains( "UTF-8", error.Message );
 	}
 
 	private sealed class InMemoryReader( string path, byte[] content ) : IBundleReader
 	{
-		public IEnumerable<string> Entries => [path];
+		public IEnumerable<string> Entries => [ path ];
 
 		public bool Contains( string candidate ) => candidate == path;
 
@@ -244,15 +264,15 @@ public class BundleMetadataTests
 
 	private sealed class RecordingWriter : IBundleWriter
 	{
-		public List<(string Path, string Content)> Entries { get; } = [];
+		public List<(string Path, string Content)> Entries { get; } = [ ];
 
 		public void Add( string path, Stream content )
 		{
-			using MemoryStream buffer = new ();
+			using MemoryStream buffer = new();
 
 			content.CopyTo( buffer );
 
-			Entries.Add( (path, Encoding.UTF8.GetString( buffer.ToArray() )) );
+			Entries.Add( ( path, Encoding.UTF8.GetString( buffer.ToArray() ) ) );
 		}
 
 		public void Dispose()

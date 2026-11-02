@@ -1,31 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <RootNamespace>Pug.Sqetch.Tests.Deployment.Bundling</RootNamespace>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>Pug.Sqetch.Tests.Deployment.Bundling</RootNamespace>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.4"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
+        <PackageReference Include="xunit" Version="2.9.3"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.BundleTypes\Pug.Sqetch.Deployment.Bundling.BundleTypes.csproj" />
-    <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj" />
-    <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj" />
-    <ProjectReference Include="..\..\..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj" />
-    <ProjectReference Include="..\..\..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj" />
-    <ProjectReference Include="..\..\..\..\ProjectInfoStores\Pug.Sqetch.Tests.Planning.Stores.FileSystem\Pug.Sqetch.Tests.Planning.Stores.FileSystem.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.BundleTypes\Pug.Sqetch.Deployment.Bundling.BundleTypes.csproj"/>
+        <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling.Layouts\Pug.Sqetch.Deployment.Bundling.Layouts.csproj"/>
+        <ProjectReference Include="..\Pug.Sqetch.Deployment.Bundling\Pug.Sqetch.Deployment.Bundling.csproj"/>
+        <ProjectReference Include="..\..\..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj"/>
+        <ProjectReference Include="..\..\..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj"/>
+        <ProjectReference Include="..\..\..\..\ProjectInfoStores\Pug.Sqetch.Tests.Planning.Stores.FileSystem\Pug.Sqetch.Tests.Planning.Stores.FileSystem.csproj"/>
+    </ItemGroup>
 
 </Project>

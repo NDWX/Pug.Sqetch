@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
@@ -6,6 +7,7 @@ using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -25,15 +27,15 @@ public static class SqetchDeployApp
 	/// </summary>
 	public static TypeRegistrar CreateDefaultRegistrar()
 	{
-		BundleTypeRegistry bundleTypes = new ();
+		BundleTypeRegistry bundleTypes = new();
 		bundleTypes.RegisterBundleTypes();
 
-		BundleLayoutRegistry layouts = new ();
+		BundleLayoutRegistry layouts = new();
 		layouts.RegisterLayouts();
 
-		TypeRegistrar registrar = new ();
+		TypeRegistrar registrar = new();
 
-		DatabaseDriverRegistry drivers = new ();
+		DatabaseDriverRegistry drivers = new();
 		drivers.RegisterPostgreSqlDriver();
 		drivers.RegisterSqliteDriver();
 
@@ -50,11 +52,12 @@ public static class SqetchDeployApp
 	/// informational version '--version' prints.
 	/// </summary>
 	private static BundlerIdentity CreateBundlerIdentity()
-		=> new (
+		=> new(
 			"sqetch-deploy",
 			typeof(SqetchDeployApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-				?.InformationalVersion
-			?? "unknown" );
+				?.InformationalVersion ??
+			"unknown"
+		);
 
 	public static void Configure( IConfigurator config )
 	{
@@ -67,42 +70,46 @@ public static class SqetchDeployApp
 		// picks up the driver's --<driver>-<parameter> switches
 		config.Settings.StrictParsing = false;
 
-		config.SetExceptionHandler( ( exception, resolver ) =>
-		{
-			IAnsiConsole console = resolver?.Resolve( typeof(IAnsiConsole) ) as IAnsiConsole ?? AnsiConsole.Console;
+		config.SetExceptionHandler( ( exception, resolver ) => {
+				IAnsiConsole console = resolver?.Resolve( typeof(IAnsiConsole) ) as IAnsiConsole ?? AnsiConsole.Console;
 
-			DeployCliErrors.Report( console, exception );
+				DeployCliErrors.Report( console, exception );
 
-			// nothing here can know whether a deployment got far enough to change the database, so
-			// the deploy command returns its own code and lets escape only what it never reached
-			return DeployExitCodes.For( exception );
-		} );
+				// nothing here can know whether a deployment got far enough to change the database, so
+				// the deploy command returns its own code and lets escape only what it never reached
+				return DeployExitCodes.For( exception );
+			}
+		);
 
 		config.AddCommand<DeployCommand>( "deploy" )
-				.WithDescription(
-					"Deploy a bundle's plans in manifest order; driver parameters are passed as "
-					+ "--<driver>-<parameter> <value> (use --<driver>-<parameter>=<value> for values starting with '-'). "
-					+ "Run 'drivers parameters <driver>' to see which a driver takes" );
+			.WithDescription(
+				"Deploy a bundle's plans in manifest order; driver parameters are passed as " +
+				"--<driver>-<parameter> <value> (use --<driver>-<parameter>=<value> for values starting with '-'). " +
+				"Run 'drivers parameters <driver>' to see which a driver takes"
+			);
 
 		// the driver switches cannot appear in 'deploy --help': they are the selected driver's, and
 		// no driver is selected while help is being printed
-		config.AddBranch( "drivers", drivers =>
-		{
-			drivers.SetDescription( "Inspect the database drivers this host offers" );
+		config.AddBranch(
+			"drivers",
+			drivers => {
+				drivers.SetDescription( "Inspect the database drivers this host offers" );
 
-			drivers.AddCommand<DriverListCommand>( "list" )
+				drivers.AddCommand<DriverListCommand>( "list" )
 					.WithDescription( "List the driver names '--driver' accepts" );
 
-			drivers.AddCommand<DriverParametersCommand>( "parameters" )
+				drivers.AddCommand<DriverParametersCommand>( "parameters" )
 					.WithDescription(
-						"Show a driver's --<driver>-<parameter> switches, and the parameter sets it requires "
-						+ "— any one of which must be supplied in full" );
-		} );
+						"Show a driver's --<driver>-<parameter> switches, and the parameter sets it requires " +
+						"— any one of which must be supplied in full"
+					);
+			}
+		);
 
 		config.AddCommand<BundleCommand>( "bundle" )
-				.WithDescription( "Bundle a project's plans and their steps into a deployment archive or directory" );
+			.WithDescription( "Bundle a project's plans and their steps into a deployment archive or directory" );
 
 		config.AddCommand<RollbackCommand>( "rollback" )
-				.WithDescription( "Roll back deployed releases (not yet supported)" );
+			.WithDescription( "Roll back deployed releases (not yet supported)" );
 	}
 }

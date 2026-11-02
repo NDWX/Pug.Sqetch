@@ -6,7 +6,7 @@ internal static class JsonFiles
 {
 	// camelCase, indented, LF and a trailing newline: the files are committed to version
 	// control, so serialization must be deterministic to keep diffs minimal.
-	public static readonly JsonSerializerOptions Options = new ()
+	public static readonly JsonSerializerOptions Options = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		PropertyNameCaseInsensitive = true,
@@ -20,8 +20,8 @@ internal static class JsonFiles
 		{
 			using FileStream stream = File.OpenRead( path );
 
-			return JsonSerializer.Deserialize<T>( stream, Options )
-					?? throw new ProjectStoreException( $"File '{path}' contains no document." );
+			return JsonSerializer.Deserialize<T>( stream, Options ) ??
+					throw new ProjectStoreException( $"File '{path}' contains no document." );
 		}
 		catch( JsonException exception )
 		{
@@ -54,6 +54,7 @@ internal static class AtomicFile
 		catch
 		{
 			File.Delete( temporary );
+
 			throw;
 		}
 	}

@@ -1,42 +1,42 @@
 <Project>
 
-	<!-- Everything the two product projects share. A product project sets ProductName, ProductDescription
-	     and UpgradeCode, then imports this file; Installers/build/Windows.ps1 supplies the rest on the
-	     command line:
+    <!-- Everything the two product projects share. A product project sets ProductName, ProductDescription
+         and UpgradeCode, then imports this file; Installers/build/Windows.ps1 supplies the rest on the
+         command line:
 
-	       Platform            x64 | arm64 (the default is x64); WiX derives the installer platform from it
-	       ProductVersion      X.Y.Z, numeric only: the MSI ProductVersion
-	       ProductFullVersion  the release version, e.g. 0.1.0-pre.202610051000; names the file and, when it
-	                           differs from ProductVersion, the product in Apps & features
-	       ProductSourceDir    the publish directory to harvest
-	       OutputName          file name without extension (default <name>-<full version>-win-<platform>)
+           Platform            x64 | arm64 (the default is x64); WiX derives the installer platform from it
+           ProductVersion      X.Y.Z, numeric only: the MSI ProductVersion
+           ProductFullVersion  the release version, e.g. 0.1.0-pre.202610051000; names the file and, when it
+                               differs from ProductVersion, the product in Apps & features
+           ProductSourceDir    the publish directory to harvest
+           OutputName          file name without extension (default <name>-<full version>-win-<platform>)
 
-	     No solution configuration builds these projects: they need Windows and the WiX toolset, so the
-	     solution lists them without build entries and only the release build invokes them. -->
+         No solution configuration builds these projects: they need Windows and the WiX toolset, so the
+         solution lists them without build entries and only the release build invokes them. -->
 
-	<PropertyGroup>
-		<OutputType>Package</OutputType>
-		<!-- Directory.Build.props embeds symbols in the .NET assemblies; WiX has no embedded pdb -->
-		<DebugType>full</DebugType>
-		<Platform Condition=" '$(Platform)' == '' or '$(Platform)' == 'AnyCPU' ">x64</Platform>
-		<OutputName Condition=" '$(OutputName)' == '' ">$(ProductName)-$(ProductFullVersion)-win-$(Platform)</OutputName>
-		<ProductDisplayName>$(ProductName)</ProductDisplayName>
-		<ProductDisplayName Condition=" '$(ProductFullVersion)' != '' and '$(ProductFullVersion)' != '$(ProductVersion)' ">$(ProductName) $(ProductFullVersion)</ProductDisplayName>
-	</PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Package</OutputType>
+        <!-- Directory.Build.props embeds symbols in the .NET assemblies; WiX has no embedded pdb -->
+        <DebugType>full</DebugType>
+        <Platform Condition=" '$(Platform)' == '' or '$(Platform)' == 'AnyCPU' ">x64</Platform>
+        <OutputName Condition=" '$(OutputName)' == '' ">$(ProductName)-$(ProductFullVersion)-win-$(Platform)</OutputName>
+        <ProductDisplayName>$(ProductName)</ProductDisplayName>
+        <ProductDisplayName Condition=" '$(ProductFullVersion)' != '' and '$(ProductFullVersion)' != '$(ProductVersion)' ">$(ProductName) $(ProductFullVersion)</ProductDisplayName>
+    </PropertyGroup>
 
-	<PropertyGroup>
-		<DefineConstants>$(DefineConstants);ProductName=$(ProductName);ProductDisplayName=$(ProductDisplayName);ProductDescription=$(ProductDescription);UpgradeCode=$(UpgradeCode);ProductVersion=$(ProductVersion);ProductSourceDir=$(ProductSourceDir)</DefineConstants>
-	</PropertyGroup>
+    <PropertyGroup>
+        <DefineConstants>$(DefineConstants);ProductName=$(ProductName);ProductDisplayName=$(ProductDisplayName);ProductDescription=$(ProductDescription);UpgradeCode=$(UpgradeCode);ProductVersion=$(ProductVersion);ProductSourceDir=$(ProductSourceDir)</DefineConstants>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<Compile Include="..\Shared\*.wxs" />
-		<PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
-	</ItemGroup>
+    <ItemGroup>
+        <Compile Include="..\Shared\*.wxs"/>
+        <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2"/>
+    </ItemGroup>
 
-	<Target Name="CheckInstallerInputs" BeforeTargets="CoreCompile">
-		<Error Condition=" '$(ProductVersion)' == '' or !$([System.Text.RegularExpressions.Regex]::IsMatch('$(ProductVersion)', '^[0-9]+\.[0-9]+\.[0-9]+$')) " Text="ProductVersion must be a numeric X.Y.Z (got '$(ProductVersion)'); pass -p:ProductVersion=" />
-		<Error Condition=" '$(ProductSourceDir)' == '' or !Exists('$(ProductSourceDir)') " Text="ProductSourceDir '$(ProductSourceDir)' does not exist; pass the publish directory with -p:ProductSourceDir=" />
-		<Error Condition=" '$(Platform)' != 'x64' and '$(Platform)' != 'arm64' " Text="Platform must be x64 or arm64 (got '$(Platform)'); pass -p:Platform=" />
-	</Target>
+    <Target Name="CheckInstallerInputs" BeforeTargets="CoreCompile">
+        <Error Condition=" '$(ProductVersion)' == '' or !$([System.Text.RegularExpressions.Regex]::IsMatch('$(ProductVersion)', '^[0-9]+\.[0-9]+\.[0-9]+$')) " Text="ProductVersion must be a numeric X.Y.Z (got '$(ProductVersion)'); pass -p:ProductVersion="/>
+        <Error Condition=" '$(ProductSourceDir)' == '' or !Exists('$(ProductSourceDir)') " Text="ProductSourceDir '$(ProductSourceDir)' does not exist; pass the publish directory with -p:ProductSourceDir="/>
+        <Error Condition=" '$(Platform)' != 'x64' and '$(Platform)' != 'arm64' " Text="Platform must be x64 or arm64 (got '$(Platform)'); pass -p:Platform="/>
+    </Target>
 
 </Project>

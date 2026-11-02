@@ -16,4 +16,5 @@ public sealed record ValidatedBundle(
 	IReadOnlyList<ReleaseGroup> Releases,
 	JournalingStatements Journaling,
 	BundleMetadata Metadata,
-	IBundleLayout Layout );
+	IBundleLayout Layout
+);

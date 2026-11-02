@@ -29,14 +29,14 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '../..' ) ).Path
 $bundleDir = Join-Path $PSScriptRoot 'bundle'
 $projectDir = Join-Path $PSScriptRoot 'project'
-$scratch = Join-Path ( [IO.Path]::GetTempPath() ) "sqetch-smoke-$( [Guid]::NewGuid().ToString( 'N' ) )"
+$scratch = Join-Path ( [IO.Path]::GetTempPath() ) "sqetch-smoke-$([Guid]::NewGuid().ToString( 'N' ))"
 $null = New-Item -ItemType Directory -Path $scratch
 
 function Invoke-Tool
 {
-	param( [Parameter( Mandatory )] [string] $Name, [Parameter( Mandatory )] [string] $Path, [Parameter( Mandatory )] [string[]] $Arguments )
+	param( [Parameter(Mandatory)] [string] $Name, [Parameter(Mandatory)] [string] $Path, [Parameter(Mandatory)] [string[]] $Arguments )
 
-	Write-Host "> $Name $( $Arguments -join ' ' )"
+	Write-Host "> $Name $($Arguments -join ' ')"
 	& $Path @Arguments | Out-Host
 
 	if( $LASTEXITCODE -ne 0 )
@@ -47,7 +47,7 @@ function Invoke-Tool
 
 function Invoke-Sqetch
 {
-	param( [Parameter( Mandatory )] [string[]] $Arguments )
+	param( [Parameter(Mandatory)] [string[]] $Arguments )
 
 	Invoke-Tool -Name 'sqetch' -Path $script:Sqetch -Arguments $Arguments
 }
@@ -55,7 +55,7 @@ function Invoke-Sqetch
 # Publishes a CLI framework-dependent for this machine into the scratch directory; returns the executable.
 function Publish-Tool
 {
-	param( [Parameter( Mandatory )] [string] $Project, [Parameter( Mandatory )] [string] $Name )
+	param( [Parameter(Mandatory)] [string] $Project, [Parameter(Mandatory)] [string] $Name )
 
 	$publishDir = Join-Path $scratch $Name
 	& dotnet publish ( Join-Path $repoRoot $Project ) -m:1 -nologo -c Release -o $publishDir | Out-Host
@@ -72,7 +72,7 @@ function Publish-Tool
 # folders above, both built from $PSScriptRoot, never a path from outside.
 function Clear-Fixture
 {
-	param( [Parameter( Mandatory )] [ValidateScript( { $_ -eq $bundleDir -or $_ -eq $projectDir } )] [string] $Path )
+	param( [Parameter(Mandatory)] [ValidateScript({ $_ -eq $bundleDir -or $_ -eq $projectDir })] [string] $Path )
 
 	if( Test-Path -LiteralPath $Path )
 	{
@@ -83,7 +83,7 @@ function Clear-Fixture
 # Statement files are written LF with a trailing newline, whatever the platform running this is.
 function Write-SqlFile
 {
-	param( [Parameter( Mandatory )] [string] $Path, [Parameter( Mandatory )] [string] $Sql )
+	param( [Parameter(Mandatory)] [string] $Path, [Parameter(Mandatory)] [string] $Sql )
 
 	[IO.File]::WriteAllText( $Path, $Sql.Replace( "`r`n", "`n" ).TrimEnd() + "`n" )
 }
@@ -94,21 +94,21 @@ $table = 'sqetch_journal'
 
 # slot -> the parameters it carries beyond the project every slot has (JournalingSlots.ParameterNames)
 $eventSlots = [ordered]@{
-	DeployingRelease   = @( 'release', 'description', 'utcTimestamp' )
-	DeployingPlan      = @( 'release', 'plan', 'description', 'utcTimestamp' )
-	DeployingStep      = @( 'release', 'plan', 'step', 'description', 'utcTimestamp' )
-	StepDeployed       = @( 'release', 'plan', 'step', 'description', 'utcTimestamp' )
-	PlanDeployed       = @( 'release', 'plan', 'description', 'utcTimestamp' )
-	ReleaseDeployed    = @( 'release', 'description', 'utcTimestamp' )
+	DeployingRelease = @( 'release', 'description', 'utcTimestamp' )
+	DeployingPlan = @( 'release', 'plan', 'description', 'utcTimestamp' )
+	DeployingStep = @( 'release', 'plan', 'step', 'description', 'utcTimestamp' )
+	StepDeployed = @( 'release', 'plan', 'step', 'description', 'utcTimestamp' )
+	PlanDeployed = @( 'release', 'plan', 'description', 'utcTimestamp' )
+	ReleaseDeployed = @( 'release', 'description', 'utcTimestamp' )
 	RollingBackRelease = @( 'release', 'utcTimestamp' )
-	RollingBackPlan    = @( 'release', 'plan', 'utcTimestamp' )
-	RollingBackStep    = @( 'release', 'plan', 'step', 'utcTimestamp' )
-	RolledBackStep     = @( 'release', 'plan', 'step', 'utcTimestamp' )
-	RolledBackPlan     = @( 'release', 'plan', 'utcTimestamp' )
-	RolledBackRelease  = @( 'release', 'utcTimestamp' )
+	RollingBackPlan = @( 'release', 'plan', 'utcTimestamp' )
+	RollingBackStep = @( 'release', 'plan', 'step', 'utcTimestamp' )
+	RolledBackStep = @( 'release', 'plan', 'step', 'utcTimestamp' )
+	RolledBackPlan = @( 'release', 'plan', 'utcTimestamp' )
+	RolledBackRelease = @( 'release', 'utcTimestamp' )
 }
 
-$journaling = [ordered]@{}
+$journaling = [ordered]@{ }
 
 # two statements, so a multi-statement slot is part of the fixture; both are idempotent because
 # PrepareJournal runs on every deployment
@@ -146,7 +146,7 @@ foreach( $slot in $eventSlots.Keys )
 {
 	$columns = @( 'project', 'slot' ) + @( $eventSlots[$slot] | ForEach-Object { $_ -eq 'utcTimestamp' ? 'at_utc' : $_ } )
 	$values = @( '@project', "'$slot'" ) + @( $eventSlots[$slot] | ForEach-Object { "@$_" } )
-	$journaling[$slot] = "insert into $table ( $( $columns -join ', ' ) ) values ( $( $values -join ', ' ) )"
+	$journaling[$slot] = "insert into $table ( $($columns -join ', ') ) values ( $($values -join ', ') )"
 }
 
 try

@@ -19,8 +19,9 @@ public class UnsupportedBundleFormatException
 	/// <summary>The bundle names a layout this reader does not know.</summary>
 	public UnsupportedBundleFormatException( string layout, int format, IEnumerable<string> known )
 		: base(
-			$"the bundle uses layout '{layout}', which this sqetch-deploy does not know"
-			+ $" (known: {Join( known )}); upgrade to a newer sqetch-deploy" )
+			$"the bundle uses layout '{layout}', which this sqetch-deploy does not know" +
+			$" (known: {Join( known )}); upgrade to a newer sqetch-deploy"
+		)
 	{
 		Layout = layout;
 		Format = format;
@@ -29,8 +30,9 @@ public class UnsupportedBundleFormatException
 	/// <summary>The bundle names a layout this reader knows, in a format newer than it reads.</summary>
 	public UnsupportedBundleFormatException( string layout, int format, int supported )
 		: base(
-			$"the bundle uses format {format} of layout '{layout}'; this sqetch-deploy reads up to"
-			+ $" format {supported}; upgrade to a newer sqetch-deploy" )
+			$"the bundle uses format {format} of layout '{layout}'; this sqetch-deploy reads up to" +
+			$" format {supported}; upgrade to a newer sqetch-deploy"
+		)
 	{
 		Layout = layout;
 		Format = format;

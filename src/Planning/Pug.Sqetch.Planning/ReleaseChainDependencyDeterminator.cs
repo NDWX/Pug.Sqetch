@@ -32,7 +32,7 @@ public class ReleaseChainDependencyDeterminator : IReleaseDependencyDeterminator
 
 	private bool ChainReaches( string from, string target )
 	{
-		HashSet<string> visited = new ( StringComparer.OrdinalIgnoreCase );
+		HashSet<string> visited = new( StringComparer.OrdinalIgnoreCase );
 
 		string current = from;
 

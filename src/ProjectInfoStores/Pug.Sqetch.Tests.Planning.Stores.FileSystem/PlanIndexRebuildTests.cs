@@ -13,9 +13,15 @@ public class PlanIndexRebuildTests
 
 		using( FileSystemProjectStores stores = project.Open() )
 		{
-			stores.InfoStore.AddPlan( new ObjectDefinition( "base", "" ), [], TestData.Context() );
-			stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), ["base"], TestData.Context() );
-			stores.InfoStore.AddPlan( new ObjectDefinition( "orphan", "" ), ["base", "customer-email"], TestData.Context() );
+			stores.InfoStore.AddPlan( new ObjectDefinition( "base", "" ), [ ], TestData.Context() );
+			stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ "base" ], TestData.Context() );
+
+			stores.InfoStore.AddPlan(
+				new ObjectDefinition( "orphan", "" ),
+				[ "base", "customer-email" ],
+				TestData.Context()
+			);
+
 			stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
 			stores.InfoStore.AddReleasePlan( "2026.07", "base", TestData.Context() );
 			stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() );
@@ -35,7 +41,11 @@ public class PlanIndexRebuildTests
 
 			// the rebuilt index must answer queries again immediately
 			Assert.Equal( "2026.07", stores.InfoStore.GetPlan( "customer-email" )!.Release );
-			Assert.Equal( ["customer-email", "orphan"], stores.InfoStore.GetPlanDependants( "base" ).Order().ToArray() );
+
+			Assert.Equal(
+				[ "customer-email", "orphan" ],
+				stores.InfoStore.GetPlanDependants( "base" ).Order().ToArray()
+			);
 		}
 
 		Assert.Equal( expected, File.ReadAllText( indexFile ) );
@@ -46,7 +56,10 @@ public class PlanIndexRebuildTests
 	{
 		using TempProject project = TempProject.Create();
 
-		File.WriteAllText( Path.Combine( project.Root, "plan-index" ), "not\tan\tindex\tline\twith\ttoo\tmany\tfields" );
+		File.WriteAllText(
+			Path.Combine( project.Root, "plan-index" ),
+			"not\tan\tindex\tline\twith\ttoo\tmany\tfields"
+		);
 
 		using FileSystemProjectStores stores = project.Open();
 

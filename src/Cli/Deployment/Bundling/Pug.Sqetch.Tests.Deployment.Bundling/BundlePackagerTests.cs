@@ -2,6 +2,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
@@ -11,15 +12,21 @@ namespace Pug.Sqetch.Tests.Deployment.Bundling;
 
 public class BundlePackagerTests
 {
-	private static readonly DateTime Bundled = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
+	private static readonly DateTime Bundled = new( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
 
 	[Fact]
 	public void MetadataIsWrittenBeforeAnythingTheLayoutWrites()
 	{
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		BundleMetadata metadata = BundlePackager.Write(
-			Sample(), new DefaultBundleLayout(), writer, "sqetch-deploy", "0.1.0", Bundled );
+			Sample(),
+			new DefaultBundleLayout(),
+			writer,
+			"sqetch-deploy",
+			"0.1.0",
+			Bundled
+		);
 
 		Assert.Equal( "META-DATA", writer.Paths[0] );
 		Assert.Equal( "manifest.json", writer.Paths[1] );
@@ -30,10 +37,16 @@ public class BundlePackagerTests
 	[Fact]
 	public void FormatAndLayoutComeFromTheLayoutAndTheRestFromTheCaller()
 	{
-		FormatTwoLayout layout = new ();
+		FormatTwoLayout layout = new();
 
 		BundleMetadata metadata = BundlePackager.Write(
-			Sample(), layout, new RecordingWriter(), "tool", "9.9.9-pre.1", Bundled );
+			Sample(),
+			layout,
+			new RecordingWriter(),
+			"tool",
+			"9.9.9-pre.1",
+			Bundled
+		);
 
 		Assert.Equal( new BundleMetadata( 2, "format-two", "tool", "9.9.9-pre.1", Bundled ), metadata );
 		Assert.True( layout.Written );
@@ -42,12 +55,18 @@ public class BundlePackagerTests
 	[Fact]
 	public void ANonUtcInstantIsRefusedBeforeTheLayoutWritesAnything()
 	{
-		FormatTwoLayout layout = new ();
-		RecordingWriter writer = new ();
+		FormatTwoLayout layout = new();
+		RecordingWriter writer = new();
 
-		Assert.Throws<InvalidBundleMetadataException>(
-			() => BundlePackager.Write(
-				Sample(), layout, writer, "tool", "1.0.0", DateTime.SpecifyKind( Bundled, DateTimeKind.Local ) ) );
+		Assert.Throws<InvalidBundleMetadataException>( () => BundlePackager.Write(
+				Sample(),
+				layout,
+				writer,
+				"tool",
+				"1.0.0",
+				DateTime.SpecifyKind( Bundled, DateTimeKind.Local )
+			)
+		);
 
 		Assert.Empty( writer.Paths );
 		Assert.False( layout.Written );
@@ -56,7 +75,7 @@ public class BundlePackagerTests
 	[Fact]
 	public void TheManifestCarriesNoGeneratedTimestamp()
 	{
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		BundlePackager.Write( Sample(), new DefaultBundleLayout(), writer, "sqetch-deploy", "0.1.0", Bundled );
 
@@ -70,7 +89,7 @@ public class BundlePackagerTests
 	{
 		using MemoryStream output = Package( new ZipBundleType().Create );
 
-		using ZipArchive archive = new ( output, ZipArchiveMode.Read );
+		using ZipArchive archive = new( output, ZipArchiveMode.Read );
 
 		Assert.Equal( "META-DATA", archive.Entries[0].FullName );
 		Assert.Equal( "manifest.json", archive.Entries[1].FullName );
@@ -82,7 +101,7 @@ public class BundlePackagerTests
 	{
 		using MemoryStream output = Package( new TarBundleType().Create );
 
-		using TarReader reader = new ( output );
+		using TarReader reader = new( output );
 
 		TarEntry first = reader.GetNextEntry()!;
 
@@ -96,8 +115,8 @@ public class BundlePackagerTests
 	{
 		using MemoryStream output = Package( new TarGzBundleType().Create );
 
-		using GZipStream gzip = new ( output, CompressionMode.Decompress );
-		using TarReader reader = new ( gzip );
+		using GZipStream gzip = new( output, CompressionMode.Decompress );
+		using TarReader reader = new( gzip );
 
 		Assert.Equal( "META-DATA", reader.GetNextEntry()!.Name );
 		Assert.Equal( "manifest.json", reader.GetNextEntry()!.Name );
@@ -116,12 +135,15 @@ public class BundlePackagerTests
 
 		string text = File.ReadAllText( Path.Combine( path, "META-DATA" ) );
 
-		Assert.Equal( new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ), BundleMetadata.Parse( text ) );
+		Assert.Equal(
+			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ),
+			BundleMetadata.Parse( text )
+		);
 	}
 
 	private static MemoryStream Package( Func<Stream, IBundleWriter> create )
 	{
-		MemoryStream output = new ();
+		MemoryStream output = new();
 
 		using( IBundleWriter writer = create( output ) )
 			BundlePackager.Write( Sample(), new DefaultBundleLayout(), writer, "sqetch-deploy", "0.1.0", Bundled );
@@ -134,38 +156,49 @@ public class BundlePackagerTests
 	private static string ReadAll( Stream stream )
 	{
 		using( stream )
-		using( StreamReader reader = new ( stream ) )
-			return reader.ReadToEnd();
+			using( StreamReader reader = new( stream ) )
+				return reader.ReadToEnd();
 	}
 
 	private static Bundle Sample()
-		=> new (
+		=> new(
 			new ProjectDefinition( "demo", "", "postgres" ),
 			BundleSelection.Finalized,
-			new JournalingStatements( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?) $"select '{slot}'" ) ),
-			[new BundleRelease( "2026.07", "", "", true )],
+			new JournalingStatements(
+				JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)$"select '{slot}'" )
+			),
+			[ new BundleRelease( "2026.07", "", "", true ) ],
 			[
 				new BundlePlan(
-					"table", "", "2026.07", [],
+					"table",
+					"",
+					"2026.07",
+					[ ],
 					[
 						new BundleStep(
-							"create", "", [],
+							"create",
+							"",
+							[ ],
 							() => new StepScripts(
 								new MemoryStream( Encoding.UTF8.GetBytes( "-- d" ) ),
 								new MemoryStream( Encoding.UTF8.GetBytes( "-- v" ) ),
-								new MemoryStream( Encoding.UTF8.GetBytes( "-- r" ) ) ) )
-					] )
-			] );
+								new MemoryStream( Encoding.UTF8.GetBytes( "-- r" ) )
+							)
+						)
+					]
+				)
+			]
+		);
 
 	private sealed class RecordingWriter : IBundleWriter
 	{
-		public List<string> Paths { get; } = [];
+		public List<string> Paths { get; } = [ ];
 
-		public List<string> Contents { get; } = [];
+		public List<string> Contents { get; } = [ ];
 
 		public void Add( string path, Stream content )
 		{
-			using MemoryStream buffer = new ();
+			using MemoryStream buffer = new();
 
 			content.CopyTo( buffer );
 
@@ -191,7 +224,8 @@ public class BundlePackagerTests
 
 		public BundleManifest ReadManifest( IBundleReader reader ) => throw new NotSupportedException();
 
-		public JournalingStatements ReadJournalingStatements( IBundleReader reader ) => throw new NotSupportedException();
+		public JournalingStatements ReadJournalingStatements( IBundleReader reader ) =>
+			throw new NotSupportedException();
 
 		public string ScriptPath( string plan, string step, StepScriptKind kind ) => throw new NotSupportedException();
 	}

@@ -1,4 +1,5 @@
 using Pug.Sqetch.DatabaseDriver;
+
 using Spectre.Console.Cli;
 
 namespace Pug.Sqetch.Deployment.Cli.Commands;
@@ -18,13 +19,14 @@ internal static class DriverParameters
 		DatabaseDriverParametersDefinition definition = factory.GetParametersDefinition();
 		List<DatabaseDriverParameterDefinition> known = definition.Parameters.ToList();
 
-		Dictionary<string, string> values = new ( StringComparer.OrdinalIgnoreCase );
+		Dictionary<string, string> values = new( StringComparer.OrdinalIgnoreCase );
 
 		foreach( IGrouping<string, string?> option in remaining.Parsed )
 		{
 			if( !option.Key.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
 				throw new CommandLineException(
-					$"unknown option '{option.Key}'; driver parameters are passed as {prefix}<parameter> <value>" );
+					$"unknown option '{option.Key}'; driver parameters are passed as {prefix}<parameter> <value>"
+				);
 
 			string name = option.Key[prefix.Length..];
 
@@ -33,8 +35,9 @@ internal static class DriverParameters
 
 			if( parameter is null )
 				throw new CommandLineException(
-					$"driver '{factory.Name}' has no parameter '{name}'; available parameters: "
-					+ string.Join( ", ", known.Select( x => prefix + x.Name ) ) );
+					$"driver '{factory.Name}' has no parameter '{name}'; available parameters: " +
+					string.Join( ", ", known.Select( x => prefix + x.Name ) )
+				);
 
 			string?[] provided = option.ToArray();
 
@@ -49,18 +52,20 @@ internal static class DriverParameters
 
 		if( remaining.Raw.Count > 0 )
 			throw new CommandLineException(
-				$"unexpected argument(s): {string.Join( " ", remaining.Raw )}" );
+				$"unexpected argument(s): {string.Join( " ", remaining.Raw )}"
+			);
 
 		ICollection<ICollection<string>> groupings = definition.RequiredParametersOptions;
 
-		if( groupings.Count > 0
-			&& !groupings.Any( grouping => grouping.All( values.ContainsKey ) ) )
+		if( groupings.Count > 0 && !groupings.Any( grouping => grouping.All( values.ContainsKey ) ) )
 			throw new CommandLineException(
-				$"driver '{factory.Name}' requires "
-				+ ( groupings.Count == 1 ? "parameters " : "one of the parameter sets " )
-				+ string.Join(
+				$"driver '{factory.Name}' requires " +
+				( groupings.Count == 1 ? "parameters " : "one of the parameter sets " ) +
+				string.Join(
 					" or ",
-					groupings.Select( grouping => $"({string.Join( ", ", grouping.Select( x => prefix + x ) )})" ) ) );
+					groupings.Select( grouping => $"({string.Join( ", ", grouping.Select( x => prefix + x ) )})" )
+				)
+			);
 
 		return values;
 	}

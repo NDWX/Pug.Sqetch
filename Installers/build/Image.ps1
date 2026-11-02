@@ -11,20 +11,20 @@ $script:ImageArchitectures = [ordered]@{ 'linux-x64' = 'amd64'; 'linux-arm64' = 
 
 function Assert-ImageProduct
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	if( -not $Context.Product.Image )
 	{
-		throw "$( $Context.Name ) has no container image"
+		throw "$($Context.Name) has no container image"
 	}
 }
 
 # A fresh build context: the Dockerfile, and rootfs-<arch>/ holding each archive's extracted folder.
 function New-ImageBuildContext
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string[]] $Rids )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string[]] $Rids )
 
-	$root = Join-Path $Context.WorkDir "image-$( $Context.Name )"
+	$root = Join-Path $Context.WorkDir "image-$($Context.Name)"
 
 	if( Test-Path $root )
 	{
@@ -47,8 +47,8 @@ function New-ImageBuildContext
 		$null = New-Item -ItemType Directory -Path $extract
 		Invoke-Native -FilePath 'tar' -Arguments @( '-xzf', $archive, '-C', $extract )
 
-		Move-Item -LiteralPath ( Join-Path $extract "$( $Context.Name )-$( $Context.Version )" ) `
-			-Destination ( Join-Path $root "rootfs-$( $script:ImageArchitectures[$rid] )" )
+		Move-Item -LiteralPath ( Join-Path $extract "$($Context.Name)-$($Context.Version)" ) `
+			-Destination ( Join-Path $root "rootfs-$($script:ImageArchitectures[$rid])" )
 		Remove-Item -LiteralPath $extract
 	}
 
@@ -58,12 +58,12 @@ function New-ImageBuildContext
 # The labels that change per build; the fixed ones are in the Dockerfile.
 function Get-ImageLabelArguments
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	$revision = Invoke-Native -FilePath 'git' -Arguments @( '-C', $script:RepoRoot, 'rev-parse', 'HEAD' ) -Capture
 
 	return @(
-		'--label', "org.opencontainers.image.version=$( $Context.Version )",
+		'--label', "org.opencontainers.image.version=$($Context.Version)",
 		'--label', "org.opencontainers.image.revision=$revision" )
 }
 
@@ -71,7 +71,7 @@ function Get-ImageLabelArguments
 # as the image's own user, through its PATH, and through its entrypoint.
 function Test-ContainerImage
 {
-	param( [Parameter( Mandatory )] $Context )
+	param( [Parameter(Mandatory)] $Context )
 
 	Assert-ImageProduct -Context $Context
 
@@ -83,12 +83,12 @@ function Test-ContainerImage
 	}
 
 	$root = New-ImageBuildContext -Context $Context -Rids @( $rid )
-	$image = "$( $Context.Name )-smoke:$( $Context.Version )"
-	$container = "sqetch-smoke-image-$( [Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ) )"
+	$image = "$($Context.Name)-smoke:$($Context.Version)"
+	$container = "sqetch-smoke-image-$([Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ))"
 
 	Invoke-Docker -Arguments ( @(
-		'buildx', 'build', '--platform', "linux/$( $script:ImageArchitectures[$rid] )", '--load', '--tag', $image ) +
-		( Get-ImageLabelArguments -Context $Context ) + @( $root ) )
+		'buildx', 'build', '--platform', "linux/$($script:ImageArchitectures[$rid])", '--load', '--tag', $image ) +
+			( Get-ImageLabelArguments -Context $Context ) + @( $root ) )
 
 	try
 	{
@@ -97,7 +97,7 @@ function Test-ContainerImage
 
 		if( $entry.ExitCode -ne 0 -or $entry.Output.Trim() -ne $Context.Version )
 		{
-			throw "'docker run $image --version' exited with $( $entry.ExitCode ) and printed '$( $entry.Output.Trim() )', expected $( $Context.Version )"
+			throw "'docker run $image --version' exited with $($entry.ExitCode) and printed '$($entry.Output.Trim())', expected $($Context.Version)"
 		}
 
 		$user = Invoke-Docker -Capture -Arguments @( 'run', '--rm', '--entrypoint', 'id', $image, '-u' )
@@ -124,21 +124,35 @@ function Test-ContainerImage
 	finally
 	{
 		# $ErrorActionPreference is 'Stop', but a container that never started has nothing to remove
-		try { Invoke-Docker -Arguments @( 'rm', '-f', $container ) } catch { Write-Warning "could not remove container ${container}: $_" }
-		try { Invoke-Docker -Arguments @( 'image', 'rm', $image ) } catch { Write-Warning "could not remove image ${image}: $_" }
+		try
+		{
+			Invoke-Docker -Arguments @( 'rm', '-f', $container )
+		}
+		catch
+		{
+			Write-Warning "could not remove container ${container}: $_"
+		}
+		try
+		{
+			Invoke-Docker -Arguments @( 'image', 'rm', $image )
+		}
+		catch
+		{
+			Write-Warning "could not remove image ${image}: $_"
+		}
 	}
 }
 
 # The tags a build is pushed under in each repository: the version, and 'latest' for a release.
 function Get-ImageTags
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string[]] $Repositories )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string[]] $Repositories )
 
 	$release = $Context.Version -eq $Context.BaseVersion
 
 	foreach( $repository in $Repositories )
 	{
-		"${repository}:$( $Context.Version )"
+		"${repository}:$($Context.Version)"
 
 		if( $release )
 		{
@@ -152,7 +166,7 @@ function Get-ImageTags
 # workflow) and a login to each registry. -DryRun builds nothing and prints the command.
 function Publish-ContainerImage
 {
-	param( [Parameter( Mandatory )] $Context, [string[]] $Repositories, [switch] $DryRun )
+	param( [Parameter(Mandatory)] $Context, [string[]] $Repositories, [switch] $DryRun )
 
 	Assert-ImageProduct -Context $Context
 
@@ -163,7 +177,7 @@ function Publish-ContainerImage
 
 	if( $Context.Version -like '*-dev.*' )
 	{
-		throw "a development build ($( $Context.Version )) is not published"
+		throw "a development build ($($Context.Version)) is not published"
 	}
 
 	foreach( $repository in $Repositories )
@@ -180,11 +194,11 @@ function Publish-ContainerImage
 	$tags = @( Get-ImageTags -Context $Context -Repositories $Repositories | ForEach-Object { '--tag', $_ } )
 
 	$arguments = @( 'buildx', 'build', '--platform', $platforms, '--push' ) + $tags +
-		( Get-ImageLabelArguments -Context $Context ) + @( $root )
+			( Get-ImageLabelArguments -Context $Context ) + @( $root )
 
 	if( $DryRun )
 	{
-		Write-Host "[dry run] docker $( $arguments -join ' ' )"
+		Write-Host "[dry run] docker $($arguments -join ' ')"
 		return
 	}
 

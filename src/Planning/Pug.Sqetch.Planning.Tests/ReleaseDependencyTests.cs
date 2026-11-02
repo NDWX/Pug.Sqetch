@@ -20,9 +20,13 @@ public sealed class ReleaseDependencyTests : IDisposable
 	{
 		_temp = TempProject.Create();
 		_stores = _temp.Open();
+
 		_project = ProjectFactory.Create(
-			_stores.InfoStore, _stores.ScriptsStore,
-			new ReleaseChainDependencyDeterminator( _stores.InfoStore ), TestData.User );
+			_stores.InfoStore,
+			_stores.ScriptsStore,
+			new ReleaseChainDependencyDeterminator( _stores.InfoStore ),
+			TestData.User
+		);
 	}
 
 	public void Dispose()
@@ -42,7 +46,7 @@ public sealed class ReleaseDependencyTests : IDisposable
 		return release.Length == 0 ? null : release;
 	}
 
-	private static ReleaseDefinition Release( string name, string dependency = "" ) => new ( name, "", dependency );
+	private static ReleaseDefinition Release( string name, string dependency = "" ) => new( name, "", dependency );
 
 	[Fact]
 	public void CreatingAReleaseWithoutAnUnreleasedDependencyIsRefused()
@@ -50,12 +54,16 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "base" );
 		Plan( "dependant", "base" );
 
-		MissingPlanDependenciesException exception = Assert.Throws<MissingPlanDependenciesException>(
-			() => _project.CreateRelease( Release( "1.0" ), ["dependant"] ) );
+		MissingPlanDependenciesException exception =
+			Assert.Throws<MissingPlanDependenciesException>( () => _project.CreateRelease(
+					Release( "1.0" ),
+					[ "dependant" ]
+				)
+			);
 
-		(ProjectPlan missing, ICollection<string> dependants) = Assert.Single( exception.MissingDependencies ).Value;
+		( ProjectPlan missing, ICollection<string> dependants ) = Assert.Single( exception.MissingDependencies ).Value;
 		Assert.Equal( "base", missing.Definition.Name );
-		Assert.Equal( ["dependant"], dependants );
+		Assert.Equal( [ "dependant" ], dependants );
 
 		Assert.Null( _stores.InfoStore.GetRelease( "1.0" ) );
 		Assert.Null( ReleaseOf( "dependant" ) );
@@ -67,7 +75,7 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "base" );
 		Plan( "dependant", "base" );
 
-		_project.CreateRelease( Release( "1.0" ), ["dependant", "base"] );
+		_project.CreateRelease( Release( "1.0" ), [ "dependant", "base" ] );
 
 		Assert.Equal( "1.0", ReleaseOf( "base" ) );
 		Assert.Equal( "1.0", ReleaseOf( "dependant" ) );
@@ -80,7 +88,7 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "b", "c" );
 		Plan( "a", "b" );
 
-		_project.CreateRelease( Release( "1.0" ), ["a", "b", "c"] );
+		_project.CreateRelease( Release( "1.0" ), [ "a", "b", "c" ] );
 
 		Assert.Equal( "1.0", ReleaseOf( "a" ) );
 		Assert.Equal( "1.0", ReleaseOf( "c" ) );
@@ -92,14 +100,14 @@ public sealed class ReleaseDependencyTests : IDisposable
 	public void ADependencyInAnEarlierReleaseSatisfiesANewRelease( bool finalizeEarlier )
 	{
 		Plan( "base" );
-		_project.CreateRelease( Release( "1.0" ), ["base"] );
+		_project.CreateRelease( Release( "1.0" ), [ "base" ] );
 
 		if( finalizeEarlier )
 			_project.FinalizeRelease( "1.0" );
 
 		Plan( "dependant", "base" );
 
-		_project.CreateRelease( Release( "1.1", "1.0" ), ["dependant"] );
+		_project.CreateRelease( Release( "1.1", "1.0" ), [ "dependant" ] );
 
 		Assert.Equal( "1.1", ReleaseOf( "dependant" ) );
 		Assert.Equal( "1.0", ReleaseOf( "base" ) );
@@ -112,8 +120,12 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "dependant", "base" );
 		_project.CreateRelease( Release( "1.0" ) );
 
-		Assert.Throws<MissingPlanDependenciesException>(
-			() => _project.AddPlanToRelease( "1.0", "dependant", includeDependencies: false ) );
+		Assert.Throws<MissingPlanDependenciesException>( () => _project.AddPlanToRelease(
+				"1.0",
+				"dependant",
+				includeDependencies: false
+			)
+		);
 
 		Assert.Null( ReleaseOf( "dependant" ) );
 		Assert.Null( ReleaseOf( "base" ) );
@@ -124,7 +136,7 @@ public sealed class ReleaseDependencyTests : IDisposable
 	{
 		Plan( "base" );
 		Plan( "dependant", "base" );
-		_project.CreateRelease( Release( "1.0" ), ["base"] );
+		_project.CreateRelease( Release( "1.0" ), [ "base" ] );
 
 		_project.AddPlanToRelease( "1.0", "dependant", includeDependencies: false );
 
@@ -139,12 +151,14 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "base" );
 		Plan( "dependant", "base" );
 		_project.CreateRelease( Release( "1.0" ) );
-		_project.CreateRelease( Release( "1.1", "1.0" ), ["base"] );
+		_project.CreateRelease( Release( "1.1", "1.0" ), [ "base" ] );
 
-		MissingPlanDependenciesException exception = Assert.Throws<MissingPlanDependenciesException>(
-			() => _project.AddPlanToRelease( "1.0", "dependant", includeDependencies ) );
+		MissingPlanDependenciesException exception =
+			Assert.Throws<MissingPlanDependenciesException>( () =>
+				_project.AddPlanToRelease( "1.0", "dependant", includeDependencies )
+			);
 
-		Assert.Equal( ["base"], exception.MissingDependencies.Keys );
+		Assert.Equal( [ "base" ], exception.MissingDependencies.Keys );
 		Assert.Equal( "1.1", ReleaseOf( "base" ) );
 		Assert.Null( ReleaseOf( "dependant" ) );
 	}
@@ -170,7 +184,7 @@ public sealed class ReleaseDependencyTests : IDisposable
 	public void WithDependenciesLeavesADependencyInAnEarlierReleaseWhereItIs()
 	{
 		Plan( "earlier" );
-		_project.CreateRelease( Release( "1.0" ), ["earlier"] );
+		_project.CreateRelease( Release( "1.0" ), [ "earlier" ] );
 		Plan( "middle", "earlier" );
 		Plan( "top", "middle" );
 		_project.CreateRelease( Release( "1.1", "1.0" ) );
@@ -186,10 +200,10 @@ public sealed class ReleaseDependencyTests : IDisposable
 	public void CreatingAPlanInAReleaseAcceptsADependencyInAnEarlierRelease()
 	{
 		Plan( "base" );
-		_project.CreateRelease( Release( "1.0" ), ["base"] );
+		_project.CreateRelease( Release( "1.0" ), [ "base" ] );
 		_project.CreateRelease( Release( "1.1", "1.0" ) );
 
-		_project.Add( new PlanDefinition( "dependant", "", ["base"] ), "1.1" );
+		_project.Add( new PlanDefinition( "dependant", "", [ "base" ] ), "1.1" );
 
 		Assert.NotNull( _stores.InfoStore.GetPlan( "dependant" ) );
 	}
@@ -200,8 +214,11 @@ public sealed class ReleaseDependencyTests : IDisposable
 		Plan( "base" );
 		_project.CreateRelease( Release( "1.0" ) );
 
-		Assert.Throws<MissingPlanDependenciesException>(
-			() => _project.Add( new PlanDefinition( "dependant", "", ["base"] ), "1.0" ) );
+		Assert.Throws<MissingPlanDependenciesException>( () => _project.Add(
+				new PlanDefinition( "dependant", "", [ "base" ] ),
+				"1.0"
+			)
+		);
 
 		Assert.Null( _stores.InfoStore.GetPlan( "dependant" ) );
 	}
@@ -211,9 +228,13 @@ public sealed class ReleaseDependencyTests : IDisposable
 	{
 		_project.CreateRelease( Release( "1.0" ) );
 
-		Assert.Throws<UnknownPlanException>(
-			() => _project.Add( new PlanDefinition( "dependant", "", ["nowhere"] ), "1.0" ) );
-		Assert.Throws<UnknownPlanException>(
-			() => _project.Add( new PlanDefinition( "dependant", "", ["nowhere"] ) ) );
+		Assert.Throws<UnknownPlanException>( () => _project.Add(
+				new PlanDefinition( "dependant", "", [ "nowhere" ] ),
+				"1.0"
+			)
+		);
+
+		Assert.Throws<UnknownPlanException>( () => _project.Add( new PlanDefinition( "dependant", "", [ "nowhere" ] ) )
+		);
 	}
 }

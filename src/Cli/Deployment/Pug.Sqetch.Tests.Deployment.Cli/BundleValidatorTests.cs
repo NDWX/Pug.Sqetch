@@ -4,18 +4,19 @@ using Pug.Sqetch.Deployment;
 using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Tests.Deployment;
+
 using static Pug.Sqetch.Tests.Deployment.Cli.Manifests;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;
 
 public class BundleValidatorTests
 {
-	private readonly DefaultBundleLayout _layout = new ();
+	private readonly DefaultBundleLayout _layout = new();
 
 	[Fact]
 	public void CompleteBundlesPassAndReturnTheMetadataLayoutManifestAndJournaling()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
@@ -26,12 +27,16 @@ public class BundleValidatorTests
 		Assert.IsType<DefaultBundleLayout>( read.Layout );
 		Assert.Equal( "a", Assert.Single( read.Manifest.Plans ).Name );
 		Assert.Equal( "a", Assert.Single( Assert.Single( read.Releases ).Plans ).Name );
+
 		Assert.Equal(
-			[FakeJournal.Marker( JournalingSlot.PrepareJournal )],
-			read.Journaling.Statements( JournalingSlot.PrepareJournal ) );
+			[ FakeJournal.Marker( JournalingSlot.PrepareJournal ) ],
+			read.Journaling.Statements( JournalingSlot.PrepareJournal )
+		);
+
 		Assert.Equal(
 			FakeJournal.Marker( JournalingSlot.GetLatestRelease ),
-			read.Journaling.Text( JournalingSlot.GetLatestRelease ) );
+			read.Journaling.Text( JournalingSlot.GetLatestRelease )
+		);
 	}
 
 	/// <summary>
@@ -41,15 +46,15 @@ public class BundleValidatorTests
 	[Fact]
 	public void EveryMissingJournalingStatementIsListed()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 		reader.Remove( "journaling/PrepareJournal.sql" );
 		reader.Remove( "journaling/OnDeployingStep.sql" );
 
-		BundlingException error = Assert.Throws<BundlingException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		BundlingException error =
+			Assert.Throws<BundlingException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "journaling/PrepareJournal.sql", error.Message );
 		Assert.Contains( "journaling/OnDeployingStep.sql", error.Message );
@@ -58,14 +63,14 @@ public class BundleValidatorTests
 	[Fact]
 	public void AQueryStatementBundledWithTwoStatementsIsRefused()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 		reader.Add( "journaling/GetDeployedPlans.sql", "select 1\n;;\nselect 2" );
 
-		BundlingException error = Assert.Throws<BundlingException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		BundlingException error =
+			Assert.Throws<BundlingException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "GetDeployedPlans is a query", error.Message );
 	}
@@ -73,15 +78,15 @@ public class BundleValidatorTests
 	[Fact]
 	public void EveryMissingScriptIsListed()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 		reader.Remove( _layout.ScriptPath( "a", "s1", StepScriptKind.Rollback ) );
 		reader.Remove( _layout.ScriptPath( "b", "s1", StepScriptKind.Deploy ) );
 
-		InvalidBundleException error = Assert.Throws<InvalidBundleException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		InvalidBundleException error =
+			Assert.Throws<InvalidBundleException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( "plans/a/steps/s1/rollback.sql", error.Message );
 		Assert.Contains( "plans/b/steps/s1/deploy.sql", error.Message );
@@ -90,21 +95,24 @@ public class BundleValidatorTests
 	[Fact]
 	public void MissingManifestSurfacesAsAnInvalidManifest()
 	{
-		Assert.Throws<InvalidBundleManifestException>(
-			() => BundleValidator.Validate( new InMemoryBundleReader().Add( BundleMetadata.EntryName, Metadata( _layout ).ToText() ), Layouts() ) );
+		Assert.Throws<InvalidBundleManifestException>( () => BundleValidator.Validate(
+				new InMemoryBundleReader().Add( BundleMetadata.EntryName, Metadata( _layout ).ToText() ),
+				Layouts()
+			)
+		);
 	}
 
 	[Fact]
 	public void MissingMetadataIsRefusedBeforeAnythingElseIsRead()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 		reader.Remove( BundleMetadata.EntryName );
 
-		InvalidBundleMetadataException error = Assert.Throws<InvalidBundleMetadataException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		InvalidBundleMetadataException error =
+			Assert.Throws<InvalidBundleMetadataException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Contains( BundleMetadata.EntryName, error.Message );
 	}
@@ -112,7 +120,7 @@ public class BundleValidatorTests
 	[Fact]
 	public void MalformedMetadataIsRefused()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
@@ -124,14 +132,18 @@ public class BundleValidatorTests
 	[Fact]
 	public void AnUnknownLayoutIsUnsupportedAndNamesTheKnownOnes()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
-		reader.Add( BundleMetadata.EntryName, Metadata( _layout ).ToText().Replace( "layout=default", "layout=quantum" ) );
 
-		UnsupportedBundleFormatException error = Assert.Throws<UnsupportedBundleFormatException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		reader.Add(
+			BundleMetadata.EntryName,
+			Metadata( _layout ).ToText().Replace( "layout=default", "layout=quantum" )
+		);
+
+		UnsupportedBundleFormatException error =
+			Assert.Throws<UnsupportedBundleFormatException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Equal( "quantum", error.Layout );
 		Assert.Equal( 1, error.Format );
@@ -144,14 +156,14 @@ public class BundleValidatorTests
 	[Fact]
 	public void ANewerFormatOfAKnownLayoutIsUnsupported()
 	{
-		BundleManifest manifest = Manifest( [Release( "r1" )], [Plan( "a", "r1", "s1" )] );
+		BundleManifest manifest = Manifest( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
 		InMemoryBundleReader reader = ReaderFor( manifest, _layout );
 
 		reader.Add( "manifest.json", ManifestJson( manifest ) );
 		reader.Add( BundleMetadata.EntryName, ( Metadata( _layout ) with { Format = _layout.Format + 1 } ).ToText() );
 
-		UnsupportedBundleFormatException error = Assert.Throws<UnsupportedBundleFormatException>(
-			() => BundleValidator.Validate( reader, Layouts() ) );
+		UnsupportedBundleFormatException error =
+			Assert.Throws<UnsupportedBundleFormatException>( () => BundleValidator.Validate( reader, Layouts() ) );
 
 		Assert.Equal( "default", error.Layout );
 		Assert.Equal( _layout.Format + 1, error.Format );
@@ -166,7 +178,7 @@ public class BundleValidatorTests
 	[Fact]
 	public void TheFormatIsCheckedBeforeTheManifestIsRead()
 	{
-		InMemoryBundleReader reader = new ();
+		InMemoryBundleReader reader = new();
 
 		reader.Add( BundleMetadata.EntryName, ( Metadata( _layout ) with { Format = 99 } ).ToText() );
 		reader.Add( "manifest.json", "not json at all" );
@@ -177,7 +189,7 @@ public class BundleValidatorTests
 	private string ManifestJson( BundleManifest manifest )
 	{
 		// serialize through the layout by writing a scriptless bundle
-		InMemoryBundleWriter writer = new ();
+		InMemoryBundleWriter writer = new();
 
 		_layout.Write(
 			new Bundle(
@@ -185,30 +197,46 @@ public class BundleValidatorTests
 				manifest.Selection,
 				Journaling(),
 				manifest.Releases
-						.Select( release => new BundleRelease(
-									release.Name, release.Description, release.Dependency, release.Finalized ) )
-						.ToList(),
+					.Select( release => new BundleRelease(
+							release.Name,
+							release.Description,
+							release.Dependency,
+							release.Finalized
+						)
+					)
+					.ToList(),
 				manifest.Plans
-						.Select( plan => new BundlePlan(
-									plan.Name, plan.Description, plan.Release, plan.Dependencies,
-									plan.Steps
-										.Select( step => new BundleStep(
-													step.Name, step.Description, step.Dependencies,
-													() => new StepScripts( null, null, null ) ) )
-										.ToList() ) )
-						.ToList() ),
-			writer );
+					.Select( plan => new BundlePlan(
+							plan.Name,
+							plan.Description,
+							plan.Release,
+							plan.Dependencies,
+							plan.Steps
+								.Select( step => new BundleStep(
+										step.Name,
+										step.Description,
+										step.Dependencies,
+										() => new StepScripts( null, null, null )
+									)
+								)
+								.ToList()
+						)
+					)
+					.ToList()
+			),
+			writer
+		);
 
 		return writer.Entries["manifest.json"];
 	}
 
 	private sealed class InMemoryBundleWriter : IBundleWriter
 	{
-		public Dictionary<string, string> Entries { get; } = new ();
+		public Dictionary<string, string> Entries { get; } = new();
 
 		public void Add( string path, Stream content )
 		{
-			using StreamReader reader = new ( content );
+			using StreamReader reader = new( content );
 
 			Entries[path] = reader.ReadToEnd();
 		}

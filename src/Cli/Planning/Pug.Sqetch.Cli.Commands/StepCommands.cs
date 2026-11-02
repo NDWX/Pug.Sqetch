@@ -1,28 +1,29 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Planning.Models;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
+
 using Rows = Pug.Sqetch.Cli.Commands.Authoring.Output.Rows;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring;
 
 public class StepSettings : CommandSettings
 {
-	[CommandOption( "-p|--plan <PLAN>" )]
-	public string? Plan { get; init; }
+	[CommandOption( "-p|--plan <PLAN>" )] public string? Plan { get; init; }
 
 	public override ValidationResult Validate()
-		=> string.IsNullOrWhiteSpace( Plan )
-			? ValidationResult.Error( "--plan is required" )
-			: ValidationResult.Success();
+		=> string.IsNullOrWhiteSpace( Plan ) ?
+			ValidationResult.Error( "--plan is required" ) :
+			ValidationResult.Success();
 }
 
 public sealed class PlanAddStepCommand( IAnsiConsole console ) : Command<PlanAddStepCommand.Settings>
 {
 	public sealed class Settings : StepSettings
 	{
-		[CommandOption( "-n|--name <STEP>" )]
-		public string? Name { get; init; }
+		[CommandOption( "-n|--name <STEP>" )] public string? Name { get; init; }
 
 		[CommandOption( "-d|--description <TEXT>" )]
 		public string? Description { get; init; }
@@ -49,19 +50,25 @@ public sealed class PlanAddStepCommand( IAnsiConsole console ) : Command<PlanAdd
 
 		StepScriptKeys keys = session.Project.Add(
 			new StepDefinition(
-				settings.Plan!, settings.Name!, settings.Description ?? "",
-				OptionParsing.SplitList( settings.Requires ) ),
-			settings.Plan! );
+				settings.Plan!,
+				settings.Name!,
+				settings.Description ?? "",
+				OptionParsing.SplitList( settings.Requires )
+			),
+			settings.Plan!
+		);
 
 		ProjectPlan plan = session.Stores.InfoStore.GetPlan( settings.Plan! )!;
 
 		console.WriteLine(
-			session.Paths.RelativeToRoot( session.Paths.StepDirectory( plan.Release, settings.Plan!, settings.Name! ) ) );
+			session.Paths.RelativeToRoot( session.Paths.StepDirectory( plan.Release, settings.Plan!, settings.Name! ) )
+		);
 
 		// seed empty script files so they are ready to edit and visible to git
-		foreach( (string key, string kind) in new[]
+		foreach( ( string key, string kind ) in new[]
 				{
-					(keys.DeployScript, "deploy"), (keys.VerifyScript, "verify"), (keys.RollbackScript, "rollback")
+					( keys.DeployScript, "deploy" ), ( keys.VerifyScript, "verify" ),
+					( keys.RollbackScript, "rollback" )
 				} )
 		{
 			string path = Path.Combine( session.Root, key.Replace( '/', Path.DirectorySeparatorChar ) );
@@ -112,13 +119,10 @@ public sealed class PlanDeleteStepCommand : Command<PlanDeleteStepCommand.Settin
 {
 	public sealed class Settings : StepSettings
 	{
-		[CommandOption( "-n|--name <STEP>" )]
-		public string? Name { get; init; }
+		[CommandOption( "-n|--name <STEP>" )] public string? Name { get; init; }
 
 		public override ValidationResult Validate()
-			=> string.IsNullOrWhiteSpace( Name )
-				? ValidationResult.Error( "--name is required" )
-				: base.Validate();
+			=> string.IsNullOrWhiteSpace( Name ) ? ValidationResult.Error( "--name is required" ) : base.Validate();
 	}
 
 	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )

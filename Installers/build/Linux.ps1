@@ -17,7 +17,7 @@ $script:DistributionDocFiles = @(
 
 function Invoke-PlatformSigning
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string[]] $Files )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string[]] $Files )
 
 	throw 'signing is Windows-only: Linux packages are unsigned (a signed apt/yum repository belongs to distribution, which is not built yet)'
 }
@@ -25,13 +25,19 @@ function Invoke-PlatformSigning
 # 'linux-x64' -> the architecture names of nfpm/deb (amd64) and of rpm (x86_64); $null for a RID that is not Linux
 function Get-LinuxArchitecture
 {
-	param( [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] [string] $Rid )
 
 	switch( $Rid )
 	{
-		'linux-x64'   { return [pscustomobject]@{ Nfpm = 'amd64'; Rpm = 'x86_64' } }
-		'linux-arm64' { return [pscustomobject]@{ Nfpm = 'arm64'; Rpm = 'aarch64' } }
-		default       { return $null }
+		'linux-x64'   {
+			return [pscustomobject]@{ Nfpm = 'amd64'; Rpm = 'x86_64' }
+		}
+		'linux-arm64' {
+			return [pscustomobject]@{ Nfpm = 'arm64'; Rpm = 'aarch64' }
+		}
+		default       {
+			return $null
+		}
 	}
 }
 
@@ -40,9 +46,9 @@ function Get-LinuxArchitecture
 # with a digit.
 function Get-LinuxPackages
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] $Architecture, [Parameter( Mandatory )] [ValidateSet( 'deb', 'rpm' )] [string] $Kind )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] $Architecture, [Parameter(Mandatory)] [ValidateSet('deb', 'rpm')] [string] $Kind )
 
-	$pattern = $Kind -eq 'deb' ? "$( $Context.Name )_*_$( $Architecture.Nfpm ).deb" : "$( $Context.Name )-[0-9]*.$( $Architecture.Rpm ).rpm"
+	$pattern = $Kind -eq 'deb' ? "$($Context.Name)_*_$($Architecture.Nfpm).deb" : "$($Context.Name)-[0-9]*.$($Architecture.Rpm).rpm"
 
 	# -like, not -Filter: the file system filter has no [0-9]
 	return @( Get-ChildItem -File -Path $Context.DistDir -ErrorAction SilentlyContinue | Where-Object { $_.Name -like $pattern } )
@@ -52,10 +58,10 @@ function Get-LinuxPackages
 # texts (installed under /usr/lib/<name>), stage/doc the licence texts (/usr/share/doc/<name>).
 function New-PackageStage
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid, [Parameter( Mandatory )] $Architecture )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid, [Parameter(Mandatory)] $Architecture )
 
 	$publish = Get-PublishDir -Context $Context -Rid $Rid
-	$stage = Join-Path $Context.WorkDir "nfpm-$( $Context.Name )-$Rid"
+	$stage = Join-Path $Context.WorkDir "nfpm-$($Context.Name)-$Rid"
 
 	if( Test-Path $stage )
 	{
@@ -78,10 +84,10 @@ function New-PackageStage
 
 	$description = $Context.Product.Description.Replace( '\', '\\' ).Replace( '"', '\"' )
 	$config = ( Get-Content -Raw -LiteralPath ( Join-Path $Context.RepoRoot 'Installers/nfpm/nfpm.yaml' ) ).
-		Replace( '${SQETCH_NAME}', $Context.Name ).
-		Replace( '${SQETCH_ARCH}', $Architecture.Nfpm ).
-		Replace( '${SQETCH_VERSION}', $Context.Version ).
-		Replace( '${SQETCH_DESCRIPTION}', $description )
+			Replace( '${SQETCH_NAME}', $Context.Name ).
+			Replace( '${SQETCH_ARCH}', $Architecture.Nfpm ).
+			Replace( '${SQETCH_VERSION}', $Context.Version ).
+			Replace( '${SQETCH_DESCRIPTION}', $description )
 
 	[IO.File]::WriteAllText( ( Join-Path $stage 'nfpm.yaml' ), $config )
 
@@ -90,7 +96,7 @@ function New-PackageStage
 
 function New-PlatformPackages
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$architecture = Get-LinuxArchitecture -Rid $Rid
 
@@ -110,30 +116,30 @@ function New-PlatformPackages
 	}
 
 	# as the invoking user, so what lands in dist/ is deletable without root
-	$user = "$( Invoke-Native -FilePath 'id' -Arguments @( '-u' ) -Capture ):$( Invoke-Native -FilePath 'id' -Arguments @( '-g' ) -Capture )"
+	$user = "$(Invoke-Native -FilePath 'id' -Arguments @( '-u' ) -Capture):$(Invoke-Native -FilePath 'id' -Arguments @( '-g' ) -Capture)"
 
 	# the file names carry the version as the release spells it: nfpm's defaults would write a
 	# pre-release as '0.1.0~pre.…', and GitHub rewrites '~' in asset names, which would then no longer
 	# match SHA256SUMS. Only the file name changes; the package's own version keeps the '~' that sorts
 	# it before the final release.
 	$targets = @{
-		deb = "$( $Context.Name )_$( $Context.Version )_$( $architecture.Nfpm ).deb"
-		rpm = "$( $Context.Name )-$( $Context.Version ).$( $architecture.Rpm ).rpm"
+		deb = "$($Context.Name)_$($Context.Version)_$($architecture.Nfpm).deb"
+		rpm = "$($Context.Name)-$($Context.Version).$($architecture.Rpm).rpm"
 	}
 
 	foreach( $kind in 'deb', 'rpm' )
 	{
 		Invoke-Docker -Arguments @(
 			'run', '--rm', '--user', $user,
-			'-v', "${stage}:/stage:ro", '-v', "$( $Context.DistDir ):/dist",
-			$script:NfpmImage, 'package', '--config', '/stage/nfpm.yaml', '--packager', $kind, '--target', "/dist/$( $targets[$kind] )" )
+			'-v', "${stage}:/stage:ro", '-v', "$($Context.DistDir):/dist",
+			$script:NfpmImage, 'package', '--config', '/stage/nfpm.yaml', '--packager', $kind, '--target', "/dist/$($targets[$kind])" )
 	}
 
 	foreach( $kind in 'deb', 'rpm' )
 	{
 		if( @( Get-LinuxPackages -Context $Context -Architecture $architecture -Kind $kind ).Count -ne 1 )
 		{
-			throw "expected exactly one .$kind for $( $Context.Name ) $Rid in $( $Context.DistDir )"
+			throw "expected exactly one .$kind for $($Context.Name) $Rid in $($Context.DistDir)"
 		}
 	}
 }
@@ -143,35 +149,35 @@ function New-PlatformPackages
 function Test-LinuxPackage
 {
 	param(
-		[Parameter( Mandatory )] $Context,
-		[Parameter( Mandatory )] [string] $Image,
-		[Parameter( Mandatory )] [IO.FileInfo] $Package,
-		[Parameter( Mandatory )] [string] $InstallScript,
-		# receives the container name; returns nothing, throws when the packager sorts the version wrongly
-		[Parameter( Mandatory )] [scriptblock] $AssertVersionOrder
+		[Parameter(Mandatory)] $Context,
+		[Parameter(Mandatory)] [string] $Image,
+		[Parameter(Mandatory)] [IO.FileInfo] $Package,
+		[Parameter(Mandatory)] [string] $InstallScript,
+	# receives the container name; returns nothing, throws when the packager sorts the version wrongly
+		[Parameter(Mandatory)] [scriptblock] $AssertVersionOrder
 	)
 
-	$container = "sqetch-smoke-$( $Context.Name )-$( [Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ) )"
+	$container = "sqetch-smoke-$($Context.Name)-$([Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ))"
 	$bundle = Join-Path $Context.RepoRoot 'Installers/smoke/bundle'
 	$project = Join-Path $Context.RepoRoot 'Installers/smoke/project'
 
-	Write-Host "installing $( $Package.Name ) into $Image"
+	Write-Host "installing $($Package.Name) into $Image"
 
 	try
 	{
 		Invoke-Docker -Arguments @(
 			'run', '-d', '--name', $container,
-			'-v', "$( $Package.DirectoryName ):/packages:ro", '-v', "${bundle}:/smoke/bundle:ro", '-v', "${project}:/smoke/project:ro",
+			'-v', "$($Package.DirectoryName):/packages:ro", '-v', "${bundle}:/smoke/bundle:ro", '-v', "${project}:/smoke/project:ro",
 			$Image, 'sleep', 'infinity' )
 
 		# the package manager, not dpkg/rpm, so the declared dependencies are resolved and fetched
-		Invoke-Docker -Arguments @( 'exec', $container, 'sh', '-ec', $InstallScript.Replace( '{package}', "/packages/$( $Package.Name )" ) )
+		Invoke-Docker -Arguments @( 'exec', $container, 'sh', '-ec',$InstallScript.Replace( '{package}', "/packages/$($Package.Name)" ) )
 
-		$link = Invoke-Docker -Capture -Arguments @( 'exec', $container, 'readlink', '-f', "/usr/bin/$( $Context.Name )" )
+		$link = Invoke-Docker -Capture -Arguments @( 'exec', $container, 'readlink', '-f', "/usr/bin/$($Context.Name)" )
 
-		if( $link -ne "/usr/lib/$( $Context.Name )/$( $Context.Name )" )
+		if( $link -ne "/usr/lib/$($Context.Name)/$($Context.Name)" )
 		{
-			throw "/usr/bin/$( $Context.Name ) resolves to '$link'"
+			throw "/usr/bin/$($Context.Name) resolves to '$link'"
 		}
 
 		if( $Context.Version -ne $Context.BaseVersion )
@@ -185,13 +191,20 @@ function Test-LinuxPackage
 	finally
 	{
 		# $ErrorActionPreference is 'Stop', but a container that never started has nothing to remove
-		try { Invoke-Docker -Arguments @( 'rm', '-f', $container ) } catch { Write-Warning "could not remove container ${container}: $_" }
+		try
+		{
+			Invoke-Docker -Arguments @( 'rm', '-f', $container )
+		}
+		catch
+		{
+			Write-Warning "could not remove container ${container}: $_"
+		}
 	}
 }
 
 function Test-Installers
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	$architecture = Get-LinuxArchitecture -Rid $Rid
 
@@ -202,7 +215,7 @@ function Test-Installers
 
 	if( $Rid -ne ( Get-HostRid ) )
 	{
-		Write-Host "skipping the installer smoke test for ${Rid}: this host runs $( Get-HostRid )"
+		Write-Host "skipping the installer smoke test for ${Rid}: this host runs $(Get-HostRid)"
 
 		return
 	}
@@ -217,29 +230,29 @@ function Test-Installers
 
 	if( $deb.Count -ne 1 -or $rpm.Count -ne 1 )
 	{
-		throw "expected exactly one .deb and one .rpm for $name $Rid in $( $Context.DistDir ); run -Stage package first"
+		throw "expected exactly one .deb and one .rpm for $name $Rid in $($Context.DistDir); run -Stage package first"
 	}
 
 	Test-LinuxPackage -Context $Context -Image $script:DebianImage -Package $deb[0] `
 		-InstallScript 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {package}' `
 		-AssertVersionOrder {
-			param( $Container )
+		param( $Container )
 
-			$installed = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'dpkg-query', '-W', '-f=${Version}', $name )
-			$null = Invoke-Docker -Arguments @( 'exec', $Container, 'dpkg', '--compare-versions', $installed, 'lt', $base )
-		}
+		$installed = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'dpkg-query', '-W', '-f=${Version}', $name )
+		$null = Invoke-Docker -Arguments @( 'exec', $Container, 'dpkg', '--compare-versions', $installed, 'lt', $base )
+	}
 
 	Test-LinuxPackage -Context $Context -Image $script:FedoraImage -Package $rpm[0] `
 		-InstallScript 'dnf install -y -q {package}' `
 		-AssertVersionOrder {
-			param( $Container )
+		param( $Container )
 
-			$installed = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'rpm', '-q', '--qf', '%{VERSION}-%{RELEASE}', $name )
-			$result = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'rpm', '--eval', "%{lua: print( rpm.vercmp( '$installed', '$base-1' ) )}" )
+		$installed = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'rpm', '-q', '--qf', '%{VERSION}-%{RELEASE}', $name )
+		$result = Invoke-Docker -Capture -Arguments @( 'exec', $Container, 'rpm', '--eval', "%{lua: print( rpm.vercmp( '$installed', '$base-1' ) )}" )
 
-			if( $result -ne '-1' )
-			{
-				throw "rpm version $installed does not sort before $base-1 (vercmp $result)"
-			}
+		if( $result -ne '-1' )
+		{
+			throw "rpm version $installed does not sort before $base-1 (vercmp $result)"
 		}
+	}
 }

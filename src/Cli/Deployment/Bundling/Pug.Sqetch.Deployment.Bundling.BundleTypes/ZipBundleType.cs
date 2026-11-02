@@ -18,8 +18,11 @@ public sealed class ZipBundleType : IBundleType
 		=> new Writer( new ZipArchive( output, ZipArchiveMode.Create, leaveOpen: true ) );
 
 	public IBundleReader Open( string path )
-		=> BundleInput.ExtractToTemporary( path, ( archive, directory )
-				=> ZipFile.ExtractToDirectory( archive, directory ) );
+		=> BundleInput.ExtractToTemporary(
+			path,
+			( archive, directory )
+				=> ZipFile.ExtractToDirectory( archive, directory )
+		);
 
 	private sealed class Writer( ZipArchive archive ) : IBundleWriter
 	{

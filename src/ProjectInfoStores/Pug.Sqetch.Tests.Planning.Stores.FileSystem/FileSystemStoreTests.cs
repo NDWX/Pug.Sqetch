@@ -1,4 +1,3 @@
-
 using Pug.Sqetch.Planning;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
@@ -27,7 +26,11 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "Add e-mail column" ), [], TestData.Context() );
+		stores.InfoStore.AddPlan(
+			new ObjectDefinition( "customer-email", "Add e-mail column" ),
+			[ ],
+			TestData.Context()
+		);
 
 		Assert.True( stores.InfoStore.PlanExists( "customer-email" ) );
 		Assert.True( File.Exists( Path.Combine( project.Root, "plans", "customer-email", "plan.json" ) ) );
@@ -39,8 +42,12 @@ public class FileSystemStoreTests
 		Assert.Equal( "Add e-mail column", plan.Definition.Description );
 		Assert.Equal( TestData.User, plan.Registration.Subject );
 
-		Assert.Throws<DuplicatePlanNameException>(
-			() => stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "again" ), [], TestData.Context() ) );
+		Assert.Throws<DuplicatePlanNameException>( () => stores.InfoStore.AddPlan(
+				new ObjectDefinition( "customer-email", "again" ),
+				[ ],
+				TestData.Context()
+			)
+		);
 	}
 
 	[Theory]
@@ -54,8 +61,12 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create();
 		using FileSystemProjectStores stores = project.Open();
 
-		Assert.Throws<ArgumentException>(
-			() => stores.InfoStore.AddPlan( new ObjectDefinition( name, "" ), [], TestData.Context() ) );
+		Assert.Throws<ArgumentException>( () => stores.InfoStore.AddPlan(
+				new ObjectDefinition( name, "" ),
+				[ ],
+				TestData.Context()
+			)
+		);
 	}
 
 	[Theory]
@@ -65,19 +76,39 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "adds the column" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "backfill", "" ), ["add-column"], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+
+		stores.InfoStore.AddStep(
+			"customer-email",
+			new ObjectDefinition( "add-column", "adds the column" ),
+			[ ],
+			TestData.Context()
+		);
+
+		stores.InfoStore.AddStep(
+			"customer-email",
+			new ObjectDefinition( "backfill", "" ),
+			[ "add-column" ],
+			TestData.Context()
+		);
 
 		Assert.True( stores.InfoStore.StepExists( "customer-email", "add-column" ) );
-		Assert.True( File.Exists( Path.Combine( project.Root, "plans", "customer-email", "steps", "add-column", "step.json" ) ) );
+
+		Assert.True(
+			File.Exists( Path.Combine( project.Root, "plans", "customer-email", "steps", "add-column", "step.json" ) )
+		);
 
 		Assert.Equal( 2, stores.InfoStore.GetSteps( "customer-email" ).Count );
-		Assert.Equal( ["add-column"], stores.InfoStore.GetStepDependencies( "customer-email", "backfill" ) );
-		Assert.Equal( ["backfill"], stores.InfoStore.GetStepDependants( "customer-email", "add-column" ) );
+		Assert.Equal( [ "add-column" ], stores.InfoStore.GetStepDependencies( "customer-email", "backfill" ) );
+		Assert.Equal( [ "backfill" ], stores.InfoStore.GetStepDependants( "customer-email", "add-column" ) );
 
-		Assert.Throws<DuplicateStepNameException>(
-			() => stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [], TestData.Context() ) );
+		Assert.Throws<DuplicateStepNameException>( () => stores.InfoStore.AddStep(
+				"customer-email",
+				new ObjectDefinition( "add-column", "" ),
+				[ ],
+				TestData.Context()
+			)
+		);
 
 		stores.InfoStore.DeleteStep( "customer-email", "backfill" );
 
@@ -91,14 +122,17 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [ ], TestData.Context() );
 
-		using MemoryStream deploy = new ( "ALTER TABLE customer ADD email text;"u8.ToArray() );
-		using MemoryStream rollback = new ( "ALTER TABLE customer DROP COLUMN email;"u8.ToArray() );
+		using MemoryStream deploy = new( "ALTER TABLE customer ADD email text;"u8.ToArray() );
+		using MemoryStream rollback = new( "ALTER TABLE customer DROP COLUMN email;"u8.ToArray() );
 
 		StepScriptKeys keys = stores.ScriptsStore.PutStepScripts(
-			"customer-email", "add-column", new StepScripts( deploy, null, rollback ) );
+			"customer-email",
+			"add-column",
+			new StepScripts( deploy, null, rollback )
+		);
 
 		Assert.Equal( "plans/customer-email/steps/add-column/deploy.sql", keys.DeployScript );
 
@@ -108,7 +142,7 @@ public class FileSystemStoreTests
 		Assert.NotNull( scripts.DeployScript );
 		Assert.Null( scripts.VerifyScript );
 
-		using StreamReader reader = new ( scripts.DeployScript );
+		using StreamReader reader = new( scripts.DeployScript );
 		Assert.Equal( "ALTER TABLE customer ADD email text;", reader.ReadToEnd() );
 	}
 
@@ -119,8 +153,8 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [ ], TestData.Context() );
 		stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "July release", "" ), TestData.Context() );
 
 		stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() );
@@ -129,7 +163,13 @@ public class FileSystemStoreTests
 		string releaseDirectory = Path.Combine( project.Root, "releases", "2026.07" );
 
 		Assert.True( File.Exists( Path.Combine( releaseDirectory, "plans", "customer-email", "plan.json" ) ) );
-		Assert.True( File.Exists( Path.Combine( releaseDirectory, "plans", "customer-email", "steps", "add-column", "step.json" ) ) );
+
+		Assert.True(
+			File.Exists(
+				Path.Combine( releaseDirectory, "plans", "customer-email", "steps", "add-column", "step.json" )
+			)
+		);
+
 		Assert.False( Directory.Exists( Path.Combine( project.Root, "plans", "customer-email" ) ) );
 
 		Assert.Equal( "2026.07", stores.InfoStore.GetPlan( "customer-email" )!.Release );
@@ -139,8 +179,9 @@ public class FileSystemStoreTests
 		// steps and scripts remain reachable at the new location
 		Assert.True( stores.InfoStore.StepExists( "customer-email", "add-column" ) );
 
-		Assert.Throws<InvalidOperationException>(
-			() => stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() ) );
+		Assert.Throws<InvalidOperationException>( () =>
+			stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() )
+		);
 
 		stores.InfoStore.DeleteReleasePlan( "2026.07", "customer-email", TestData.Context() );
 
@@ -155,17 +196,17 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [ ], TestData.Context() );
 		stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
 		stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() );
 
 		stores.InfoStore.SetReleaseContext( "2026.07", TestData.Context() );
 
 		// finalization moves the release into its shard; everything stays reachable there
-		string finalizedDirectory = sharding == FlatShardingStrategy.StrategyName
-			? Path.Combine( project.Root, "releases", "2026.07" )
-			: Path.Combine( project.Root, "releases", "2026", "2026.07" );
+		string finalizedDirectory = sharding == FlatShardingStrategy.StrategyName ?
+			Path.Combine( project.Root, "releases", "2026.07" ) :
+			Path.Combine( project.Root, "releases", "2026", "2026.07" );
 
 		Assert.True( File.Exists( Path.Combine( finalizedDirectory, "release.json" ) ) );
 		Assert.True( File.Exists( Path.Combine( finalizedDirectory, "plans", "customer-email", "plan.json" ) ) );
@@ -177,15 +218,34 @@ public class FileSystemStoreTests
 		Assert.True( stores.InfoStore.ReleaseExists( "2026.07" ) );
 		Assert.True( stores.InfoStore.StepExists( "customer-email", "add-column" ) );
 
-		Assert.Throws<ReleaseFinalizedException>( () => stores.InfoStore.SetReleaseContext( "2026.07", TestData.Context() ) );
-		Assert.Throws<ReleaseFinalizedException>( () => stores.InfoStore.UpdatePlan( new ObjectDefinition( "customer-email", "new" ) ) );
-		Assert.Throws<ReleaseFinalizedException>(
-			() => stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "another", "" ), [], TestData.Context() ) );
+		Assert.Throws<ReleaseFinalizedException>( () =>
+			stores.InfoStore.SetReleaseContext( "2026.07", TestData.Context() )
+		);
+
+		Assert.Throws<ReleaseFinalizedException>( () =>
+			stores.InfoStore.UpdatePlan( new ObjectDefinition( "customer-email", "new" ) )
+		);
+
+		Assert.Throws<ReleaseFinalizedException>( () => stores.InfoStore.AddStep(
+				"customer-email",
+				new ObjectDefinition( "another", "" ),
+				[ ],
+				TestData.Context()
+			)
+		);
+
 		Assert.Throws<ReleaseFinalizedException>( () => stores.InfoStore.DeletePlan( "customer-email" ) );
-		Assert.Throws<ReleaseFinalizedException>(
-			() => stores.InfoStore.DeleteReleasePlan( "2026.07", "customer-email", TestData.Context() ) );
-		Assert.Throws<ReleaseFinalizedException>(
-			() => stores.ScriptsStore.PutStepScripts( "customer-email", "add-column", new StepScripts( null, null, null ) ) );
+
+		Assert.Throws<ReleaseFinalizedException>( () =>
+			stores.InfoStore.DeleteReleasePlan( "2026.07", "customer-email", TestData.Context() )
+		);
+
+		Assert.Throws<ReleaseFinalizedException>( () => stores.ScriptsStore.PutStepScripts(
+				"customer-email",
+				"add-column",
+				new StepScripts( null, null, null )
+			)
+		);
 	}
 
 	[Theory]
@@ -209,30 +269,44 @@ public class FileSystemStoreTests
 		Assert.False( stores.InfoStore.ReleaseExists( "2026.02" ) );
 
 		Assert.Equal(
-			["2026.07"],
-			stores.InfoStore.ListReleases( new ReleaseSearchCriteria( "2026" ) ).Select( x => x.Definition.Name ).Order().ToArray() );
+			[ "2026.07" ],
+			stores.InfoStore.ListReleases( new ReleaseSearchCriteria( "2026" ) )
+				.Select( x => x.Definition.Name )
+				.Order()
+				.ToArray()
+		);
 
 		Assert.Equal(
-			["2026.01"],
+			[ "2026.01" ],
 			stores.InfoStore.ListReleases( new ReleaseSearchCriteria( "2026", Finalized: true ) )
-					.Select( x => x.Definition.Name ).ToArray() );
+				.Select( x => x.Definition.Name )
+				.ToArray()
+		);
 
 		Assert.Equal(
-			["2025.12", "2026.07"],
-			stores.InfoStore.ListReleases( new ReleaseSearchCriteria() ).Select( x => x.Definition.Name ).Order().ToArray() );
+			[ "2025.12", "2026.07" ],
+			stores.InfoStore.ListReleases( new ReleaseSearchCriteria() )
+				.Select( x => x.Definition.Name )
+				.Order()
+				.ToArray()
+		);
 
 		Assert.Equal(
-			["2026.07"],
-			stores.InfoStore.GetReleaseDependant( "2026.01" ).Select( x => x.Definition.Name ).ToArray() );
+			[ "2026.07" ],
+			stores.InfoStore.GetReleaseDependant( "2026.01" ).Select( x => x.Definition.Name ).ToArray()
+		);
 
-		Assert.Throws<DuplicateReleaseNameException>(
-			() => stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.01", "", "" ), TestData.Context() ) );
+		Assert.Throws<DuplicateReleaseNameException>( () =>
+			stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.01", "", "" ), TestData.Context() )
+		);
 	}
 
 	[Fact]
 	public void ReleaseNamedLikeItsShardFinalizesIntoItsOwnShard()
 	{
-		using TempProject project = TempProject.Create( ShardingCases.Configuration( VersionPrefixShardingStrategy.StrategyName ) );
+		using TempProject project =
+			TempProject.Create( ShardingCases.Configuration( VersionPrefixShardingStrategy.StrategyName ) );
+
 		using FileSystemProjectStores stores = project.Open();
 
 		// '2026' shards under '2026', so its finalized folder is a child of its unfinalized one
@@ -245,10 +319,13 @@ public class FileSystemStoreTests
 		Assert.True( File.Exists( Path.Combine( project.Root, "releases", "2026", "2026", "release.json" ) ) );
 		Assert.False( File.Exists( Path.Combine( project.Root, "releases", "2026", "release.json" ) ) );
 		Assert.NotNull( stores.InfoStore.GetRelease( "2026" )!.Finalized );
+
 		Assert.Equal(
-			["2026"],
+			[ "2026" ],
 			stores.InfoStore.ListReleases( new ReleaseSearchCriteria( Finalized: true ) )
-					.Select( x => x.Definition.Name ).ToArray() );
+				.Select( x => x.Definition.Name )
+				.ToArray()
+		);
 	}
 
 	[Theory]
@@ -258,23 +335,29 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "base", "" ), [], TestData.Context() );
-		stores.InfoStore.AddPlan( new ObjectDefinition( "dependant-a", "" ), ["base"], TestData.Context() );
-		stores.InfoStore.AddPlan( new ObjectDefinition( "dependant-b", "" ), ["base", "dependant-a"], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "base", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "dependant-a", "" ), [ "base" ], TestData.Context() );
+
+		stores.InfoStore.AddPlan(
+			new ObjectDefinition( "dependant-b", "" ),
+			[ "base", "dependant-a" ],
+			TestData.Context()
+		);
 
 		// move a dependant into a release: reverse lookup must still see it
 		stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
 		stores.InfoStore.AddReleasePlan( "2026.07", "dependant-a", TestData.Context() );
 
 		Assert.Equal(
-			["dependant-a", "dependant-b"],
-			stores.InfoStore.GetPlanDependants( "base" ).Order().ToArray() );
+			[ "dependant-a", "dependant-b" ],
+			stores.InfoStore.GetPlanDependants( "base" ).Order().ToArray()
+		);
 
-		Assert.Equal( ["base", "dependant-a"], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
+		Assert.Equal( [ "base", "dependant-a" ], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
 
-		stores.InfoStore.SetPlanDependencies( "dependant-b", ["base"] );
+		stores.InfoStore.SetPlanDependencies( "dependant-b", [ "base" ] );
 
-		Assert.Equal( ["base"], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
+		Assert.Equal( [ "base" ], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
 		Assert.Empty( stores.InfoStore.GetPlanDependants( "dependant-a" ) );
 	}
 
@@ -285,8 +368,8 @@ public class FileSystemStoreTests
 		using TempProject project = TempProject.Create( ShardingCases.Configuration( sharding ) );
 		using FileSystemProjectStores stores = project.Open();
 
-		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [], TestData.Context() );
-		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [], TestData.Context() );
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [ ], TestData.Context() );
 
 		stores.InfoStore.DeletePlan( "customer-email" );
 

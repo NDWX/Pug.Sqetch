@@ -1,5 +1,7 @@
 using System.Globalization;
+
 using Pug.Sqetch.Deployment.Bundling;
+
 using Spectre.Console;
 
 namespace Pug.Sqetch.Deployment.Cli.Commands;
@@ -45,23 +47,28 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 	/// </summary>
 	public void BundleRead( BundleMetadata metadata )
 		=> Report(
-			$"bundle built by {metadata.Bundler} {metadata.BundlerVersion} at "
-			+ $"{metadata.Bundled.ToString( "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture )} "
-			+ $"(layout {metadata.Layout}, format {metadata.Format})" );
+			$"bundle built by {metadata.Bundler} {metadata.BundlerVersion} at " +
+			$"{metadata.Bundled.ToString( "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture )} " +
+			$"(layout {metadata.Layout}, format {metadata.Format})"
+		);
 
 	public void ContinuingFrom( string release ) => Report( $"continuing from {Name( release )}" );
 
 	public void SkippingRelease( string release ) => Report( $"skipping {Name( release )}: already deployed" );
 
-	public void SkippingPlan( string release, string plan ) => Report( $"skipping plan '{plan}' of {Name( release )}: already deployed" );
+	public void SkippingPlan( string release, string plan ) =>
+		Report( $"skipping plan '{plan}' of {Name( release )}: already deployed" );
 
 	public void DeployingRelease( string release ) => Report( $"deploying {Name( release )}" );
 
-	public void DeployingPlan( string release, string plan ) => Report( $"deploying plan '{plan}' of {Name( release )}" );
+	public void DeployingPlan( string release, string plan ) =>
+		Report( $"deploying plan '{plan}' of {Name( release )}" );
 
-	public void DeployingStep( string release, string plan, string step ) => Report( $"deploying step '{step}' of plan '{plan}'" );
+	public void DeployingStep( string release, string plan, string step ) =>
+		Report( $"deploying step '{step}' of plan '{plan}'" );
 
-	public void StepDeployed( string release, string plan, string step ) => Report( $"deployed step '{step}' of plan '{plan}'" );
+	public void StepDeployed( string release, string plan, string step ) =>
+		Report( $"deployed step '{step}' of plan '{plan}'" );
 
 	public void PlanDeployed( string release, string plan ) => Report( $"deployed plan '{plan}' of {Name( release )}" );
 

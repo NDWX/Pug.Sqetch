@@ -7,18 +7,21 @@ namespace Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 
 internal sealed record UserDocument( string Name, string EmailAddress )
 {
-	public static UserDocument From( UserInfo user ) => new ( user.Name, user.EmailAddress );
+	public static UserDocument From( UserInfo user ) => new( user.Name, user.EmailAddress );
 
-	public UserInfo ToModel() => new ( Name, EmailAddress );
+	public UserInfo ToModel() => new( Name, EmailAddress );
 }
 
 internal sealed record ActionDocument( UserDocument Subject, DateTime Timestamp )
 {
-	public static ActionDocument From( ActionContext context ) => new ( UserDocument.From( context.Subject ), context.Timestamp );
+	public static ActionDocument From( ActionContext context ) => new(
+		UserDocument.From( context.Subject ),
+		context.Timestamp
+	);
 
 	public static ActionDocument? FromNullable( ActionContext? context ) => context is null ? null : From( context );
 
-	public ActionContext ToModel() => new ( Subject.ToModel(), Timestamp );
+	public ActionContext ToModel() => new( Subject.ToModel(), Timestamp );
 }
 
 /// <summary>
@@ -31,7 +34,8 @@ internal sealed record ProjectDocument(
 	string Description,
 	string Engine,
 	ActionDocument Registration,
-	ShardingConfiguration? ReleaseSharding );
+	ShardingConfiguration? ReleaseSharding
+);
 
 internal sealed record PlanDocument(
 	string Name,
@@ -39,20 +43,22 @@ internal sealed record PlanDocument(
 	string[] Dependencies,
 	string Release,
 	ActionDocument Registration,
-	ActionDocument? ReleaseAssignment )
+	ActionDocument? ReleaseAssignment
+)
 {
 	public ProjectPlan ToModel()
-		=> new ( new PlanDefinition( Name, Description, Dependencies ), Release, Registration.ToModel() );
+		=> new( new PlanDefinition( Name, Description, Dependencies ), Release, Registration.ToModel() );
 }
 
 internal sealed record StepDocument(
 	string Name,
 	string Description,
 	string[] Dependencies,
-	ActionDocument Registration )
+	ActionDocument Registration
+)
 {
 	public ProjectElement ToModel( string plan )
-		=> new ( new StepDefinition( plan, Name, Description, Dependencies ), Registration.ToModel() );
+		=> new( new StepDefinition( plan, Name, Description, Dependencies ), Registration.ToModel() );
 }
 
 internal sealed record ReleaseDocument(
@@ -60,8 +66,9 @@ internal sealed record ReleaseDocument(
 	string Description,
 	string Dependency,
 	ActionDocument Registration,
-	ActionDocument? Finalized )
+	ActionDocument? Finalized
+)
 {
 	public ProjectRelease ToModel()
-		=> new ( new ReleaseDefinition( Name, Description, Dependency ), Finalized?.ToModel(), Registration.ToModel() );
+		=> new( new ReleaseDefinition( Name, Description, Dependency ), Finalized?.ToModel(), Registration.ToModel() );
 }

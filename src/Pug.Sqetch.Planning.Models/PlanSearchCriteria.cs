@@ -12,4 +12,5 @@ public record PlanSearchCriteria(
 	string? Release = null,
 	bool Released = false,
 	Range<DateTime>? ReleaseFinalizeTimestamp = null,
-	string? CreateUser = null );
+	string? CreateUser = null
+);

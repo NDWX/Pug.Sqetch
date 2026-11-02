@@ -1,7 +1,10 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Planning.Models;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
+
 using Rows = Pug.Sqetch.Cli.Commands.Authoring.Output.Rows;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring;
@@ -12,9 +15,9 @@ public class ReleaseNameSettings : CommandSettings
 	public string? Name { get; init; }
 
 	public override ValidationResult Validate()
-		=> string.IsNullOrWhiteSpace( Name )
-			? ValidationResult.Error( "--name is required" )
-			: ValidationResult.Success();
+		=> string.IsNullOrWhiteSpace( Name ) ?
+			ValidationResult.Error( "--name is required" ) :
+			ValidationResult.Success();
 }
 
 public sealed class ReleaseCreateCommand( IAnsiConsole console ) : Command<ReleaseCreateCommand.Settings>
@@ -52,7 +55,7 @@ public sealed class ReleaseCreateCommand( IAnsiConsole console ) : Command<Relea
 	{
 		using ProjectSession session = ProjectSession.Open();
 
-		ReleaseDefinition definition = new ( settings.Name!, settings.Description ?? "", settings.DependsOn ?? "" );
+		ReleaseDefinition definition = new( settings.Name!, settings.Description ?? "", settings.DependsOn ?? "" );
 
 		if( settings.Plans is not null )
 			session.Project.CreateRelease( definition, OptionParsing.SplitList( settings.Plans ) );
@@ -97,7 +100,7 @@ public sealed class ReleaseListCommand( IAnsiConsole console ) : Command<Release
 		[Description( "Only releases finalized by this user (implies --finalized)" )]
 		public string? FinalizeUser { get; init; }
 
-		internal ReleaseSearchCriteria Criteria { get; private set; } = new ();
+		internal ReleaseSearchCriteria Criteria { get; private set; } = new();
 
 		public override ValidationResult Validate()
 		{
@@ -119,7 +122,8 @@ public sealed class ReleaseListCommand( IAnsiConsole console ) : Command<Release
 				CreateTimestamp: OptionParsing.Window( createdAfter, createdBefore ),
 				FinalizeTimestamp: OptionParsing.Window( finalizedAfter, finalizedBefore ),
 				CreateUser: CreateUser,
-				FinalizeUser: FinalizeUser );
+				FinalizeUser: FinalizeUser
+			);
 
 			return base.Validate();
 		}
@@ -131,7 +135,14 @@ public sealed class ReleaseListCommand( IAnsiConsole console ) : Command<Release
 
 		List<ProjectRelease> releases = session.Project.GetReleases( settings.Criteria ).ToList();
 
-		ResultWriter.WriteRows( console, settings.Format, Rows.ReleaseHeaders, releases, Rows.Release, Rows.ReleaseJson );
+		ResultWriter.WriteRows(
+			console,
+			settings.Format,
+			Rows.ReleaseHeaders,
+			releases,
+			Rows.Release,
+			Rows.ReleaseJson
+		);
 
 		return 0;
 	}
@@ -139,7 +150,11 @@ public sealed class ReleaseListCommand( IAnsiConsole console ) : Command<Release
 
 public sealed class ReleaseDeleteCommand : Command<ReleaseNameSettings>
 {
-	protected override int Execute( CommandContext context, ReleaseNameSettings settings, CancellationToken cancellationToken )
+	protected override int Execute(
+		CommandContext context,
+		ReleaseNameSettings settings,
+		CancellationToken cancellationToken
+	)
 	{
 		using ProjectSession session = ProjectSession.Open();
 
@@ -151,7 +166,11 @@ public sealed class ReleaseDeleteCommand : Command<ReleaseNameSettings>
 
 public sealed class ReleaseFinalizeCommand( IAnsiConsole console ) : Command<ReleaseNameSettings>
 {
-	protected override int Execute( CommandContext context, ReleaseNameSettings settings, CancellationToken cancellationToken )
+	protected override int Execute(
+		CommandContext context,
+		ReleaseNameSettings settings,
+		CancellationToken cancellationToken
+	)
 	{
 		using ProjectSession session = ProjectSession.Open();
 

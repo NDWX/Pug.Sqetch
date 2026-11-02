@@ -1,4 +1,3 @@
-
 using Pug.Sqetch.Planning;
 using Pug.Sqetch.Planning.Models;
 
@@ -33,12 +32,13 @@ public class BundleBuilder
 	public Bundle Assemble( BundleSelection selection, string? since = null )
 	{
 		List<ProjectRelease> releases = SelectReleases( selection, since );
-		List<BundlePlan> plans = new ();
+		List<BundlePlan> plans = new();
 
 		foreach( ProjectRelease release in releases )
 			plans.AddRange(
 				_project.GetPlans( new PlanSearchCriteria( Release: release.Definition.Name, Released: true ) )
-					.Select( ToBundlePlan ) );
+					.Select( ToBundlePlan )
+			);
 
 		// unreleased plans deploy last: released plans can never depend on them
 		if( selection == BundleSelection.Test )
@@ -60,10 +60,20 @@ public class BundleBuilder
 			selection,
 			new JournalingStatements(
 				JournalingSlots.All.ToDictionary(
-					slot => slot, slot => _project.GetJournalingStatement( slot ) ) ),
+					slot => slot,
+					slot => _project.GetJournalingStatement( slot )
+				)
+			),
 			releases.Select( x => new BundleRelease(
-				x.Definition.Name, x.Definition.Description, x.Definition.Dependency ?? "", x.Finalized is not null ) ).ToList(),
-			plans );
+						x.Definition.Name,
+						x.Definition.Description,
+						x.Definition.Dependency ?? "",
+						x.Finalized is not null
+					)
+				)
+				.ToList(),
+			plans
+		);
 	}
 
 	private List<ProjectRelease> SelectReleases( BundleSelection selection, string? since )
@@ -75,12 +85,16 @@ public class BundleBuilder
 		// releases follow them in chain order; 'since' needs the full chain too, so a
 		// '--since' naming an open release is diagnosable rather than reported as unknown
 		if( selection == BundleSelection.Test || since is not null )
-			releases.AddRange( _project.GetReleases( new ReleaseSearchCriteria(Finalized: false) ) );
+			releases.AddRange( _project.GetReleases( new ReleaseSearchCriteria( Finalized: false ) ) );
 
 		if( since is not null )
 		{
-			int index = releases.FindIndex(
-				x => string.Equals( x.Definition.Name, since, StringComparison.OrdinalIgnoreCase ) );
+			int index = releases.FindIndex( x => string.Equals(
+					x.Definition.Name,
+					since,
+					StringComparison.OrdinalIgnoreCase
+				)
+			);
 
 			if( index < 0 )
 				throw new UnknownReleaseException( since );
@@ -88,9 +102,7 @@ public class BundleBuilder
 			releases = releases.Skip( index + 1 ).ToList();
 		}
 
-		return selection == BundleSelection.Test
-			? releases
-			: releases.Where( x => x.Finalized is not null ).ToList();
+		return selection == BundleSelection.Test ? releases : releases.Where( x => x.Finalized is not null ).ToList();
 	}
 
 	private BundlePlan ToBundlePlan( ProjectPlan plan )
@@ -101,14 +113,16 @@ public class BundleBuilder
 			name,
 			plan.Definition.Description,
 			plan.Release,
-			( ( plan.Definition as PlanDefinition )?.Dependencies ?? [] ).ToList(),
-			_project.GetSteps( name ).Select( x => ToBundleStep( name, x ) ).ToList() );
+			( ( plan.Definition as PlanDefinition )?.Dependencies ?? [ ] ).ToList(),
+			_project.GetSteps( name ).Select( x => ToBundleStep( name, x ) ).ToList()
+		);
 	}
 
 	private BundleStep ToBundleStep( string plan, ProjectElement step )
-		=> new (
+		=> new(
 			step.Definition.Name,
 			step.Definition.Description,
-			( ( step.Definition as StepDefinition )?.Dependencies ?? [] ).ToList(),
-			() => _project.GetStepScripts( plan, step.Definition.Name ) );
+			( ( step.Definition as StepDefinition )?.Dependencies ?? [ ] ).ToList(),
+			() => _project.GetStepScripts( plan, step.Definition.Name )
+		);
 }

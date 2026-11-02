@@ -29,6 +29,7 @@ internal static class BundleInput
 			}
 			catch( IOException )
 			{
+				// ignore if directory no longer exists
 			}
 
 			throw new BundlingException( $"Cannot read bundle '{path}': {exception.Message}" );

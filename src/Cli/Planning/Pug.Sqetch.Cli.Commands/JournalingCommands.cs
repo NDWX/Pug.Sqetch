@@ -1,5 +1,7 @@
 using System.ComponentModel;
+
 using Pug.Sqetch.Planning.Models;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -18,7 +20,8 @@ internal static class JournalingSlotArgument
 			return ValidationResult.Success();
 
 		return ValidationResult.Error(
-			$"'{name}' is not a journaling slot; valid slots are: {string.Join( ", ", JournalingSlots.Names )}" );
+			$"'{name}' is not a journaling slot; valid slots are: {string.Join( ", ", JournalingSlots.Names )}"
+		);
 	}
 }
 
@@ -38,23 +41,23 @@ public sealed class JournalingListCommand( IAnsiConsole console ) : Command<Jour
 		using ProjectSession session = ProjectSession.Open();
 
 		List<Row> rows = JournalingSlots.All
-			.Select( slot =>
-			{
-				string? statement = session.Project.GetJournalingStatement( slot );
+			.Select( slot => {
+					string? statement = session.Project.GetJournalingStatement( slot );
 
-				return new Row( slot, statement is not null, statement );
-			} )
+					return new Row( slot, statement is not null, statement );
+				}
+			)
 			.ToList();
 
-		string[] headers = settings.Statements ? ["Slot", "Set", "Statement"] : ["Slot", "Set"];
+		string[] headers = settings.Statements ? [ "Slot", "Set", "Statement" ] : [ "Slot", "Set" ];
 
-		Func<Row, string[]> row = settings.Statements
-			? x => [x.Slot.ToString(), x.Set ? "yes" : "no", x.Statement ?? ""]
-			: x => [x.Slot.ToString(), x.Set ? "yes" : "no"];
+		Func<Row, string[]> row = settings.Statements ?
+			x => [ x.Slot.ToString(), x.Set ? "yes" : "no", x.Statement ?? "" ] :
+			x => [ x.Slot.ToString(), x.Set ? "yes" : "no" ];
 
-		Func<Row, object> json = settings.Statements
-			? x => new { slot = x.Slot.ToString(), set = x.Set, statement = x.Statement }
-			: x => new { slot = x.Slot.ToString(), set = x.Set };
+		Func<Row, object> json = settings.Statements ?
+			x => new { slot = x.Slot.ToString(), set = x.Set, statement = x.Statement } :
+			x => new { slot = x.Slot.ToString(), set = x.Set };
 
 		ResultWriter.WriteRows( console, settings.Format, headers, rows, row, json );
 
@@ -102,18 +105,24 @@ public sealed class JournalingParametersCommand( IAnsiConsole console )
 		// shown with the '@' a maintainer actually types; the contract itself names them bare,
 		// because adding any provider prefix is the driver's job
 		List<Row> rows = JournalingSlots.All
-										.Where( slot => settings.Slot is null || slot == settings.Slot )
-										.Select( slot => new Row(
-													slot,
-													JournalingSlots.ParameterNames( slot )
-																	.Select( name => $"@{name}" )
-																	.ToList() ) )
-										.ToList();
+			.Where( slot => settings.Slot is null || slot == settings.Slot )
+			.Select( slot => new Row(
+					slot,
+					JournalingSlots.ParameterNames( slot )
+						.Select( name => $"@{name}" )
+						.ToList()
+				)
+			)
+			.ToList();
 
 		ResultWriter.WriteRows(
-			console, settings.Format, ["Slot", "Parameters"], rows,
-			x => [x.Slot.ToString(), string.Join( " ", x.Parameters )],
-			x => new { slot = x.Slot.ToString(), parameters = x.Parameters } );
+			console,
+			settings.Format,
+			[ "Slot", "Parameters" ],
+			rows,
+			x => [ x.Slot.ToString(), string.Join( " ", x.Parameters ) ],
+			x => new { slot = x.Slot.ToString(), parameters = x.Parameters }
+		);
 
 		return 0;
 	}
@@ -123,8 +132,7 @@ public sealed class JournalingPrintCommand( IAnsiConsole console ) : Command<Jou
 {
 	public sealed class Settings : CommandSettings
 	{
-		[CommandArgument( 0, "<slot>" )]
-		public string SlotName { get; init; } = "";
+		[CommandArgument( 0, "<slot>" )] public string SlotName { get; init; } = "";
 
 		internal JournalingSlot Slot { get; private set; }
 
@@ -146,7 +154,8 @@ public sealed class JournalingPrintCommand( IAnsiConsole console ) : Command<Jou
 
 		if( statement is null )
 			throw new InvalidOperationException(
-				$"journaling statement '{settings.Slot}' is not set; run 'sqetch journaling set {settings.Slot} ...'" );
+				$"journaling statement '{settings.Slot}' is not set; run 'sqetch journaling set {settings.Slot} ...'"
+			);
 
 		// verbatim and off IAnsiConsole markup: MarkupLineInterpolated would mangle SQL
 		// containing '[', and 'journaling print X > x.sql' must round-trip byte for byte
@@ -160,11 +169,9 @@ public sealed class JournalingSetCommand : Command<JournalingSetCommand.Settings
 {
 	public sealed class Settings : CommandSettings
 	{
-		[CommandArgument( 0, "<slot>" )]
-		public string SlotName { get; init; } = "";
+		[CommandArgument( 0, "<slot>" )] public string SlotName { get; init; } = "";
 
-		[CommandArgument( 1, "[sql]" )]
-		public string? Sql { get; init; }
+		[CommandArgument( 1, "[sql]" )] public string? Sql { get; init; }
 
 		[CommandOption( "--file <PATH>" )]
 		[Description( "Read the statement text from this file" )]
@@ -199,8 +206,8 @@ public sealed class JournalingSetCommand : Command<JournalingSetCommand.Settings
 		using ProjectSession session = ProjectSession.Open();
 
 		// File.ReadAllText detects and strips a BOM, same as the store's own read
-		string text = settings.Sql
-						?? ( settings.FilePath is not null ? File.ReadAllText( settings.FilePath ) : Console.In.ReadToEnd() );
+		string text = settings.Sql ??
+					( settings.FilePath is not null ? File.ReadAllText( settings.FilePath ) : Console.In.ReadToEnd() );
 
 		session.Project.SetJournalingStatement( settings.Slot, text );
 

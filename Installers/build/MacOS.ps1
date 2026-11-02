@@ -9,14 +9,14 @@
 
 function Invoke-PlatformSigning
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string[]] $Files )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string[]] $Files )
 
 	throw 'signing is Authenticode, which is Windows-only; Developer ID signing and notarization for macOS are not implemented yet'
 }
 
 function New-PlatformPackages
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	# nothing beyond the archive
 }
@@ -24,15 +24,15 @@ function New-PlatformPackages
 # The host RID's binary, as extracted from the archive by Test-Archive, must carry a valid signature.
 function Test-Installers
 {
-	param( [Parameter( Mandatory )] $Context, [Parameter( Mandatory )] [string] $Rid )
+	param( [Parameter(Mandatory)] $Context, [Parameter(Mandatory)] [string] $Rid )
 
 	if( $Rid -ne ( Get-HostRid ) )
 	{
-		Write-Host "skipping the code signature check for $Rid on a $( Get-HostRid ) host"
+		Write-Host "skipping the code signature check for $Rid on a $(Get-HostRid) host"
 		return
 	}
 
-	$binary = Join-Path ( Join-Path ( Join-Path $Context.WorkDir "smoke-archive-$Rid" ) "$( $Context.Name )-$( $Context.Version )" ) $Context.Name
+	$binary = Join-Path ( Join-Path ( Join-Path $Context.WorkDir "smoke-archive-$Rid" ) "$($Context.Name)-$($Context.Version)" ) $Context.Name
 
 	if( -not ( Test-Path -LiteralPath $binary ) )
 	{
@@ -50,5 +50,5 @@ function Test-Installers
 		throw "codesign --display exited with code $LASTEXITCODE"
 	}
 
-	Write-Host "code signature verified for $( $Context.Name ) $( $Context.Version ) $Rid"
+	Write-Host "code signature verified for $($Context.Name) $($Context.Version) $Rid"
 }

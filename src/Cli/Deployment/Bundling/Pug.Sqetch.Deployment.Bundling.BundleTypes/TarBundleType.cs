@@ -18,8 +18,11 @@ public sealed class TarBundleType : IBundleType
 		=> new Writer( new TarWriter( output, leaveOpen: true ), wrapper: null );
 
 	public IBundleReader Open( string path )
-		=> BundleInput.ExtractToTemporary( path, ( archive, directory )
-				=> TarFile.ExtractToDirectory( archive, directory, overwriteFiles: false ) );
+		=> BundleInput.ExtractToTemporary(
+			path,
+			( archive, directory )
+				=> TarFile.ExtractToDirectory( archive, directory, overwriteFiles: false )
+		);
 
 	/// <summary>
 	/// Shared by <see cref="TarBundleType"/> and <see cref="TarGzBundleType"/>;
@@ -30,12 +33,16 @@ public sealed class TarBundleType : IBundleType
 	internal sealed class Writer( TarWriter tar, Stream? wrapper ) : IBundleWriter
 	{
 		public void Add( string path, Stream content )
-			=> tar.WriteEntry( new PaxTarEntry( TarEntryType.RegularFile, path )
-			{
-				DataStream = content,
-				Mode = UnixFileMode.UserRead | UnixFileMode.UserWrite
-						| UnixFileMode.GroupRead | UnixFileMode.OtherRead
-			} );
+			=> tar.WriteEntry(
+				new PaxTarEntry( TarEntryType.RegularFile, path )
+				{
+					DataStream = content,
+					Mode = UnixFileMode.UserRead |
+							UnixFileMode.UserWrite |
+							UnixFileMode.GroupRead |
+							UnixFileMode.OtherRead
+				}
+			);
 
 		public void Dispose()
 		{

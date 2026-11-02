@@ -22,15 +22,15 @@ public interface IProjectInfoStore : IDisposable
 
 	void SetPlanDependencies( string name, IEnumerable<string> dependencies );
 
-	void AddStep(string plan, ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context );
+	void AddStep( string plan, ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context );
 
-	void UpdateStep(string plan, ObjectDefinition definition );
+	void UpdateStep( string plan, ObjectDefinition definition );
 
 	bool StepExists( string plan, string name );
 
 	IDictionary<string, ProjectElement> GetSteps( string plan );
 
-	ProjectElement? GetStep(string plan, string name );
+	ProjectElement? GetStep( string plan, string name );
 
 	IEnumerable<string> GetStepDependencies( string plan, string name );
 
@@ -62,7 +62,7 @@ public interface IProjectInfoStore : IDisposable
 	/// </summary>
 	IEnumerable<ProjectRelease> ListReleases( ReleaseSearchCriteria criteria );
 
-	ProjectRelease? GetRelease(string name);
+	ProjectRelease? GetRelease( string name );
 
 	void AddRelease( ObjectDefinition definition, ActionContext context );
 

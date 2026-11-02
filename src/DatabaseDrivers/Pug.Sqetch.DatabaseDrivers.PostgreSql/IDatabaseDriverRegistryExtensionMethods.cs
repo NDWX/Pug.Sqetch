@@ -6,5 +6,7 @@ public static class IDatabaseDriverRegistryExtensionMethods
 {
 	public static void RegisterPostgreSqlDriver( this IDatabaseDriverRegistry registry )
 		=> registry.Register(
-			PostgreSqlDatabaseDriverFactory.DriverName, () => new PostgreSqlDatabaseDriverFactory() );
+			PostgreSqlDatabaseDriverFactory.DriverName,
+			() => new PostgreSqlDatabaseDriverFactory()
+		);
 }

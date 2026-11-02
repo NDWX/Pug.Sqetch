@@ -8,7 +8,7 @@ public class ReleaseDependencyException
 	public IEnumerable<ProjectRelease> ReleaseDependencies { get; }
 
 	public ReleaseDependencyException( string message, IEnumerable<ProjectRelease> releaseDependencies )
-		: base(message)
+		: base( message )
 	{
 		ReleaseDependencies = releaseDependencies;
 	}

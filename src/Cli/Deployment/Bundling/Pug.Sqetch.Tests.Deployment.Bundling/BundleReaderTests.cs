@@ -1,4 +1,5 @@
 using System.Text;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 
@@ -13,7 +14,7 @@ public class BundleReaderTests
 	[InlineData( DirectoryBundleType.TypeName )]
 	public void WrittenBundlesReadBackWithTheSameEntriesAndContent( string typeName )
 	{
-		BundleTypeRegistry registry = new ();
+		BundleTypeRegistry registry = new();
 		registry.RegisterBundleTypes();
 
 		IBundleType type = registry.Create( typeName );
@@ -31,18 +32,20 @@ public class BundleReaderTests
 		using( IBundleReader reader = type.Open( path ) )
 		{
 			Assert.Equal(
-				["manifest.json", "plans/table/steps/create/deploy.sql"],
-				reader.Entries.OrderBy( x => x.Length ).ToArray() );
+				[ "manifest.json", "plans/table/steps/create/deploy.sql" ],
+				reader.Entries.OrderBy( x => x.Length ).ToArray()
+			);
 
 			Assert.True( reader.Contains( "manifest.json" ) );
 			Assert.False( reader.Contains( "plans/absent/steps/x/deploy.sql" ) );
 
 			using( Stream entry = reader.Open( "plans/table/steps/create/deploy.sql" ) )
-			using( StreamReader content = new ( entry ) )
-				Assert.Equal( "-- deploy", content.ReadToEnd() );
+				using( StreamReader content = new( entry ) )
+					Assert.Equal( "-- deploy", content.ReadToEnd() );
 
 			BundlingException error =
 				Assert.Throws<BundlingException>( () => reader.Open( "nope.sql" ) );
+
 			Assert.Contains( "nope.sql", error.Message );
 		}
 
@@ -55,7 +58,7 @@ public class BundleReaderTests
 	[Fact]
 	public void DirectoryReaderLeavesTheBundleInPlace()
 	{
-		DirectoryBundleType type = new ();
+		DirectoryBundleType type = new();
 		string path = Path.Combine( TestDirectory(), "bundle" );
 
 		using( IBundleWriter writer = type.Create( path ) )
@@ -74,7 +77,7 @@ public class BundleReaderTests
 	[InlineData( DirectoryBundleType.TypeName )]
 	public void MissingBundlesAreRefusedWithAFriendlyError( string typeName )
 	{
-		BundleTypeRegistry registry = new ();
+		BundleTypeRegistry registry = new();
 		registry.RegisterBundleTypes();
 
 		string path = Path.Combine( TestDirectory(), "absent" );
@@ -104,7 +107,7 @@ public class BundleReaderTests
 		Assert.Equal( temporaries, TemporaryExtractionCount() );
 	}
 
-	private static MemoryStream Content( string text ) => new ( Encoding.UTF8.GetBytes( text ) );
+	private static MemoryStream Content( string text ) => new( Encoding.UTF8.GetBytes( text ) );
 
 	private static int TemporaryExtractionCount()
 		=> Directory.GetDirectories( Path.GetTempPath(), "sqetch-bundle-*" ).Length;

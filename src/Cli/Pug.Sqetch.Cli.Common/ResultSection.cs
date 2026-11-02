@@ -8,4 +8,8 @@ namespace Pug.Sqetch.Cli;
 /// means "none", so a composite result keeps the same sections whatever it finds.
 /// </summary>
 public sealed record ResultSection(
-	string Key, string Heading, string[] Headers, IReadOnlyList<string[]> Rows );
+	string Key,
+	string Heading,
+	string[] Headers,
+	IReadOnlyList<string[]> Rows
+);

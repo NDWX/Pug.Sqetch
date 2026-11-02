@@ -8,7 +8,7 @@ namespace Pug.Sqetch.Deployment.Bundling;
 /// </summary>
 public class BundleTypeRegistry : IBundleTypeRegistry
 {
-	private readonly Dictionary<string, Func<IBundleType>> _factories = new ( StringComparer.OrdinalIgnoreCase );
+	private readonly Dictionary<string, Func<IBundleType>> _factories = new( StringComparer.OrdinalIgnoreCase );
 
 	public BundleTypeRegistry()
 	{
@@ -29,15 +29,15 @@ public class BundleTypeRegistry : IBundleTypeRegistry
 		if( _factories.TryGetValue( name, out Func<IBundleType>? factory ) )
 		{
 			type = factory();
+
 			return true;
 		}
 
 		type = null;
+
 		return false;
 	}
 
 	public IBundleType Create( string name )
-		=> TryCreate( name, out IBundleType? type )
-			? type
-			: throw new UnknownBundleTypeException( name, Names );
+		=> TryCreate( name, out IBundleType? type ) ? type : throw new UnknownBundleTypeException( name, Names );
 }

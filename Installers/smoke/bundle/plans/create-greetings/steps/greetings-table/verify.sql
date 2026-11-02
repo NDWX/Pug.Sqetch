@@ -1,1 +1,2 @@
-select id, message from greetings
+select id, message
+from greetings

@@ -7,11 +7,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj" />
+        <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Ado\Pug.Sqetch.DatabaseDrivers.Ado.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Npgsql" Version="10.0.3" />
+        <PackageReference Include="Npgsql" Version="10.0.3"/>
     </ItemGroup>
 
 </Project>

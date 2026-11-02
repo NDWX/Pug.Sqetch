@@ -22,38 +22,48 @@ public static class BundleReleaseGroups
 		ArgumentNullException.ThrowIfNull( manifest );
 
 		List<(BundleManifestRelease Release, List<DeployablePlan> Plans)> releases =
-			manifest.Releases.Select( release => (release, new List<DeployablePlan>()) ).ToList();
+			manifest.Releases.Select( release => ( release, new List<DeployablePlan>() ) ).ToList();
 
-		Dictionary<string, List<DeployablePlan>> byName = new ( StringComparer.Ordinal );
+		Dictionary<string, List<DeployablePlan>> byName = new( StringComparer.Ordinal );
 
-		foreach( (BundleManifestRelease release, List<DeployablePlan> plans) in releases )
+		foreach( ( BundleManifestRelease release, List<DeployablePlan> plans ) in releases )
 			if( !byName.TryAdd( release.Name, plans ) )
 				throw new InvalidBundleException(
-					$"Bundle manifest lists release '{release.Name}' more than once." );
+					$"Bundle manifest lists release '{release.Name}' more than once."
+				);
 
 		for( int index = 1; index < releases.Count; index++ )
 			if( !string.Equals(
-					releases[index].Release.Dependency, releases[index - 1].Release.Name, StringComparison.Ordinal ) )
+					releases[index].Release.Dependency,
+					releases[index - 1].Release.Name,
+					StringComparison.Ordinal
+				) )
 				throw new InvalidBundleException(
-					$"Release '{releases[index].Release.Name}' does not depend on '{releases[index - 1].Release.Name}', "
-					+ "the release preceding it in the bundle." );
+					$"Release '{releases[index].Release.Name}' does not depend on '{releases[index - 1].Release.Name}', " +
+					"the release preceding it in the bundle."
+				);
 
 		List<DeployablePlan>? unreleased = null;
 
 		foreach( BundleManifestPlan plan in manifest.Plans )
 			if( plan.Release.Length == 0 )
-				( unreleased ??= [] ).Add( Plan( plan ) );
+				( unreleased ??= [ ] ).Add( Plan( plan ) );
 			else if( byName.TryGetValue( plan.Release, out List<DeployablePlan>? plans ) )
 				plans.Add( Plan( plan ) );
 			else
 				throw new InvalidBundleException(
-					$"Plan '{plan.Name}' references release '{plan.Release}' which the manifest does not list." );
+					$"Plan '{plan.Name}' references release '{plan.Release}' which the manifest does not list."
+				);
 
 		List<ReleaseGroup> groups = releases
-									.Select( entry => new ReleaseGroup(
-												entry.Release.Name, entry.Release.Description, entry.Release.Dependency,
-												entry.Plans ) )
-									.ToList();
+			.Select( entry => new ReleaseGroup(
+					entry.Release.Name,
+					entry.Release.Description,
+					entry.Release.Dependency,
+					entry.Plans
+				)
+			)
+			.ToList();
 
 		// empty when the bundle lists no release: then the unreleased plans start the lineage
 		if( unreleased is not null )
@@ -63,7 +73,9 @@ public static class BundleReleaseGroups
 	}
 
 	private static DeployablePlan Plan( BundleManifestPlan plan )
-		=> new (
-			plan.Name, plan.Description,
-			plan.Steps.Select( step => new DeployableStep( step.Name, step.Description ) ).ToList() );
+		=> new(
+			plan.Name,
+			plan.Description,
+			plan.Steps.Select( step => new DeployableStep( step.Name, step.Description ) ).ToList()
+		);
 }

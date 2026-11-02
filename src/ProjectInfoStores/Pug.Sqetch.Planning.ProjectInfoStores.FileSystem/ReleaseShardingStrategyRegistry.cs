@@ -7,8 +7,9 @@ namespace Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 /// </summary>
 public class ReleaseShardingStrategyRegistry
 {
-	private readonly Dictionary<string, Func<IReadOnlyDictionary<string, string>?, IReleaseShardingStrategy>> _factories =
-		new ( StringComparer.OrdinalIgnoreCase );
+	private readonly Dictionary<string, Func<IReadOnlyDictionary<string, string>?, IReleaseShardingStrategy>>
+		_factories =
+			new( StringComparer.OrdinalIgnoreCase );
 
 	public ReleaseShardingStrategyRegistry()
 	{
@@ -29,9 +30,13 @@ public class ReleaseShardingStrategyRegistry
 		if( configuration is null )
 			return new FlatShardingStrategy();
 
-		if( !_factories.TryGetValue( configuration.Strategy, out Func<IReadOnlyDictionary<string, string>?, IReleaseShardingStrategy>? factory ) )
+		if( !_factories.TryGetValue(
+				configuration.Strategy,
+				out Func<IReadOnlyDictionary<string, string>?, IReleaseShardingStrategy>? factory
+			) )
 			throw new ProjectStoreException(
-				$"Unknown release sharding strategy '{configuration.Strategy}'; register it before opening the project." );
+				$"Unknown release sharding strategy '{configuration.Strategy}'; register it before opening the project."
+			);
 
 		return factory( configuration.Options );
 	}

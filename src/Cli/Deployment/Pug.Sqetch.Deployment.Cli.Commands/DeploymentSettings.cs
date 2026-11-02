@@ -1,4 +1,5 @@
 using System.ComponentModel;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -13,8 +14,9 @@ public class DeploymentSettings : CommandSettings
 
 	[CommandOption( "-d|--driver <NAME>" )]
 	[Description(
-		"Database driver; its parameters are passed as --<driver>-<parameter> <value>. "
-		+ "See 'drivers list' and 'drivers parameters <driver>'" )]
+		"Database driver; its parameters are passed as --<driver>-<parameter> <value>. " +
+		"See 'drivers list' and 'drivers parameters <driver>'"
+	)]
 	public string? Driver { get; init; }
 
 	[CommandOption( "-t|--bundle-type <TYPE>" )]
@@ -31,8 +33,8 @@ public class DeploymentSettings : CommandSettings
 
 	[CommandOption( "--rollback <MODE>" )]
 	[Description(
-		"Undo the deployment: 'on-error' after a failure, 'on-success' after a successful "
-		+ "deployment; default none" )]
+		"Undo the deployment: 'on-error' after a failure, 'on-success' after a successful " + "deployment; default none"
+	)]
 	public string Rollback { get; init; } = "none";
 
 	[CommandOption( "--log <PATH>" )]
@@ -64,17 +66,17 @@ public class DeploymentSettings : CommandSettings
 			case "none":
 				RollbackTrigger = RollbackTrigger.None;
 
-				break;
+			break;
 
 			case "on-error":
 				RollbackTrigger = RollbackTrigger.OnError;
 
-				break;
+			break;
 
 			case "on-success":
 				RollbackTrigger = RollbackTrigger.OnSuccess;
 
-				break;
+			break;
 
 			default:
 				return ValidationResult.Error( "--rollback must be 'none', 'on-error' or 'on-success'" );

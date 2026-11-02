@@ -14,8 +14,11 @@ public class JournalingProjectTests
 {
 	private static IProject CreateProject( FileSystemProjectStores stores )
 		=> ProjectFactory.Create(
-			stores.InfoStore, stores.ScriptsStore,
-			new ReleaseChainDependencyDeterminator( stores.InfoStore ), TestData.User );
+			stores.InfoStore,
+			stores.ScriptsStore,
+			new ReleaseChainDependencyDeterminator( stores.InfoStore ),
+			TestData.User
+		);
 
 	[Fact]
 	public void StatementRoundTrips()
@@ -30,7 +33,8 @@ public class JournalingProjectTests
 
 		Assert.Equal(
 			"create table journal( release text )\n",
-			project.GetJournalingStatement( JournalingSlot.PrepareJournal ) );
+			project.GetJournalingStatement( JournalingSlot.PrepareJournal )
+		);
 	}
 
 	[Fact]
@@ -41,8 +45,9 @@ public class JournalingProjectTests
 		using IProject project = CreateProject( stores );
 
 		// a query slot may hold only one statement
-		Assert.Throws<ArgumentException>(
-			() => project.SetJournalingStatement( JournalingSlot.GetLatestRelease, "select 1\n;;\nselect 2" ) );
+		Assert.Throws<ArgumentException>( () =>
+			project.SetJournalingStatement( JournalingSlot.GetLatestRelease, "select 1\n;;\nselect 2" )
+		);
 
 		Assert.Null( project.GetJournalingStatement( JournalingSlot.GetLatestRelease ) );
 		Assert.False( Directory.Exists( Path.Combine( temp.Root, "journaling" ) ) );
@@ -59,11 +64,15 @@ public class JournalingProjectTests
 		project.SetJournalingStatement( JournalingSlot.GetLatestRelease, "select 1" );
 
 		MissingJournalingStatementsException error = Assert.Throws<MissingJournalingStatementsException>(
-			project.VerifyJournalingStatements );
+			project.VerifyJournalingStatements
+		);
 
 		Assert.Equal(
-			JournalingSlots.All.Where( slot => slot is not JournalingSlot.PrepareJournal and not JournalingSlot.GetLatestRelease ),
-			error.Slots );
+			JournalingSlots.All.Where( slot =>
+				slot is not JournalingSlot.PrepareJournal and not JournalingSlot.GetLatestRelease
+			),
+			error.Slots
+		);
 	}
 
 	[Fact]

@@ -4,5 +4,5 @@ namespace Pug.Sqetch.Planning;
 
 public interface IReleaseDependencyDeterminator
 {
-	DependencyRelationship DetermineDependencyRelationship(string first,  string second);
+	DependencyRelationship DetermineDependencyRelationship( string first, string second );
 }

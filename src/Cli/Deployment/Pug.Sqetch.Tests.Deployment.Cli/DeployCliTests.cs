@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
@@ -8,6 +9,7 @@ using Pug.Sqetch.Deployment;
 using Pug.Sqetch.Deployment.Cli;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
+
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;
@@ -20,13 +22,13 @@ namespace Pug.Sqetch.Tests.Deployment.Cli;
 /// </summary>
 public class DeployCliTests : IDisposable
 {
-	private static readonly DateTime Bundled = new ( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
+	private static readonly DateTime Bundled = new( 2026, 10, 17, 3, 15, 42, DateTimeKind.Utc );
 
 	private readonly string _root;
-	private readonly FakeDatabaseDriver _driver = new ();
-	private readonly FakeJournal _journal = new ();
+	private readonly FakeDatabaseDriver _driver = new();
+	private readonly FakeJournal _journal = new();
 	private readonly FakeDriverFactory _factory;
-	private readonly DatabaseDriverRegistry _drivers = new ();
+	private readonly DatabaseDriverRegistry _drivers = new();
 
 	public DeployCliTests()
 	{
@@ -55,13 +57,25 @@ public class DeployCliTests : IDisposable
 		string bundle = WriteBundle( "demo.zip" );
 
 		CommandAppResult result = Run(
-			"deploy", bundle, "--driver", "pg", "--pg-host", "db1", "--pg-database", "app", "--timeout", "60" );
+			"deploy",
+			bundle,
+			"--driver",
+			"pg",
+			"--pg-host",
+			"db1",
+			"--pg-database",
+			"app",
+			"--timeout",
+			"60"
+		);
 
 		Assert.Equal( 0, result.ExitCode );
 		Assert.Contains( "deployment complete", result.Output );
+
 		Assert.Contains(
 			"bundle built by sqetch-deploy 0.1.0 at 2026-10-17T03:15:42Z (layout default, format 1)",
-			result.Output );
+			result.Output
+		);
 
 		Assert.Equal( TimeSpan.FromSeconds( 60 ), _factory.ReceivedTimeout );
 		Assert.Equal( "db1", _factory.ReceivedParameters!["host"] );
@@ -69,11 +83,17 @@ public class DeployCliTests : IDisposable
 
 		// #1 prepares the journal and #2 reads it, so the deployment's own transaction is #3
 		Assert.Equal(
-			["script #3 create table t ()", "script #3 create index i"],
-			_driver.Events.Where( x => x.StartsWith( "script" ) ) );
-		Assert.Equal( ["ReleaseDeployed 2026.07"], _driver.Transactions[2].Journaled.Where( x => x.StartsWith( "ReleaseDeployed" ) ) );
+			[ "script #3 create table t ()", "script #3 create index i" ],
+			_driver.Events.Where( x => x.StartsWith( "script" ) )
+		);
+
+		Assert.Equal(
+			[ "ReleaseDeployed 2026.07" ],
+			_driver.Transactions[2].Journaled.Where( x => x.StartsWith( "ReleaseDeployed" ) )
+		);
+
 		// the driver owns the connection, so the command releases it once — after the last commit
-		Assert.Equal( ["commit #3", "dispose"], _driver.Events.TakeLast( 2 ) );
+		Assert.Equal( [ "commit #3", "dispose" ], _driver.Events.TakeLast( 2 ) );
 		Assert.True( _driver.Disposed );
 	}
 
@@ -81,7 +101,12 @@ public class DeployCliTests : IDisposable
 	public void EqualsSyntaxBindsDriverParameterValues()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-connection-string=Server=x;Db=y" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-connection-string=Server=x;Db=y"
+		);
 
 		Assert.Equal( 0, result.ExitCode );
 		Assert.Equal( "Server=x;Db=y", _factory.ReceivedParameters!["connection-string"] );
@@ -91,7 +116,17 @@ public class DeployCliTests : IDisposable
 	public void UndefinedDriverParameterListsTheAvailableOnes()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-bogus", "x", "--pg-host", "db1", "--pg-database", "app" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-bogus",
+			"x",
+			"--pg-host",
+			"db1",
+			"--pg-database",
+			"app"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "no parameter 'bogus'", result.Output );
@@ -102,7 +137,13 @@ public class DeployCliTests : IDisposable
 	public void OptionsOutsideTheDriverPrefixAreRejected()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--nope", "x" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--nope",
+			"x"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "unknown option '--nope'", result.Output );
@@ -112,7 +153,13 @@ public class DeployCliTests : IDisposable
 	public void MissingRequiredParameterGroupingListsTheAlternatives()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "db1" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"db1"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "(--pg-host, --pg-database) or (--pg-connection-string)", result.Output );
@@ -122,7 +169,15 @@ public class DeployCliTests : IDisposable
 	public void RepeatedDriverParametersAreRejected()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "a", "--pg-host", "b" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"a",
+			"--pg-host",
+			"b"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "more than once", result.Output );
@@ -144,7 +199,15 @@ public class DeployCliTests : IDisposable
 		_factory.FailWith = new InvalidOperationException( "bad credentials" );
 
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "db1", "--pg-database", "app" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"db1",
+			"--pg-database",
+			"app"
+		);
 
 		Assert.Equal( DeployExitCodes.DriverCreationFailed, result.ExitCode );
 		Assert.Contains( "failed to create database driver 'pg': bad credentials", result.Output );
@@ -159,8 +222,17 @@ public class DeployCliTests : IDisposable
 	public void TheRetiredJournalSwitchIsRejected()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d",
-			"--journal", "table" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--journal",
+			"table"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 
@@ -176,8 +248,17 @@ public class DeployCliTests : IDisposable
 	public void TheRollbackModeIsValidated()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d",
-			"--rollback", "sometimes" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--rollback",
+			"sometimes"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "--rollback", result.Output );
@@ -192,14 +273,24 @@ public class DeployCliTests : IDisposable
 	public void RollingBackOnSuccessUndoesAFinalizedBundleToo()
 	{
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d",
-			"--rollback", "on-success" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--rollback",
+			"on-success"
+		);
 
 		Assert.Equal( 0, result.ExitCode );
 
 		Assert.Equal(
-			["create table t ()", "create index i", "-- r", "-- r"],
-			_driver.AppliedScripts );
+			[ "create table t ()", "create index i", "-- r", "-- r" ],
+			_driver.AppliedScripts
+		);
 	}
 
 	[Fact]
@@ -208,9 +299,11 @@ public class DeployCliTests : IDisposable
 		string empty = Path.Combine( _root, "empty" );
 		Directory.CreateDirectory( empty );
 		File.WriteAllText( Path.Combine( empty, "readme.txt" ), "no manifest here" );
+
 		File.WriteAllText(
 			Path.Combine( empty, BundleMetadata.EntryName ),
-			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ).ToText() );
+			new BundleMetadata( 1, "default", "sqetch-deploy", "0.1.0", Bundled ).ToText()
+		);
 
 		CommandAppResult noManifest = Run( "deploy", empty, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
 
@@ -219,7 +312,16 @@ public class DeployCliTests : IDisposable
 
 		string incomplete = WriteBundle( "incomplete.zip", withRollbackScripts: false );
 
-		CommandAppResult missingScript = Run( "deploy", incomplete, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+		CommandAppResult missingScript = Run(
+			"deploy",
+			incomplete,
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d"
+		);
 
 		Assert.Equal( DeployExitCodes.InvalidBundle, missingScript.ExitCode );
 		Assert.Contains( "rollback.sql", missingScript.Output );
@@ -232,12 +334,24 @@ public class DeployCliTests : IDisposable
 		string log = Path.Combine( _root, "logs", "built.log" );
 
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d", "--log", log );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--log",
+			log
+		);
 
 		Assert.Equal( 0, result.ExitCode );
+
 		Assert.Contains(
 			"bundle built by sqetch-deploy 0.1.0 at 2026-10-17T03:15:42Z (layout default, format 1)",
-			File.ReadAllLines( log )[0] );
+			File.ReadAllLines( log )[0]
+		);
 	}
 
 	[Fact]
@@ -317,7 +431,17 @@ public class DeployCliTests : IDisposable
 		string log = Path.Combine( _root, "logs", "deploy.log" );
 
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d", "--log", log );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--log",
+			log
+		);
 
 		Assert.Equal( 0, result.ExitCode );
 
@@ -348,7 +472,8 @@ public class DeployCliTests : IDisposable
 
 		Assert.Equal(
 			0,
-			Run( "deploy", directory, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" ).ExitCode );
+			Run( "deploy", directory, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" ).ExitCode
+		);
 
 		string targz = WriteBundle( "demo.tar.gz", TarGzBundleType.TypeName );
 
@@ -360,17 +485,26 @@ public class DeployCliTests : IDisposable
 
 		Assert.Equal(
 			0,
-			Run( "deploy", targz, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" ).ExitCode );
+			Run( "deploy", targz, "--driver", "pg", "--pg-host", "h", "--pg-database", "d" ).ExitCode
+		);
 	}
 
 	[Fact]
 	public void UpToDateDatabaseReportsSoAndTouchesNothing()
 	{
 		_journal.Latest = new JournaledRelease( "2026.07", Completed: true );
-		_journal.DeployedPlans["2026.07"] = ["table", "index"];
+		_journal.DeployedPlans["2026.07"] = [ "table", "index" ];
 
 		CommandAppResult result = Run(
-			"deploy", WriteBundle( "demo.zip" ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d" );
+			"deploy",
+			WriteBundle( "demo.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d"
+		);
 
 		Assert.Equal( 0, result.ExitCode );
 		Assert.Contains( "database is up to date", result.Output );
@@ -409,13 +543,31 @@ public class DeployCliTests : IDisposable
 		string bundle = WriteBundle( "demo.zip" );
 
 		CommandAppResult result = Run(
-			"rollback", bundle, "--driver", "pg", "--pg-host", "h", "--pg-database", "d", "--until-release", "2026.07" );
+			"rollback",
+			bundle,
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d",
+			"--until-release",
+			"2026.07"
+		);
 
 		Assert.Equal( DeployExitCodes.NotSupported, result.ExitCode );
 		Assert.Contains( "rollback is not yet supported", result.Output );
 
 		CommandAppResult both = Run(
-			"rollback", bundle, "--driver", "pg", "--after-release", "a", "--until-release", "b" );
+			"rollback",
+			bundle,
+			"--driver",
+			"pg",
+			"--after-release",
+			"a",
+			"--until-release",
+			"b"
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, both.ExitCode );
 		Assert.Contains( "not both", both.Output );
@@ -430,8 +582,15 @@ public class DeployCliTests : IDisposable
 	public void AMissingBundleIsItsOwnFailure()
 	{
 		CommandAppResult result = Run(
-			"deploy", Path.Combine( _root, "never-built.zip" ), "--driver", "pg", "--pg-host", "h",
-			"--pg-database", "d" );
+			"deploy",
+			Path.Combine( _root, "never-built.zip" ),
+			"--driver",
+			"pg",
+			"--pg-host",
+			"h",
+			"--pg-database",
+			"d"
+		);
 
 		Assert.Equal( DeployExitCodes.BundleNotFound, result.ExitCode );
 		Assert.Contains( "does not exist", result.Output );
@@ -483,7 +642,7 @@ public class DeployCliTests : IDisposable
 		CommandAppResult partway = Deploy( "partway.zip", "--commit-level", "plan" );
 
 		Assert.Equal( DeployExitCodes.DeploymentFailedPartway, partway.ExitCode );
-		Assert.Equal( ["create table t ()"], _driver.AppliedScripts );
+		Assert.Equal( [ "create table t ()" ], _driver.AppliedScripts );
 	}
 
 	/// <summary>
@@ -497,10 +656,15 @@ public class DeployCliTests : IDisposable
 		_driver.FailingScripts.Add( "create index i" );
 
 		CommandAppResult result = Deploy(
-			"compensated.zip", "--commit-level", "plan", "--rollback", "on-error" );
+			"compensated.zip",
+			"--commit-level",
+			"plan",
+			"--rollback",
+			"on-error"
+		);
 
 		Assert.Equal( DeployExitCodes.DeploymentFailed, result.ExitCode );
-		Assert.Equal( ["create table t ()", "-- r"], _driver.AppliedScripts );
+		Assert.Equal( [ "create table t ()", "-- r" ], _driver.AppliedScripts );
 	}
 
 	[Fact]
@@ -510,7 +674,12 @@ public class DeployCliTests : IDisposable
 		_driver.FailingScripts.Add( "-- r" );
 
 		CommandAppResult result = Deploy(
-			"half-compensated.zip", "--commit-level", "plan", "--rollback", "on-error" );
+			"half-compensated.zip",
+			"--commit-level",
+			"plan",
+			"--rollback",
+			"on-error"
+		);
 
 		Assert.Equal( DeployExitCodes.RollbackFailed, result.ExitCode );
 		Assert.Contains( "partially rolled back", Regex.Replace( result.Output, @"\s+", " " ) );
@@ -526,17 +695,20 @@ public class DeployCliTests : IDisposable
 	{
 		Assert.Equal(
 			DeployExitCodes.DatabaseUnreachable,
-			DeployExitCodes.For( new DatabaseConnectionException( new InvalidOperationException( "no route" ) ) ) );
+			DeployExitCodes.For( new DatabaseConnectionException( new InvalidOperationException( "no route" ) ) )
+		);
 
 		Assert.Equal(
 			DeployExitCodes.DriverCreationFailed,
-			DeployExitCodes.For( new DriverCreationException( "pg", new InvalidOperationException( "bad dsn" ) ) ) );
+			DeployExitCodes.For( new DriverCreationException( "pg", new InvalidOperationException( "bad dsn" ) ) )
+		);
 	}
 
 	/// <summary>Deploys the standard bundle under <paramref name="name"/> with the fake driver.</summary>
 	private CommandAppResult Deploy( string name, params string[] switches )
 		=> Run(
-			["deploy", WriteBundle( name ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d", ..switches] );
+			[ "deploy", WriteBundle( name ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d", .. switches ]
+		);
 
 	private CommandAppResult Run( params string[] args )
 	{
@@ -544,20 +716,20 @@ public class DeployCliTests : IDisposable
 		// _journal before calling Run gets the database it described
 		_journal.Attach( _driver );
 
-		TypeRegistrar registrar = new ();
+		TypeRegistrar registrar = new();
 
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), _drivers );
 
-		BundleTypeRegistry bundleTypes = new ();
+		BundleTypeRegistry bundleTypes = new();
 		bundleTypes.RegisterBundleTypes();
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), bundleTypes );
 
-		BundleLayoutRegistry layouts = new ();
+		BundleLayoutRegistry layouts = new();
 		layouts.RegisterLayouts();
 		registrar.RegisterInstance( typeof(IBundleLayoutRegistry), layouts );
 		registrar.RegisterInstance( typeof(BundlerIdentity), new BundlerIdentity( "sqetch-deploy", "0.1.0" ) );
 
-		CommandAppTester tester = new ( registrar );
+		CommandAppTester tester = new( registrar );
 
 		tester.Configure( SqetchDeployApp.Configure );
 
@@ -570,38 +742,60 @@ public class DeployCliTests : IDisposable
 	/// lineage unless <paramref name="dependency"/> names the release it follows.
 	/// </summary>
 	private string WriteBundle(
-		string name, string type = ZipBundleType.TypeName, bool withRollbackScripts = true,
-		string dependency = "" )
+		string name,
+		string type = ZipBundleType.TypeName,
+		bool withRollbackScripts = true,
+		string dependency = ""
+	)
 	{
-		Bundle bundle = new (
+		Bundle bundle = new(
 			new ProjectDefinition( "demo", "", "postgres" ),
 			BundleSelection.Finalized,
 			Manifests.Journaling(),
-			[new BundleRelease( "2026.07", "", dependency, true )],
+			[ new BundleRelease( "2026.07", "", dependency, true ) ],
 			[
 				new BundlePlan(
-					"table", "", "2026.07", [],
+					"table",
+					"",
+					"2026.07",
+					[ ],
 					[
 						new BundleStep(
-							"create", "", [],
+							"create",
+							"",
+							[ ],
 							() => new StepScripts(
-								Script( "create table t ()" ), Script( "-- v" ),
-								withRollbackScripts ? Script( "-- r" ) : null ) )
-					] ),
+								Script( "create table t ()" ),
+								Script( "-- v" ),
+								withRollbackScripts ? Script( "-- r" ) : null
+							)
+						)
+					]
+				),
 				new BundlePlan(
-					"index", "", "2026.07", ["table"],
+					"index",
+					"",
+					"2026.07",
+					[ "table" ],
 					[
 						new BundleStep(
-							"add", "", ["create"],
+							"add",
+							"",
+							[ "create" ],
 							() => new StepScripts(
-								Script( "create index i" ), Script( "-- v" ),
-								withRollbackScripts ? Script( "-- r" ) : null ) )
-					] )
-			] );
+								Script( "create index i" ),
+								Script( "-- v" ),
+								withRollbackScripts ? Script( "-- r" ) : null
+							)
+						)
+					]
+				)
+			]
+		);
 
 		string path = Path.Combine( _root, name );
 
-		BundleTypeRegistry registry = new ();
+		BundleTypeRegistry registry = new();
 		registry.RegisterBundleTypes();
 
 		using( IBundleWriter writer = registry.Create( type ).Create( path ) )
@@ -610,7 +804,7 @@ public class DeployCliTests : IDisposable
 		return path;
 	}
 
-	private static MemoryStream Script( string content ) => new ( Encoding.UTF8.GetBytes( content ) );
+	private static MemoryStream Script( string content ) => new( Encoding.UTF8.GetBytes( content ) );
 
 	private sealed class FakeDriverFactory( FakeDatabaseDriver driver ) : IDatabaseDriverFactory
 	{
@@ -623,13 +817,14 @@ public class DeployCliTests : IDisposable
 		public Exception? FailWith { get; set; }
 
 		public DatabaseDriverParametersDefinition GetParametersDefinition()
-			=> new (
+			=> new(
 				[
 					new DatabaseDriverParameterDefinition( "host", "Database host" ),
 					new DatabaseDriverParameterDefinition( "database", "Database name" ),
 					new DatabaseDriverParameterDefinition( "connection-string", "Full connection string" )
 				],
-				[["host", "database"], ["connection-string"]] );
+				[ [ "host", "database" ], [ "connection-string" ] ]
+			);
 
 		public IDatabaseDriver Create( IDictionary<string, string> parameters, TimeSpan stepScriptTimeout )
 		{

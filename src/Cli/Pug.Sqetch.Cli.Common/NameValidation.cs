@@ -12,6 +12,6 @@ public static class NameValidation
 		=> name is null || NameRules.IsValid( name );
 
 	public static string Error( string option )
-		=> $"{option} may only contain letters, digits and any of '-_+()@#.', "
-			+ "starting with a letter or digit and not ending with '.'";
+		=> $"{option} may only contain letters, digits and any of '-_+()@#.', " +
+			"starting with a letter or digit and not ending with '.'";
 }

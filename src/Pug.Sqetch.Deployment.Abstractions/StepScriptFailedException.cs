@@ -13,7 +13,8 @@ public class StepScriptFailedException
 	public StepScriptFailedException( string release, string plan, string step, Exception innerException )
 		: base(
 			$"Step '{step}' of plan '{plan}' in release '{release}' failed: {innerException.Message}",
-			innerException )
+			innerException
+		)
 	{
 		Release = release;
 		Plan = plan;

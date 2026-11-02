@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Planning.Models;
@@ -11,23 +12,41 @@ public class DefaultBundleLayoutTests
 	[Fact]
 	public void WritesManifestFirstThenScriptsUnderPlansInBundleOrder()
 	{
-		TrackingStream deploy = Script( "-- deploy" ), verify = Script( "-- verify" ), rollback = Script( "-- rollback" );
+		TrackingStream deploy = Script( "-- deploy" ),
+						verify = Script( "-- verify" ),
+						rollback = Script( "-- rollback" );
 
-		Bundle bundle = new (
+		Bundle bundle = new(
 			new ProjectDefinition( "demo", "Demo project", "postgres" ),
 			BundleSelection.Finalized,
 			Journaling(),
-			[new BundleRelease( "2026.07", "July release", "", true )],
+			[ new BundleRelease( "2026.07", "July release", "", true ) ],
 			[
 				new BundlePlan(
-					"table", "Create table", "2026.07", [],
-					[new BundleStep( "create", "creates it", [], () => new StepScripts( deploy, verify, rollback ) )] ),
+					"table",
+					"Create table",
+					"2026.07",
+					[ ],
+					[ new BundleStep( "create", "creates it", [ ], () => new StepScripts( deploy, verify, rollback ) ) ]
+				),
 				new BundlePlan(
-					"index", "Create index", "2026.07", ["table"],
-					[new BundleStep( "add", "adds it", ["create"], () => new StepScripts( Script( "-- i" ), Script( "-- v" ), Script( "-- r" ) ) )] )
-			] );
+					"index",
+					"Create index",
+					"2026.07",
+					[ "table" ],
+					[
+						new BundleStep(
+							"add",
+							"adds it",
+							[ "create" ],
+							() => new StepScripts( Script( "-- i" ), Script( "-- v" ), Script( "-- r" ) )
+						)
+					]
+				)
+			]
+		);
 
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		new DefaultBundleLayout().Write( bundle, writer );
 
@@ -56,7 +75,8 @@ public class DefaultBundleLayoutTests
 				"plans/index/steps/add/verify.sql",
 				"plans/index/steps/add/rollback.sql"
 			],
-			writer.Entries.Select( x => x.Path ).ToArray() );
+			writer.Entries.Select( x => x.Path ).ToArray()
+		);
 
 		// entry 0 is the manifest and 1..15 the journaling slots, so the first script is 16
 		Assert.Equal( "-- deploy", writer.Entries[16].Content );
@@ -78,7 +98,7 @@ public class DefaultBundleLayoutTests
 		Assert.True( release.GetProperty( "finalized" ).GetBoolean() );
 
 		JsonElement[] plans = rootElement.GetProperty( "plans" ).EnumerateArray().ToArray();
-		Assert.Equal( ["table", "index"], plans.Select( x => x.GetProperty( "name" ).GetString() ).ToArray() );
+		Assert.Equal( [ "table", "index" ], plans.Select( x => x.GetProperty( "name" ).GetString() ).ToArray() );
 		Assert.Equal( "2026.07", plans[1].GetProperty( "release" ).GetString() );
 		Assert.Equal( "table", plans[1].GetProperty( "dependencies" )[0].GetString() );
 		Assert.Equal( "add", plans[1].GetProperty( "steps" )[0].GetProperty( "name" ).GetString() );
@@ -92,11 +112,12 @@ public class DefaultBundleLayoutTests
 	[Fact]
 	public void TheLayoutLeavesTheMetadataEntryToThePackagerAndWritesNoGeneratedTimestamp()
 	{
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		new DefaultBundleLayout().Write(
-			new Bundle( new ProjectDefinition( "demo", "", "" ), BundleSelection.Finalized, Journaling(), [], [] ),
-			writer );
+			new Bundle( new ProjectDefinition( "demo", "", "" ), BundleSelection.Finalized, Journaling(), [ ], [ ] ),
+			writer
+		);
 
 		Assert.DoesNotContain( writer.Entries, x => x.Path == BundleMetadata.EntryName );
 		Assert.DoesNotContain( "generated", writer.Entries[0].Content );
@@ -106,52 +127,83 @@ public class DefaultBundleLayoutTests
 	[Fact]
 	public void NullScriptStreamsAreSkippedButTheStepStaysInTheManifest()
 	{
-		Bundle bundle = new (
+		Bundle bundle = new(
 			new ProjectDefinition( "demo", "", "postgres" ),
 			BundleSelection.Test,
 			Journaling(),
-			[],
+			[ ],
 			[
 				new BundlePlan(
-					"partial", "", "", [],
-					[new BundleStep( "only-deploy", "", [], () => new StepScripts( Script( "-- d" ), null, null ) )] )
-			] );
+					"partial",
+					"",
+					"",
+					[ ],
+					[ new BundleStep( "only-deploy", "", [ ], () => new StepScripts( Script( "-- d" ), null, null ) ) ]
+				)
+			]
+		);
 
-		RecordingWriter writer = new ();
+		RecordingWriter writer = new();
 
 		new DefaultBundleLayout().Write( bundle, writer );
 
 		Assert.Equal(
-			["manifest.json", "plans/partial/steps/only-deploy/deploy.sql"],
-			writer.Entries.Select( x => x.Path ).Where( x => !x.StartsWith( "journaling/" ) ).ToArray() );
+			[ "manifest.json", "plans/partial/steps/only-deploy/deploy.sql" ],
+			writer.Entries.Select( x => x.Path ).Where( x => !x.StartsWith( "journaling/" ) ).ToArray()
+		);
 
 		using JsonDocument manifest = JsonDocument.Parse( writer.Entries[0].Content );
 
 		Assert.Equal( "test", manifest.RootElement.GetProperty( "selection" ).GetString() );
+
 		Assert.Equal(
 			"only-deploy",
-			manifest.RootElement.GetProperty( "plans" )[0].GetProperty( "steps" )[0].GetProperty( "name" ).GetString() );
+			manifest.RootElement.GetProperty( "plans" )[0].GetProperty( "steps" )[0].GetProperty( "name" ).GetString()
+		);
 	}
 
 	[Fact]
 	public void WrittenManifestsReadBackAsTheSameTypedModel()
 	{
-		Bundle bundle = new (
+		Bundle bundle = new(
 			new ProjectDefinition( "demo", "Demo project", "postgres" ),
 			BundleSelection.Test,
 			Journaling(),
-			[new BundleRelease( "2026.07", "July release", "2026.06", true )],
+			[ new BundleRelease( "2026.07", "July release", "2026.06", true ) ],
 			[
 				new BundlePlan(
-					"table", "Create table", "2026.07", [],
-					[new BundleStep( "create", "creates it", [], () => new StepScripts( Script( "-- d" ), Script( "-- v" ), Script( "-- r" ) ) )] ),
+					"table",
+					"Create table",
+					"2026.07",
+					[ ],
+					[
+						new BundleStep(
+							"create",
+							"creates it",
+							[ ],
+							() => new StepScripts( Script( "-- d" ), Script( "-- v" ), Script( "-- r" ) )
+						)
+					]
+				),
 				new BundlePlan(
-					"pending", "Unreleased", "", ["table"],
-					[new BundleStep( "tweak", "", ["create"], () => new StepScripts( Script( "-- d" ), Script( "-- v" ), Script( "-- r" ) ) )] )
-			] );
+					"pending",
+					"Unreleased",
+					"",
+					[ "table" ],
+					[
+						new BundleStep(
+							"tweak",
+							"",
+							[ "create" ],
+							() => new StepScripts( Script( "-- d" ), Script( "-- v" ), Script( "-- r" ) )
+						)
+					]
+				)
+			]
+		);
 
-		RecordingWriter writer = new ();
-		DefaultBundleLayout layout = new ();
+		RecordingWriter writer = new();
+		DefaultBundleLayout layout = new();
 
 		layout.Write( bundle, writer );
 
@@ -159,11 +211,11 @@ public class DefaultBundleLayoutTests
 
 		Assert.Equal( new BundleManifestProject( "demo", "Demo project", "postgres" ), manifest.Project );
 		Assert.Equal( BundleSelection.Test, manifest.Selection );
-		Assert.Equal( [new BundleManifestRelease( "2026.07", "July release", "2026.06", true )], manifest.Releases );
-		Assert.Equal( ["table", "pending"], manifest.Plans.Select( x => x.Name ).ToArray() );
+		Assert.Equal( [ new BundleManifestRelease( "2026.07", "July release", "2026.06", true ) ], manifest.Releases );
+		Assert.Equal( [ "table", "pending" ], manifest.Plans.Select( x => x.Name ).ToArray() );
 		Assert.Equal( "", manifest.Plans[1].Release );
-		Assert.Equal( ["table"], manifest.Plans[1].Dependencies );
-		Assert.Equal( ["create"], manifest.Plans[1].Steps[0].Dependencies );
+		Assert.Equal( [ "table" ], manifest.Plans[1].Dependencies );
+		Assert.Equal( [ "create" ], manifest.Plans[1].Steps[0].Dependencies );
 	}
 
 	/// <summary>
@@ -173,19 +225,24 @@ public class DefaultBundleLayoutTests
 	[Fact]
 	public void JournalingStatementsAreWrittenAndReadBackThroughTheLayout()
 	{
-		Bundle bundle = new (
+		Bundle bundle = new(
 			new ProjectDefinition( "demo", "", "postgres" ),
 			BundleSelection.Test,
 			Journaling(),
-			[],
+			[ ],
 			[
 				new BundlePlan(
-					"p", "", "", [],
-					[new BundleStep( "s", "", [], () => new StepScripts( Script( "-- d" ), null, null ) )] )
-			] );
+					"p",
+					"",
+					"",
+					[ ],
+					[ new BundleStep( "s", "", [ ], () => new StepScripts( Script( "-- d" ), null, null ) ) ]
+				)
+			]
+		);
 
-		RecordingWriter writer = new ();
-		DefaultBundleLayout layout = new ();
+		RecordingWriter writer = new();
+		DefaultBundleLayout layout = new();
 
 		layout.Write( bundle, writer );
 
@@ -193,34 +250,38 @@ public class DefaultBundleLayoutTests
 
 		Assert.Equal( 15, paths.Count( x => x.StartsWith( "journaling/" ) ) );
 		Assert.Equal( 0, paths.IndexOf( "manifest.json" ) );
+
 		Assert.True(
-			paths.FindLastIndex( x => x.StartsWith( "journaling/" ) )
-			< paths.FindIndex( x => x.StartsWith( "plans/" ) ) );
+			paths.FindLastIndex( x => x.StartsWith( "journaling/" ) ) < paths.FindIndex( x => x.StartsWith( "plans/" ) )
+		);
 
 		JournalingStatements read = layout.ReadJournalingStatements( new FakeReader( writer ) );
 
 		Assert.Equal( "-- PrepareJournal", read.Text( JournalingSlot.PrepareJournal ) );
-		Assert.Equal( ["-- GetDeployedPlans"], read.Statements( JournalingSlot.GetDeployedPlans ) );
+		Assert.Equal( [ "-- GetDeployedPlans" ], read.Statements( JournalingSlot.GetDeployedPlans ) );
 	}
 
 	[Fact]
 	public void AMissingJournalingSlotIsRefusedByName()
 	{
-		BundlingException error = Assert.Throws<BundlingException>(
-			() => new DefaultBundleLayout().ReadJournalingStatements( new FakeReader() ) );
+		BundlingException error = Assert.Throws<BundlingException>( () =>
+			new DefaultBundleLayout().ReadJournalingStatements( new FakeReader() )
+		);
 
 		Assert.Contains( "journaling/OnDeployingRelease.sql", error.Message );
 		Assert.Contains( "journaling/GetDeployedPlans.sql", error.Message );
 	}
 
 	private static JournalingStatements Journaling()
-		=> new ( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)$"-- {slot}" ) );
+		=> new( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)$"-- {slot}" ) );
 
 	[Fact]
 	public void MissingManifestIsRefused()
 	{
-		InvalidBundleManifestException error = Assert.Throws<InvalidBundleManifestException>(
-			() => new DefaultBundleLayout().ReadManifest( new FakeReader() ) );
+		InvalidBundleManifestException error =
+			Assert.Throws<InvalidBundleManifestException>( () =>
+				new DefaultBundleLayout().ReadManifest( new FakeReader() )
+			);
 
 		Assert.Contains( "manifest.json", error.Message );
 	}
@@ -235,28 +296,32 @@ public class DefaultBundleLayoutTests
 	[InlineData( """{ "project": { "name": "demo" }, "plans": [], "releases": [ {} ] }""" )]
 	public void InvalidManifestsAreRefused( string manifest )
 	{
-		Assert.Throws<InvalidBundleManifestException>(
-			() => new DefaultBundleLayout().ReadManifest( new FakeReader( manifest ) ) );
+		Assert.Throws<InvalidBundleManifestException>( () =>
+			new DefaultBundleLayout().ReadManifest( new FakeReader( manifest ) )
+		);
 	}
 
 	[Fact]
 	public void AbsentOptionalManifestMembersFallBackToEmptyValues()
 	{
-		BundleManifest manifest = new DefaultBundleLayout().ReadManifest( new FakeReader(
-			"""
-			{
-				"project": { "name": "demo" },
-				"releases": [ { "name": "2026.07" }, { "name": "2026.08" } ],
-				"plans": [ { "name": "table", "steps": [ { "name": "create" } ] } ]
-			}
-			""" ) );
+		BundleManifest manifest = new DefaultBundleLayout().ReadManifest(
+			new FakeReader(
+				"""
+				{
+					"project": { "name": "demo" },
+					"releases": [ { "name": "2026.07" }, { "name": "2026.08" } ],
+					"plans": [ { "name": "table", "steps": [ { "name": "create" } ] } ]
+				}
+				"""
+			)
+		);
 
 		Assert.Equal( new BundleManifestProject( "demo", "", "" ), manifest.Project );
 		Assert.Equal( BundleSelection.Finalized, manifest.Selection );
 
 		// releases without a 'dependency' member normalize positionally: the first falls
 		// back to "", each following one to the preceding release's name
-		Assert.Equal( ["", "2026.07"], manifest.Releases.Select( x => x.Dependency ).ToArray() );
+		Assert.Equal( [ "", "2026.07" ], manifest.Releases.Select( x => x.Dependency ).ToArray() );
 
 		BundleManifestPlan plan = Assert.Single( manifest.Plans );
 
@@ -269,18 +334,29 @@ public class DefaultBundleLayoutTests
 	[Fact]
 	public void ScriptPathsFollowThePlansTree()
 	{
-		DefaultBundleLayout layout = new ();
+		DefaultBundleLayout layout = new();
 
-		Assert.Equal( "plans/table/steps/create/deploy.sql", layout.ScriptPath( "table", "create", StepScriptKind.Deploy ) );
-		Assert.Equal( "plans/table/steps/create/verify.sql", layout.ScriptPath( "table", "create", StepScriptKind.Verify ) );
-		Assert.Equal( "plans/table/steps/create/rollback.sql", layout.ScriptPath( "table", "create", StepScriptKind.Rollback ) );
+		Assert.Equal(
+			"plans/table/steps/create/deploy.sql",
+			layout.ScriptPath( "table", "create", StepScriptKind.Deploy )
+		);
+
+		Assert.Equal(
+			"plans/table/steps/create/verify.sql",
+			layout.ScriptPath( "table", "create", StepScriptKind.Verify )
+		);
+
+		Assert.Equal(
+			"plans/table/steps/create/rollback.sql",
+			layout.ScriptPath( "table", "create", StepScriptKind.Rollback )
+		);
 	}
 
-	private static TrackingStream Script( string content ) => new ( Encoding.UTF8.GetBytes( content ) );
+	private static TrackingStream Script( string content ) => new( Encoding.UTF8.GetBytes( content ) );
 
 	private sealed class FakeReader : IBundleReader
 	{
-		private readonly Dictionary<string, string> _entries = new ();
+		private readonly Dictionary<string, string> _entries = new();
 
 		public FakeReader()
 		{
@@ -290,7 +366,7 @@ public class DefaultBundleLayoutTests
 
 		public FakeReader( RecordingWriter writer )
 		{
-			foreach( (string path, string content) in writer.Entries )
+			foreach( ( string path, string content ) in writer.Entries )
 				_entries[path] = content;
 		}
 
@@ -299,9 +375,9 @@ public class DefaultBundleLayoutTests
 		public bool Contains( string path ) => _entries.ContainsKey( path );
 
 		public Stream Open( string path )
-			=> _entries.TryGetValue( path, out string? content )
-				? new MemoryStream( Encoding.UTF8.GetBytes( content ) )
-				: throw new BundlingException( $"Bundle has no entry '{path}'." );
+			=> _entries.TryGetValue( path, out string? content ) ?
+				new MemoryStream( Encoding.UTF8.GetBytes( content ) ) :
+				throw new BundlingException( $"Bundle has no entry '{path}'." );
 
 		public void Dispose()
 		{
@@ -310,15 +386,15 @@ public class DefaultBundleLayoutTests
 
 	private sealed class RecordingWriter : IBundleWriter
 	{
-		public List<(string Path, string Content)> Entries { get; } = [];
+		public List<(string Path, string Content)> Entries { get; } = [ ];
 
 		public void Add( string path, Stream content )
 		{
-			using MemoryStream buffer = new ();
+			using MemoryStream buffer = new();
 
 			content.CopyTo( buffer );
 
-			Entries.Add( (path, Encoding.UTF8.GetString( buffer.ToArray() )) );
+			Entries.Add( ( path, Encoding.UTF8.GetString( buffer.ToArray() ) ) );
 		}
 
 		public void Dispose()

@@ -6,7 +6,7 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// </summary>
 public class SqliteDeploymentTests : IDisposable
 {
-	private readonly TempDatabase _database = new ();
+	private readonly TempDatabase _database = new();
 
 	private readonly RealDatabaseDeployment _deployment;
 
@@ -16,7 +16,9 @@ public class SqliteDeploymentTests : IDisposable
 			SqliteJournal.Statements(),
 			sql => _database.Query( sql ),
 			() => _database.Query(
-				"select name from sqlite_master where type = 'table' and name like '%\\_s1' escape '\\' order by name" ) );
+				"select name from sqlite_master where type = 'table' and name like '%\\_s1' escape '\\' order by name"
+			)
+		);
 
 	public void Dispose() => _database.Dispose();
 

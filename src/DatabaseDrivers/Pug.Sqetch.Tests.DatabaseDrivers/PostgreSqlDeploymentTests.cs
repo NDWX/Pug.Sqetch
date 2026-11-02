@@ -18,9 +18,7 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 
 		// lazy, so a run without Docker skips rather than failing to create a database in the
 		// constructor, where a skip is no longer available
-		_deployment = new Lazy<RealDatabaseDeployment>(
-			() =>
-			{
+		_deployment = new Lazy<RealDatabaseDeployment>( () => {
 				string connection = _server.CreateDatabase();
 
 				return new RealDatabaseDeployment(
@@ -33,8 +31,11 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 						select table_name from information_schema.tables
 						where table_schema = 'public' and table_name like '%\_s1'
 						order by table_name
-						""" ) );
-			} );
+						"""
+					)
+				);
+			}
+		);
 	}
 
 	[DockerFact]
@@ -52,7 +53,8 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 		=> _deployment.Value.AFailedPlanIsResumedFromWhatTheJournalNames();
 
 	[DockerFact]
-	public void OnErrorUndoesWhatTheRunAlreadyCommitted() => _deployment.Value.OnErrorUndoesWhatTheRunAlreadyCommitted();
+	public void OnErrorUndoesWhatTheRunAlreadyCommitted() =>
+		_deployment.Value.OnErrorUndoesWhatTheRunAlreadyCommitted();
 
 	[DockerFact]
 	public void OnSuccessUndoesTheWholeDeploymentInReverse()

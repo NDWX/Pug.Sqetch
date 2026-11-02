@@ -1,5 +1,6 @@
 using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Tests.Planning.Stores.FileSystem;
+
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;
@@ -49,11 +50,13 @@ public class BundleDefaultOutputCliTests : IDisposable
 	[Fact]
 	public void WithoutAnOutputPathTheBundleIsNamedAfterTheProjectInTheCurrentDirectory()
 	{
-		BundleTestProjects.Populate( _temp, project =>
-		{
-			BundleTestProjects.AddFinalizedRelease( _temp, project );
-			BundleTestProjects.SetJournaling( project );
-		} );
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
+				BundleTestProjects.SetJournaling( project );
+			}
+		);
 
 		CommandAppResult result = BundleCliTests.Run( "bundle", "--project", _temp.Root );
 

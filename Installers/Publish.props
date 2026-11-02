@@ -1,12 +1,12 @@
 <Project>
 
-	<!-- Imported by the two CLI hosts. Release publishes are self-contained single files; the
-	     condition keeps a RID-less build, test or tool pack framework-dependent. Native libraries
-	     (e_sqlite3) stay beside the executable rather than being extracted at run time. -->
-	<PropertyGroup Condition=" '$(RuntimeIdentifier)' != '' ">
-		<SelfContained>true</SelfContained>
-		<PublishSingleFile>true</PublishSingleFile>
-		<IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
-	</PropertyGroup>
+    <!-- Imported by the two CLI hosts. Release publishes are self-contained single files; the
+         condition keeps a RID-less build, test or tool pack framework-dependent. Native libraries
+         (e_sqlite3) stay beside the executable rather than being extracted at run time. -->
+    <PropertyGroup Condition=" '$(RuntimeIdentifier)' != '' ">
+        <SelfContained>true</SelfContained>
+        <PublishSingleFile>true</PublishSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    </PropertyGroup>
 
 </Project>

@@ -6,7 +6,7 @@ namespace Pug.Sqetch.Deployment.Cli.Commands;
 /// and bundled fine, only the output is wrong" without mapping every <see cref="IOException"/>
 /// the process might ever raise to the same code.
 /// </summary>
-internal sealed class BundleOutputException
+public sealed class BundleOutputException
 	: Exception
 {
 	public string Path { get; }

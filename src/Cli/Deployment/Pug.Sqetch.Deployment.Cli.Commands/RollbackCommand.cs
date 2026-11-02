@@ -1,4 +1,5 @@
 using System.ComponentModel;
+
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -32,6 +33,10 @@ public sealed class RollbackSettings : DeploymentSettings
 /// </summary>
 public sealed class RollbackCommand : Command<RollbackSettings>
 {
-	protected override int Execute( CommandContext context, RollbackSettings settings, CancellationToken cancellationToken )
+	protected override int Execute(
+		CommandContext context,
+		RollbackSettings settings,
+		CancellationToken cancellationToken
+	)
 		=> throw new OperationNotSupportedException( "rollback is not yet supported" );
 }

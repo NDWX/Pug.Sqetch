@@ -1,5 +1,7 @@
 using System.Text.Json;
+
 using Pug.Sqetch.Cli;
+
 using Spectre.Console;
 using Spectre.Console.Testing;
 
@@ -16,17 +18,21 @@ public class ResultWriterTests
 
 	private readonly TestConsole _console = new TestConsole().Width( ConsoleWidth );
 
-	private static readonly string Long = new ( 'x', 400 );
+	private static readonly string Long = new( 'x', 400 );
 
 	private readonly record struct Item( string Name, string Note );
 
-	private static readonly Item[] Items = [new Item( "first", Long ), new Item( "second", "short" )];
+	private static readonly Item[] Items = [ new Item( "first", Long ), new Item( "second", "short" ) ];
 
 	private static void WriteItems( IAnsiConsole console, OutputFormat format )
 		=> ResultWriter.WriteRows(
-			console, format, ["Name", "Note"], Items,
-			x => [x.Name, x.Note],
-			x => new { name = x.Name, note = x.Note } );
+			console,
+			format,
+			[ "Name", "Note" ],
+			Items,
+			x => [ x.Name, x.Note ],
+			x => new { name = x.Name, note = x.Note }
+		);
 
 	/// <summary>
 	/// Spectre wraps what it writes to the console's width. A wrapped line is not merely ugly here:
@@ -49,7 +55,7 @@ public class ResultWriterTests
 	{
 		WriteItems( _console, OutputFormat.Auto );
 
-		Assert.Equal( [$"first\t{Long}", "second\tshort"], Lines() );
+		Assert.Equal( [ $"first\t{Long}", "second\tshort" ], Lines() );
 	}
 
 	[Fact]
@@ -57,16 +63,20 @@ public class ResultWriterTests
 	{
 		WriteItems( _console, OutputFormat.Csv );
 
-		Assert.Equal( ["Name,Note", $"first,{Long}", "second,short"], Lines() );
+		Assert.Equal( [ "Name,Note", $"first,{Long}", "second,short" ], Lines() );
 	}
 
 	[Fact]
 	public void DetailsKeepOneRecordPerLine()
 	{
 		ResultWriter.WriteDetails(
-			_console, OutputFormat.Auto, new { note = Long }, [( "Note", Long )] );
+			_console,
+			OutputFormat.Auto,
+			new { note = Long },
+			[ ( "Note", Long ) ]
+		);
 
-		Assert.Equal( [$"Note\t{Long}"], Lines() );
+		Assert.Equal( [ $"Note\t{Long}" ], Lines() );
 	}
 
 	[Fact]
@@ -75,8 +85,9 @@ public class ResultWriterTests
 		WriteSections( OutputFormat.Auto );
 
 		Assert.Equal(
-			["sets\t1\ta b", "sets\t2\tc", "items\ta\tfirst", "items\tb\tsecond"],
-			Lines() );
+			[ "sets\t1\ta b", "sets\t2\tc", "items\ta\tfirst", "items\tb\tsecond" ],
+			Lines()
+		);
 	}
 
 	/// <summary>
@@ -89,11 +100,9 @@ public class ResultWriterTests
 		WriteSections( OutputFormat.Csv );
 
 		Assert.Equal(
-			[
-				"sets", "Set,Parameters", "1,a b", "2,c",
-				"", "items", "Name,Description", "a,first", "b,second"
-			],
-			AllLines() );
+			[ "sets", "Set,Parameters", "1,a b", "2,c", "", "items", "Name,Description", "a,first", "b,second" ],
+			AllLines()
+		);
 	}
 
 	/// <summary>One document, not one per section: a consumer binds a single object.</summary>
@@ -112,29 +121,42 @@ public class ResultWriterTests
 	public void AnEmptySectionWritesNothingButStillCounts()
 	{
 		ResultWriter.WriteSections(
-			_console, OutputFormat.Csv, new { },
+			_console,
+			OutputFormat.Csv,
+			new { },
 			[
-				new ResultSection( "empty", "Empty", ["Set"], [] ),
-				new ResultSection( "items", "Items", ["Name"], [["a"]] )
-			] );
+				new ResultSection( "empty", "Empty", [ "Set" ], [ ] ),
+				new ResultSection( "items", "Items", [ "Name" ], [ [ "a" ] ] )
+			]
+		);
 
-		Assert.Equal( ["empty", "Set", "", "items", "Name", "a"], AllLines() );
+		Assert.Equal( [ "empty", "Set", "", "items", "Name", "a" ], AllLines() );
 	}
 
 	private void WriteSections( OutputFormat format )
 		=> ResultWriter.WriteSections(
-			_console, format,
-			new { sets = new[] { new[] { "a", "b" }, ["c"] }, items = new[] { new { name = "a" }, new { name = "b" } } },
+			_console,
+			format,
+			new
+			{
+				sets = new[] { new[] { "a", "b" }, [ "c" ] }, items = new[] { new { name = "a" }, new { name = "b" } }
+			},
 			[
-				new ResultSection( "sets", "Sets", ["Set", "Parameters"], [["1", "a b"], ["2", "c"]] ),
-				new ResultSection( "items", "Items", ["Name", "Description"], [["a", "first"], ["b", "second"]] )
-			] );
+				new ResultSection( "sets", "Sets", [ "Set", "Parameters" ], [ [ "1", "a b" ], [ "2", "c" ] ] ),
+				new ResultSection(
+					"items",
+					"Items",
+					[ "Name", "Description" ],
+					[ [ "a", "first" ], [ "b", "second" ] ]
+				)
+			]
+		);
 
 	private string[] Lines()
 		=> _console.Output
-					.Split( '\n', StringSplitOptions.RemoveEmptyEntries )
-					.Select( x => x.TrimEnd( '\r' ) )
-					.ToArray();
+			.Split( '\n', StringSplitOptions.RemoveEmptyEntries )
+			.Select( x => x.TrimEnd( '\r' ) )
+			.ToArray();
 
 	/// <summary>Keeps the blank lines, which separate CSV blocks and so carry meaning.</summary>
 	private string[] AllLines()

@@ -17,20 +17,25 @@ public class ReadOnlyProjectTests
 		using FileSystemProjectStores stores = temp.Open();
 
 		using( IProject writable = ProjectFactory.Create(
-					stores.InfoStore, stores.ScriptsStore,
-					new ReleaseChainDependencyDeterminator( stores.InfoStore ), TestData.User ) )
+				stores.InfoStore,
+				stores.ScriptsStore,
+				new ReleaseChainDependencyDeterminator( stores.InfoStore ),
+				TestData.User
+			) )
 		{
-			writable.Add( new PlanDefinition( "table", "Create table", [] ) );
-			writable.Add( new PlanDefinition( "index", "Create index", ["table"] ) );
+			writable.Add( new PlanDefinition( "table", "Create table", [ ] ) );
+			writable.Add( new PlanDefinition( "index", "Create index", [ "table" ] ) );
 		}
 
 		using FileSystemProjectStores reopened = temp.Open();
 		using IReadOnlyProject project = CreateReadOnly( reopened );
 
 		Assert.Equal( new ProjectDefinition( "test-project", "Test project", "postgres" ), project.GetDefinition() );
+
 		Assert.Equal(
-			["table", "index"],
-			project.GetPlans( new PlanSearchCriteria() ).Select( x => x.Definition.Name ).ToArray() );
+			[ "table", "index" ],
+			project.GetPlans( new PlanSearchCriteria() ).Select( x => x.Definition.Name ).ToArray()
+		);
 	}
 
 	[Fact]
@@ -44,8 +49,9 @@ public class ReadOnlyProjectTests
 		// write a change with no one recorded against it
 		IProject writable = Assert.IsAssignableFrom<IProject>( project );
 
-		Assert.Throws<InvalidOperationException>(
-			() => writable.Add( new PlanDefinition( "table", "Create table", [] ) ) );
+		Assert.Throws<InvalidOperationException>( () =>
+			writable.Add( new PlanDefinition( "table", "Create table", [ ] ) )
+		);
 
 		Assert.Empty( project.GetPlans( new PlanSearchCriteria() ) );
 	}
@@ -56,13 +62,19 @@ public class ReadOnlyProjectTests
 		using TempProject temp = TempProject.Create();
 		using FileSystemProjectStores stores = temp.Open();
 
-		Assert.Throws<ArgumentNullException>(
-			() => ProjectFactory.Create(
-				stores.InfoStore, stores.ScriptsStore,
-				new ReleaseChainDependencyDeterminator( stores.InfoStore ), null! ) );
+		Assert.Throws<ArgumentNullException>( () => ProjectFactory.Create(
+				stores.InfoStore,
+				stores.ScriptsStore,
+				new ReleaseChainDependencyDeterminator( stores.InfoStore ),
+				null!
+			)
+		);
 	}
 
 	private static IReadOnlyProject CreateReadOnly( FileSystemProjectStores stores )
 		=> ProjectFactory.CreateReadOnly(
-			stores.InfoStore, stores.ScriptsStore, new ReleaseChainDependencyDeterminator( stores.InfoStore ) );
+			stores.InfoStore,
+			stores.ScriptsStore,
+			new ReleaseChainDependencyDeterminator( stores.InfoStore )
+		);
 }

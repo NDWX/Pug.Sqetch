@@ -8,7 +8,7 @@ public class RegistryTests
 	[Fact]
 	public void DriversResolveCaseInsensitivelyAndUnknownNamesListTheKnownOnes()
 	{
-		DatabaseDriverRegistry registry = new ();
+		DatabaseDriverRegistry registry = new();
 
 		Assert.Empty( registry.Names );
 
@@ -28,7 +28,7 @@ public class RegistryTests
 	{
 		public string Name => name;
 
-		public DatabaseDriverParametersDefinition GetParametersDefinition() => new ( [], [] );
+		public DatabaseDriverParametersDefinition GetParametersDefinition() => new( [ ], [ ] );
 
 		public IDatabaseDriver Create( IDictionary<string, string> parameters, TimeSpan stepScriptTimeout )
 			=> new FakeDatabaseDriver();

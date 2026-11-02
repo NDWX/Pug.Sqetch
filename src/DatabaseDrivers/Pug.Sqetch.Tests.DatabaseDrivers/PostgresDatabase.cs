@@ -1,6 +1,8 @@
 using Npgsql;
+
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
+
 using Testcontainers.PostgreSql;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -53,7 +55,7 @@ public sealed class PostgresDatabase : IAsyncLifetime
 	{
 		string name = $"d{Guid.NewGuid():N}";
 
-		using( NpgsqlConnection admin = new ( _container.GetConnectionString() ) )
+		using( NpgsqlConnection admin = new( _container.GetConnectionString() ) )
 		{
 			admin.Open();
 
@@ -70,13 +72,15 @@ public sealed class PostgresDatabase : IAsyncLifetime
 
 	public static IDatabaseDriver Driver( string connectionString, TimeSpan? stepScriptTimeout = null )
 		=> new PostgreSqlDatabaseDriverFactory().Create(
-			new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase ) { ["connection-string"] = connectionString },
-			stepScriptTimeout ?? TimeSpan.FromSeconds( 30 ) );
+			new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase )
+				{ ["connection-string"] = connectionString },
+			stepScriptTimeout ?? TimeSpan.FromSeconds( 30 )
+		);
 
 	/// <summary>Reads committed state back through a connection of its own.</summary>
 	public static List<string> Query( string connectionString, string sql )
 	{
-		using NpgsqlConnection connection = new ( connectionString );
+		using NpgsqlConnection connection = new( connectionString );
 
 		connection.Open();
 
@@ -86,14 +90,16 @@ public sealed class PostgresDatabase : IAsyncLifetime
 
 		using NpgsqlDataReader reader = command.ExecuteReader();
 
-		List<string> rows = [];
+		List<string> rows = [ ];
 
 		while( reader.Read() )
 			rows.Add(
 				string.Join(
 					"|",
 					Enumerable.Range( 0, reader.FieldCount )
-								.Select( index => reader.IsDBNull( index ) ? "<null>" : reader.GetValue( index ).ToString() ) ) );
+						.Select( index => reader.IsDBNull( index ) ? "<null>" : reader.GetValue( index ).ToString() )
+				)
+			);
 
 		return rows;
 	}

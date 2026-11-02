@@ -13,16 +13,17 @@ internal static class DependencyOrdering
 		IEnumerable<T> items,
 		Func<T, string> name,
 		Func<T, IEnumerable<string>> dependencies,
-		Func<T, DateTime> timestamp )
+		Func<T, DateTime> timestamp
+	)
 	{
 		List<T> pending = items
-						.OrderBy( timestamp )
-						.ThenBy( name, StringComparer.OrdinalIgnoreCase )
-						.ToList();
+			.OrderBy( timestamp )
+			.ThenBy( name, StringComparer.OrdinalIgnoreCase )
+			.ToList();
 
-		HashSet<string> known = new ( pending.Select( name ), StringComparer.OrdinalIgnoreCase );
-		HashSet<string> emitted = new ( StringComparer.OrdinalIgnoreCase );
-		List<T> ordered = new ( pending.Count );
+		HashSet<string> known = new( pending.Select( name ), StringComparer.OrdinalIgnoreCase );
+		HashSet<string> emitted = new( StringComparer.OrdinalIgnoreCase );
+		List<T> ordered = new( pending.Count );
 
 		while( pending.Count > 0 )
 		{
@@ -35,6 +36,7 @@ internal static class DependencyOrdering
 				if( dependencies( pending[index] ).All( x => !known.Contains( x ) || emitted.Contains( x ) ) )
 				{
 					ready = index;
+
 					break;
 				}
 			}
@@ -43,6 +45,7 @@ internal static class DependencyOrdering
 			{
 				// dependency cycle: emit the remainder in timestamp order
 				ordered.AddRange( pending );
+
 				break;
 			}
 

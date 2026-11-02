@@ -7,12 +7,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj" />
-      <ProjectReference Include="..\..\Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj" />
+        <ProjectReference Include="..\..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj"/>
+        <ProjectReference Include="..\..\Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
+        <PackageReference Include="Spectre.Console.Cli" Version="0.55.0"/>
     </ItemGroup>
 
 </Project>

@@ -8,16 +8,16 @@ $msi = @( Get-ChildItem -Path $toolsDir -Filter '*.msi' -File )
 
 if( $msi.Count -ne 1 )
 {
-	throw "expected exactly one MSI in $toolsDir, found $( $msi.Count )"
+	throw "expected exactly one MSI in $toolsDir, found $($msi.Count)"
 }
 
-$log = Join-Path $env:TEMP "$( $env:ChocolateyPackageName )-$( $env:ChocolateyPackageVersion ).msi.log"
+$log = Join-Path $env:TEMP "$($env:ChocolateyPackageName)-$($env:ChocolateyPackageVersion).msi.log"
 
 $packageArgs = @{
-	packageName    = $env:ChocolateyPackageName
-	fileType       = 'msi'
-	file           = $msi[0].FullName
-	silentArgs     = "ALLUSERS=1 /qn /norestart /l*v `"$log`""
+	packageName = $env:ChocolateyPackageName
+	fileType = 'msi'
+	file = $msi[0].FullName
+	silentArgs = "ALLUSERS=1 /qn /norestart /l*v `"$log`""
 	validExitCodes = @( 0, 3010, 1641 )
 }
 

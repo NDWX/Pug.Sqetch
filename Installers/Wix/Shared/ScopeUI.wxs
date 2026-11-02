@@ -11,79 +11,102 @@
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
 
-	<Fragment>
-		<UI Id="ScopeUI">
-			<TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
-			<TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
-			<TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
-			<TextStyle Id="WixUI_Font_Emphasized" FaceName="Tahoma" Size="8" Bold="yes" />
+    <Fragment>
+        <UI Id="ScopeUI">
+            <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8"/>
+            <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12"/>
+            <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes"/>
+            <TextStyle Id="WixUI_Font_Emphasized" FaceName="Tahoma" Size="8" Bold="yes"/>
 
-			<Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+            <Property Id="DefaultUIFont" Value="WixUI_Font_Normal"/>
 
-			<!-- the radio group's property: just me unless the command line asked for all users -->
-			<Property Id="ScopeChoice" Value="PerUser" />
+            <!-- the radio group's property: just me unless the command line asked for all users -->
+            <Property Id="ScopeChoice" Value="PerUser"/>
 
-			<DialogRef Id="ErrorDlg" />
-			<DialogRef Id="FatalError" />
-			<DialogRef Id="FilesInUse" />
-			<DialogRef Id="MsiRMFilesInUse" />
-			<DialogRef Id="PrepareDlg" />
-			<DialogRef Id="ProgressDlg" />
-			<DialogRef Id="ResumeDlg" />
-			<DialogRef Id="UserExit" />
+            <DialogRef Id="ErrorDlg"/>
+            <DialogRef Id="FatalError"/>
+            <DialogRef Id="FilesInUse"/>
+            <DialogRef Id="MsiRMFilesInUse"/>
+            <DialogRef Id="PrepareDlg"/>
+            <DialogRef Id="ProgressDlg"/>
+            <DialogRef Id="ResumeDlg"/>
+            <DialogRef Id="UserExit"/>
 
-			<Dialog Id="ScopeDlg" Width="370" Height="270" Title="[ProductName] Setup">
-				<Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallScopeDlgBannerBitmap)" />
-				<Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
-				<Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
-				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Installation scope" />
-				<Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes" Text="Choose who [ProductName] is installed for." />
+            <Dialog Id="ScopeDlg" Width="370" Height="270" Title="[ProductName] Setup">
+                <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no"
+                         Text="!(loc.InstallScopeDlgBannerBitmap)"/>
+                <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0"/>
+                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0"/>
+                <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes"
+                         Text="{\WixUI_Font_Title}Installation scope"/>
+                <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="20" Transparent="yes"
+                         NoPrefix="yes" Text="Choose who [ProductName] is installed for."/>
 
-				<!-- an administrator chooses; anyone else can only install for themselves -->
-				<Control Id="BothScopes" Type="RadioButtonGroup" X="20" Y="55" Width="330" Height="120" Property="ScopeChoice" Hidden="yes" ShowCondition="Privileged">
-					<RadioButtonGroup Property="ScopeChoice">
-						<RadioButton Value="PerUser" X="0" Y="0" Width="295" Height="16" Text="{\WixUI_Font_Emphasized}Install &amp;just for you ([LogonUser])" />
-						<RadioButton Value="PerMachine" X="0" Y="60" Width="295" Height="16" Text="{\WixUI_Font_Emphasized}Install for all users of this &amp;machine" />
-					</RadioButtonGroup>
-				</Control>
-				<Control Id="PerUserDescription" Type="Text" X="33" Y="70" Width="300" Height="36" Hidden="yes" NoPrefix="yes" ShowCondition="Privileged" Text="[ProductName] is installed to your %LocalAppData%\Programs folder and added to your PATH. No administrator rights are needed." />
-				<Control Id="PerMachineDescription" Type="Text" X="33" Y="131" Width="300" Height="36" Hidden="yes" NoPrefix="yes" ShowCondition="Privileged" Text="[ProductName] is installed to the Program Files folder and added to the system PATH, for every user of this computer. Administrator rights are required." />
-				<Control Id="StandardUserDescription" Type="Text" X="25" Y="60" Width="320" Height="48" Hidden="yes" NoPrefix="yes" ShowCondition="NOT Privileged" Text="[ProductName] is installed to your %LocalAppData%\Programs folder and added to your PATH. Installing for all users of this computer needs administrator rights." />
+                <!-- an administrator chooses; anyone else can only install for themselves -->
+                <Control Id="BothScopes" Type="RadioButtonGroup" X="20" Y="55" Width="330" Height="120"
+                         Property="ScopeChoice" Hidden="yes" ShowCondition="Privileged">
+                    <RadioButtonGroup Property="ScopeChoice">
+                        <RadioButton Value="PerUser" X="0" Y="0" Width="295" Height="16"
+                                     Text="{\WixUI_Font_Emphasized}Install &amp;just for you ([LogonUser])"/>
+                        <RadioButton Value="PerMachine" X="0" Y="60" Width="295" Height="16"
+                                     Text="{\WixUI_Font_Emphasized}Install for all users of this &amp;machine"/>
+                    </RadioButtonGroup>
+                </Control>
+                <Control Id="PerUserDescription" Type="Text" X="33" Y="70" Width="300" Height="36" Hidden="yes"
+                         NoPrefix="yes" ShowCondition="Privileged"
+                         Text="[ProductName] is installed to your %LocalAppData%\Programs folder and added to your PATH. No administrator rights are needed."/>
+                <Control Id="PerMachineDescription" Type="Text" X="33" Y="131" Width="300" Height="36" Hidden="yes"
+                         NoPrefix="yes" ShowCondition="Privileged"
+                         Text="[ProductName] is installed to the Program Files folder and added to the system PATH, for every user of this computer. Administrator rights are required."/>
+                <Control Id="StandardUserDescription" Type="Text" X="25" Y="60" Width="320" Height="48" Hidden="yes"
+                         NoPrefix="yes" ShowCondition="NOT Privileged"
+                         Text="[ProductName] is installed to your %LocalAppData%\Programs folder and added to your PATH. Installing for all users of this computer needs administrator rights."/>
 
-				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
-				<Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WelcomeEulaDlgInstall)">
-					<Publish Property="MSIINSTALLPERUSER" Value="1" Order="1" Condition="ScopeChoice = &quot;PerUser&quot; OR NOT Privileged" />
-					<Publish Property="MSIINSTALLPERUSER" Value="{}" Order="2" Condition="ScopeChoice = &quot;PerMachine&quot; AND Privileged" />
-					<Publish Property="ALLUSERS" Value="2" Order="3" />
-					<Publish Event="SpawnWaitDialog" Value="WaitForCostingDlg" Order="4" Condition="!(wix.WixUICostingPopupOptOut) OR CostingComplete = 1" />
-					<Publish Event="EndDialog" Value="Return" Order="5" Condition="OutOfDiskSpace &lt;&gt; 1" />
-					<Publish Event="SpawnDialog" Value="OutOfRbDiskDlg" Order="6" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST=&quot;P&quot; OR NOT PROMPTROLLBACKCOST)" />
-					<Publish Event="EndDialog" Value="Return" Order="7" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-					<Publish Event="EnableRollback" Value="False" Order="8" Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;" />
-					<Publish Event="SpawnDialog" Value="OutOfDiskDlg" Order="9" Condition="(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST=&quot;F&quot;)" />
-				</Control>
-				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
-					<Publish Event="SpawnDialog" Value="CancelDlg" />
-				</Control>
-			</Dialog>
+                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes"
+                         Text="!(loc.WixUIBack)"/>
+                <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes"
+                         Text="!(loc.WelcomeEulaDlgInstall)">
+                    <Publish Property="MSIINSTALLPERUSER" Value="1" Order="1"
+                             Condition="ScopeChoice = &quot;PerUser&quot; OR NOT Privileged"/>
+                    <Publish Property="MSIINSTALLPERUSER" Value="{}" Order="2"
+                             Condition="ScopeChoice = &quot;PerMachine&quot; AND Privileged"/>
+                    <Publish Property="ALLUSERS" Value="2" Order="3"/>
+                    <Publish Event="SpawnWaitDialog" Value="WaitForCostingDlg" Order="4"
+                             Condition="!(wix.WixUICostingPopupOptOut) OR CostingComplete = 1"/>
+                    <Publish Event="EndDialog" Value="Return" Order="5" Condition="OutOfDiskSpace &lt;&gt; 1"/>
+                    <Publish Event="SpawnDialog" Value="OutOfRbDiskDlg" Order="6"
+                             Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST=&quot;P&quot; OR NOT PROMPTROLLBACKCOST)"/>
+                    <Publish Event="EndDialog" Value="Return" Order="7"
+                             Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;"/>
+                    <Publish Event="EnableRollback" Value="False" Order="8"
+                             Condition="OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST=&quot;D&quot;"/>
+                    <Publish Event="SpawnDialog" Value="OutOfDiskDlg" Order="9"
+                             Condition="(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST=&quot;F&quot;)"/>
+                </Control>
+                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes"
+                         Text="!(loc.WixUICancel)">
+                    <Publish Event="SpawnDialog" Value="CancelDlg"/>
+                </Control>
+            </Dialog>
 
-			<Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+            <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999"/>
 
-			<Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" />
-			<Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
-			<Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
-			<Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
-			<Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
-		</UI>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg"/>
+            <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg"/>
+            <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg"/>
+            <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg"/>
+            <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg"/>
+        </UI>
 
-		<!-- the command line may ask for all users: ALLUSERS=1, or ALLUSERS=2 with MSIINSTALLPERUSER emptied -->
-		<SetProperty Id="ScopeChoice" Value="PerMachine" Before="CostInitialize" Sequence="ui" Condition="ALLUSERS=1 OR (ALLUSERS=2 AND NOT MSIINSTALLPERUSER)" />
+        <!-- the command line may ask for all users: ALLUSERS=1, or ALLUSERS=2 with MSIINSTALLPERUSER emptied -->
+        <SetProperty Id="ScopeChoice" Value="PerMachine" Before="CostInitialize" Sequence="ui"
+                     Condition="ALLUSERS=1 OR (ALLUSERS=2 AND NOT MSIINSTALLPERUSER)"/>
 
-		<InstallUISequence>
-			<Show Dialog="ScopeDlg" Before="ProgressDlg" Condition="NOT Installed" />
-		</InstallUISequence>
+        <InstallUISequence>
+            <Show Dialog="ScopeDlg" Before="ProgressDlg" Condition="NOT Installed"/>
+        </InstallUISequence>
 
-		<UIRef Id="WixUI_Common" />
-	</Fragment>
+        <UIRef Id="WixUI_Common"/>
+    </Fragment>
 
 </Wix>

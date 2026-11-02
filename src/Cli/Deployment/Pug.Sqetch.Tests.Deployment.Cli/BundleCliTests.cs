@@ -3,11 +3,13 @@ using System.Reflection;
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Deployment.Cli;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Tests.Planning.Stores.FileSystem;
+
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Deployment.Cli;
@@ -44,7 +46,7 @@ public class BundleCliTests : IDisposable
 
 	internal static CommandAppResult Run( params string[] args )
 	{
-		CommandAppTester tester = new ( SqetchDeployApp.CreateDefaultRegistrar() );
+		CommandAppTester tester = new( SqetchDeployApp.CreateDefaultRegistrar() );
 
 		tester.Configure( SqetchDeployApp.Configure );
 
@@ -54,16 +56,18 @@ public class BundleCliTests : IDisposable
 	private string Out( string name ) => Path.Combine( _out, name );
 
 	private CommandAppResult Bundle( params string[] args )
-		=> Run( ["bundle", "--project", _temp.Root, ..args] );
+		=> Run( [ "bundle", "--project", _temp.Root, .. args ] );
 
 	private void Populate( bool withJournaling = true )
-		=> BundleTestProjects.Populate( _temp, project =>
-		{
-			BundleTestProjects.AddFinalizedRelease( _temp, project );
+		=> BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
 
-			if( withJournaling )
-				BundleTestProjects.SetJournaling( project );
-		} );
+				if( withJournaling )
+					BundleTestProjects.SetJournaling( project );
+			}
+		);
 
 	private static JsonDocument ReadManifest( ZipArchive archive )
 		=> JsonDocument.Parse( new StreamReader( archive.GetEntry( "manifest.json" )!.Open() ).ReadToEnd() );
@@ -90,13 +94,16 @@ public class BundleCliTests : IDisposable
 				"plans/table/steps/create/verify.sql",
 				"plans/table/steps/create/rollback.sql"
 			],
-			archive.Entries.Select( x => x.FullName ).Where( x => !x.StartsWith( "journaling/" ) ).ToArray() );
+			archive.Entries.Select( x => x.FullName ).Where( x => !x.StartsWith( "journaling/" ) ).ToArray()
+		);
 
 		// the project's journaling SQL travels with the bundle, between the manifest and the plans
 		Assert.Equal( 15, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
+
 		Assert.Equal(
 			"select 'PrepareJournal'",
-			new StreamReader( archive.GetEntry( "journaling/PrepareJournal.sql" )!.Open() ).ReadToEnd().Trim() );
+			new StreamReader( archive.GetEntry( "journaling/PrepareJournal.sql" )!.Open() ).ReadToEnd().Trim()
+		);
 
 		using JsonDocument manifest = ReadManifest( archive );
 
@@ -127,9 +134,13 @@ public class BundleCliTests : IDisposable
 		Assert.Equal( 1, metadata.Format );
 		Assert.Equal( "default", metadata.Layout );
 		Assert.Equal( "sqetch-deploy", metadata.Bundler );
+
 		Assert.Equal(
-			typeof(SqetchDeployApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion,
-			metadata.BundlerVersion );
+			typeof(SqetchDeployApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+				.InformationalVersion,
+			metadata.BundlerVersion
+		);
+
 		Assert.Equal( DateTimeKind.Utc, metadata.Bundled.Kind );
 		Assert.InRange( metadata.Bundled, before, after );
 
@@ -140,7 +151,7 @@ public class BundleCliTests : IDisposable
 	}
 
 	private static DateTime TruncateToSecond( DateTime value )
-		=> new ( value.Ticks - value.Ticks % TimeSpan.TicksPerSecond, value.Kind );
+		=> new( value.Ticks - value.Ticks % TimeSpan.TicksPerSecond, value.Kind );
 
 	/// <summary>
 	/// Bundling only reads, and 'sqetch-deploy' never looks for a project user: neither the project
@@ -162,15 +173,21 @@ public class BundleCliTests : IDisposable
 	[Fact]
 	public void TestSelectionIncludesUnreleasedPlansAfterReleasedOnes()
 	{
-		BundleTestProjects.Populate( _temp, project =>
-		{
-			BundleTestProjects.AddFinalizedRelease( _temp, project );
-			BundleTestProjects.SetJournaling( project );
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
+				BundleTestProjects.SetJournaling( project );
 
-			project.Add( new PlanDefinition( "pending", "", [] ) );
-			BundleTestProjects.SeedScripts(
-				_temp, project.Add( new StepDefinition( "pending", "later", "", [] ), "pending" ), "later" );
-		} );
+				project.Add( new PlanDefinition( "pending", "", [ ] ) );
+
+				BundleTestProjects.SeedScripts(
+					_temp,
+					project.Add( new StepDefinition( "pending", "later", "", [ ] ), "pending" ),
+					"later"
+				);
+			}
+		);
 
 		CommandAppResult result = Bundle( "--test", "--bundle-output-path", Out( "test.zip" ) );
 
@@ -182,7 +199,7 @@ public class BundleCliTests : IDisposable
 
 		JsonElement[] plans = manifest.RootElement.GetProperty( "plans" ).EnumerateArray().ToArray();
 
-		Assert.Equal( ["table", "pending"], plans.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
+		Assert.Equal( [ "table", "pending" ], plans.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
 		Assert.Equal( "", plans[1].GetProperty( "release" ).GetString() );
 		Assert.Equal( "test", manifest.RootElement.GetProperty( "selection" ).GetString() );
 	}
@@ -190,18 +207,24 @@ public class BundleCliTests : IDisposable
 	[Fact]
 	public void SinceBundlesOnlyTheReleasesAfterTheNamedOne()
 	{
-		BundleTestProjects.Populate( _temp, project =>
-		{
-			BundleTestProjects.AddFinalizedRelease( _temp, project );
-			BundleTestProjects.SetJournaling( project );
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
+				BundleTestProjects.SetJournaling( project );
 
-			project.Add( new PlanDefinition( "index", "", [] ) );
-			BundleTestProjects.SeedScripts(
-				_temp, project.Add( new StepDefinition( "index", "create", "", [] ), "index" ), "create" );
+				project.Add( new PlanDefinition( "index", "", [ ] ) );
 
-			project.CreateRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), ["index"] );
-			project.FinalizeRelease( "2026.08" );
-		} );
+				BundleTestProjects.SeedScripts(
+					_temp,
+					project.Add( new StepDefinition( "index", "create", "", [ ] ), "index" ),
+					"create"
+				);
+
+				project.CreateRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), [ "index" ] );
+				project.FinalizeRelease( "2026.08" );
+			}
+		);
 
 		CommandAppResult result = Bundle( "--since", "2026.07", "--bundle-output-path", Out( "since.zip" ) );
 
@@ -213,12 +236,12 @@ public class BundleCliTests : IDisposable
 
 		JsonElement[] releases = manifest.RootElement.GetProperty( "releases" ).EnumerateArray().ToArray();
 
-		Assert.Equal( ["2026.08"], releases.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
+		Assert.Equal( [ "2026.08" ], releases.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
 		Assert.Equal( "2026.07", releases[0].GetProperty( "dependency" ).GetString() );
 
 		JsonElement[] plans = manifest.RootElement.GetProperty( "plans" ).EnumerateArray().ToArray();
 
-		Assert.Equal( ["index"], plans.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
+		Assert.Equal( [ "index" ], plans.Select( x => x.GetProperty( "name" ).GetString()! ).ToArray() );
 	}
 
 	[Fact]
@@ -245,8 +268,12 @@ public class BundleCliTests : IDisposable
 
 		Assert.True( File.Exists( Path.Combine( Out( "deploy" ), "META-DATA" ) ) );
 		Assert.True( File.Exists( Path.Combine( Out( "deploy" ), "manifest.json" ) ) );
-		Assert.True( File.Exists(
-			Path.Combine( Out( "deploy" ), "plans", "table", "steps", "create", "deploy.sql" ) ) );
+
+		Assert.True(
+			File.Exists(
+				Path.Combine( Out( "deploy" ), "plans", "table", "steps", "create", "deploy.sql" )
+			)
+		);
 	}
 
 	[Fact]
@@ -256,11 +283,12 @@ public class BundleCliTests : IDisposable
 
 		Assert.Equal(
 			DeployExitCodes.Success,
-			Bundle( "--bundle-type", "tar.gz", "--bundle-output-path", Out( "b.tar.gz" ) ).ExitCode );
+			Bundle( "--bundle-type", "tar.gz", "--bundle-output-path", Out( "b.tar.gz" ) ).ExitCode
+		);
 
 		using FileStream file = File.OpenRead( Out( "b.tar.gz" ) );
-		using GZipStream gzip = new ( file, CompressionMode.Decompress );
-		using TarReader reader = new ( gzip );
+		using GZipStream gzip = new( file, CompressionMode.Decompress );
+		using TarReader reader = new( gzip );
 
 		// the metadata leads, then the manifest, so streaming consumers see both before the payload
 		Assert.Equal( "META-DATA", reader.GetNextEntry()!.Name );
@@ -284,11 +312,13 @@ public class BundleCliTests : IDisposable
 	[Fact]
 	public void NothingToBundleFailsWithFriendlyError()
 	{
-		BundleTestProjects.Populate( _temp, project =>
-		{
-			project.Add( new PlanDefinition( "unreleased-only", "", [] ) );
-			BundleTestProjects.SetJournaling( project );
-		} );
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				project.Add( new PlanDefinition( "unreleased-only", "", [ ] ) );
+				BundleTestProjects.SetJournaling( project );
+			}
+		);
 
 		CommandAppResult result = Bundle( "--bundle-output-path", Out( "empty.zip" ) );
 
@@ -347,7 +377,12 @@ public class BundleCliTests : IDisposable
 	{
 		Populate();
 
-		CommandAppResult result = Bundle( "--bundel-output-path", Out( "typo.zip" ), "--bundle-output-path", Out( "real.zip" ) );
+		CommandAppResult result = Bundle(
+			"--bundel-output-path",
+			Out( "typo.zip" ),
+			"--bundle-output-path",
+			Out( "real.zip" )
+		);
 
 		Assert.Equal( DeployExitCodes.UsageError, result.ExitCode );
 		Assert.Contains( "unknown option '--bundel-output-path'", result.Output );
@@ -416,17 +451,23 @@ public class BundleCliTests : IDisposable
 	[Fact]
 	public void SinceNamingAnOpenReleaseLeavesNothingToBundle()
 	{
-		BundleTestProjects.Populate( _temp, project =>
-		{
-			BundleTestProjects.AddFinalizedRelease( _temp, project );
-			BundleTestProjects.SetJournaling( project );
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
+				BundleTestProjects.SetJournaling( project );
 
-			project.Add( new PlanDefinition( "index", "", [] ) );
-			BundleTestProjects.SeedScripts(
-				_temp, project.Add( new StepDefinition( "index", "create", "", [] ), "index" ), "create" );
+				project.Add( new PlanDefinition( "index", "", [ ] ) );
 
-			project.CreateRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), ["index"] );
-		} );
+				BundleTestProjects.SeedScripts(
+					_temp,
+					project.Add( new StepDefinition( "index", "create", "", [ ] ), "index" ),
+					"create"
+				);
+
+				project.CreateRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), [ "index" ] );
+			}
+		);
 
 		CommandAppResult result = Bundle( "--since", "2026.08", "--bundle-output-path", Out( "open.zip" ) );
 

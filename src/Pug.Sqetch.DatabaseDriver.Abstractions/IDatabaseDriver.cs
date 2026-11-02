@@ -12,9 +12,9 @@ namespace Pug.Sqetch.DatabaseDriver;
 /// </summary>
 public interface IDatabaseDriver : IDisposable
 {
-    /// <summary>
-    /// Return an instance of IDatabaseTransaction that can be used to execute change and journaling scripts within a single transaction.
-    /// </summary>
-    /// <returns>Instance of IDatabaseTransaction</returns>
-    public IDatabaseTransaction BeginTransaction();
+	/// <summary>
+	/// Return an instance of IDatabaseTransaction that can be used to execute change and journaling scripts within a single transaction.
+	/// </summary>
+	/// <returns>Instance of IDatabaseTransaction</returns>
+	public IDatabaseTransaction BeginTransaction();
 }
