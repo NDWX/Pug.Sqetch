@@ -2,7 +2,7 @@ using System.Reflection;
 
 using Spectre.Console.Cli;
 
-namespace Pug.Sqetch.Deployment.Cli;
+namespace Pug.Sqetch.Cli;
 
 /// <summary>
 /// Minimal dependency container for the command tree: the app registers its component

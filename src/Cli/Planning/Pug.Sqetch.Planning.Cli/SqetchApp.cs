@@ -1,4 +1,9 @@
+using Pug.Sqetch.Cli;
 using Pug.Sqetch.Cli.Commands.Authoring;
+using Pug.Sqetch.DatabaseDriver;
+using Pug.Sqetch.DatabaseDrivers.PostgreSql;
+using Pug.Sqetch.DatabaseDrivers.Sqlite;
+using Pug.Sqetch.Shared;
 
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -11,6 +16,28 @@ namespace Pug.Sqetch.Planning.Cli;
 /// </summary>
 public static class SqetchApp
 {
+	/// <summary>
+	/// The production composition. 'sqetch' registers the database drivers for their journaling
+	/// templates alone — it never connects to a database — and reads user-level templates from
+	/// <paramref name="userTemplateRoot"/>, the OS configuration folder unless a test passes its own.
+	/// </summary>
+	public static TypeRegistrar CreateDefaultRegistrar( string? userTemplateRoot = null )
+	{
+		DatabaseDriverRegistry drivers = new();
+		drivers.RegisterPostgreSqlDriver();
+		drivers.RegisterSqliteDriver();
+
+		TypeRegistrar registrar = new();
+
+		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), drivers );
+		registrar.RegisterInstance(
+			typeof(JournalingTemplateSources),
+			new JournalingTemplateSources( drivers, userTemplateRoot ?? JournalingTemplateSources.DefaultUserRoot() ) );
+		registrar.RegisterInstance( typeof(WarningWriter), WarningWriter.ToStandardError() );
+
+		return registrar;
+	}
+
 	public static void Configure( IConfigurator config )
 	{
 		config.SetApplicationName( "sqetch" );
@@ -111,6 +138,12 @@ public static class SqetchApp
 
 				journaling.AddCommand<JournalingSetCommand>( "set" )
 					.WithDescription( "Set one slot's SQL from an argument, --file or --stdin" );
+
+				journaling.AddCommand<JournalingInitCommand>( "init" )
+					.WithDescription( "Set every slot from a journaling template; the driver defaults to the project's engine" );
+
+				journaling.AddCommand<JournalingTemplatesCommand>( "templates" )
+					.WithDescription( "List the journaling templates 'init' can use, by driver and level" );
 			}
 		);
 	}

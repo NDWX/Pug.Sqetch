@@ -1,5 +1,6 @@
 using System.ComponentModel;
 
+using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;
 using Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 
@@ -8,7 +9,8 @@ using Spectre.Console.Cli;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring;
 
-public sealed class ProjectInitCommand( IAnsiConsole console ) : Command<ProjectInitCommand.Settings>
+public sealed class ProjectInitCommand( IAnsiConsole console, IDatabaseDriverRegistry drivers, WarningWriter warnings )
+	: Command<ProjectInitCommand.Settings>
 {
 	public sealed class Settings : CommandSettings
 	{
@@ -20,7 +22,7 @@ public sealed class ProjectInitCommand( IAnsiConsole console ) : Command<Project
 		public string? Description { get; init; }
 
 		[CommandOption( "--engine <ENGINE>" )]
-		[Description( "Database engine the project targets" )]
+		[Description( "Database engine the project targets; naming a database driver (see 'sqetch journaling templates') lets 'journaling init' default to it" )]
 		public string? Engine { get; init; }
 
 		[CommandOption( "--shard-by-prefix [DELIMITER]" )]
@@ -55,6 +57,12 @@ public sealed class ProjectInitCommand( IAnsiConsole console ) : Command<Project
 			.Dispose();
 
 		console.WriteLine( $"initialized Sqetch project in {projectPath}" );
+
+		// free text, so not refused; but only a driver's name lets 'journaling init' default to it
+		if( !string.IsNullOrWhiteSpace( settings.Engine ) && !drivers.TryCreate( settings.Engine, out _ ) )
+			warnings.Write(
+				$"engine '{settings.Engine}' names no database driver ({string.Join( ", ", drivers.Names.Order( StringComparer.OrdinalIgnoreCase ) )}); " +
+				"'sqetch journaling init' will need the driver passed explicitly" );
 
 		return 0;
 	}

@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Pug.Sqetch.Cli.Common\Pug.Sqetch.Cli.Common.csproj"/>
+        <ProjectReference Include="..\..\Pug.Sqetch.Shared\Pug.Sqetch.Shared.csproj"/>
     </ItemGroup>
 
 </Project>

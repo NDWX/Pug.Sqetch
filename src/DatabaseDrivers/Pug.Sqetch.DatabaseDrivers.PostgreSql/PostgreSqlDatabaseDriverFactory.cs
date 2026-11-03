@@ -15,11 +15,15 @@ namespace Pug.Sqetch.DatabaseDrivers.PostgreSql;
 /// stores whatever the session's time zone makes of that instant; <c>timestamptz</c> is the type
 /// that keeps it.
 /// </summary>
-public sealed class PostgreSqlDatabaseDriverFactory : IDatabaseDriverFactory
+public sealed class PostgreSqlDatabaseDriverFactory : IDatabaseDriverFactory, IJournalingTemplateProvider
 {
 	public const string DriverName = "postgres";
 
 	public string Name => DriverName;
+
+	/// <summary>The rollback-aware template under 'Journaling/', one file per slot.</summary>
+	public IReadOnlyDictionary<string, string> GetJournalingTemplate()
+		=> EmbeddedJournalingTemplate.Load( typeof(PostgreSqlDatabaseDriverFactory).Assembly );
 
 	public DatabaseDriverParametersDefinition GetParametersDefinition()
 		=> new(

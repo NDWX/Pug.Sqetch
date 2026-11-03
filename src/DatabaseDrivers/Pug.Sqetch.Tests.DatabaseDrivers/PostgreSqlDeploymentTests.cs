@@ -1,3 +1,5 @@
+using Pug.Sqetch.DatabaseDrivers.PostgreSql;
+
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
 
 /// <summary>
@@ -23,7 +25,7 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 
 				return new RealDatabaseDeployment(
 					() => PostgresDatabase.Driver( connection ),
-					PostgreSqlJournal.Statements(),
+					BuiltInJournal.Statements( new PostgreSqlDatabaseDriverFactory() ),
 					sql => PostgresDatabase.Query( connection, sql ),
 					() => PostgresDatabase.Query(
 						connection,

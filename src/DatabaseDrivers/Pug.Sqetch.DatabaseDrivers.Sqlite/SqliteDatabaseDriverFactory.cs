@@ -12,11 +12,15 @@ namespace Pug.Sqetch.DatabaseDrivers.Sqlite;
 /// statement, so a release deployed at release commit level is genuinely all-or-nothing here —
 /// unlike the engines whose DDL commits itself.
 /// </summary>
-public sealed class SqliteDatabaseDriverFactory : IDatabaseDriverFactory
+public sealed class SqliteDatabaseDriverFactory : IDatabaseDriverFactory, IJournalingTemplateProvider
 {
 	public const string DriverName = "sqlite";
 
 	public string Name => DriverName;
+
+	/// <summary>The rollback-aware template under 'Journaling/', one file per slot.</summary>
+	public IReadOnlyDictionary<string, string> GetJournalingTemplate()
+		=> EmbeddedJournalingTemplate.Load( typeof(SqliteDatabaseDriverFactory).Assembly );
 
 	public DatabaseDriverParametersDefinition GetParametersDefinition()
 		=> new(

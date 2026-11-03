@@ -6,6 +6,8 @@ using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.Deployment;
+using Pug.Sqetch.Shared;
+using Pug.Sqetch.Cli;
 using Pug.Sqetch.Deployment.Cli;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.Planning.Models;

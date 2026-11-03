@@ -5,6 +5,10 @@ A complete set of the fifteen journaling statements for a PostgreSQL database. T
 but keep the two queries' logic: they are what tell `sqetch-deploy` where a database stands,
 including after a rollback.
 
+Since `sqetch` 0.2 this is the `postgres` driver's built-in template, and
+`sqetch journaling init postgres` sets all fifteen at once; use what follows only with an older
+`sqetch`, or to read the SQL.
+
 Write each block below to a file named after its slot, in a temporary folder outside the project
 (here `/tmp/journaling-sql`), then set them all from inside the project folder:
 

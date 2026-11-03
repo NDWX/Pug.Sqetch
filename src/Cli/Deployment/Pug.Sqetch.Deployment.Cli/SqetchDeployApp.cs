@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Pug.Sqetch.Cli;
 using Pug.Sqetch.Deployment.Bundling;
 using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
@@ -7,6 +8,7 @@ using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
+using Pug.Sqetch.Shared;
 
 using Spectre.Console;
 using Spectre.Console.Cli;

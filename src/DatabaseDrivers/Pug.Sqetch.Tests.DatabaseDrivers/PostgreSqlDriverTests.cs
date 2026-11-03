@@ -1,6 +1,7 @@
 using System.Data;
 
 using Pug.Sqetch.Deployment;
+using Pug.Sqetch.Shared;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 

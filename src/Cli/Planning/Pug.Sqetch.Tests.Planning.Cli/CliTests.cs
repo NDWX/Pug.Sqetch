@@ -1,7 +1,5 @@
 using System.Text.Json;
 
-using Pug.Sqetch.Planning.Cli;
-
 using Spectre.Console.Cli.Testing;
 using Spectre.Console.Testing;
 
@@ -43,11 +41,7 @@ public class CliTests : IDisposable
 
 	private static CommandAppResult Run( params string[] args )
 	{
-		CommandAppTester tester = new();
-
-		tester.Configure( SqetchApp.Configure );
-
-		return tester.Run( args );
+		return SqetchTester.Create().Run( args );
 	}
 
 	private void InitializeProject()
@@ -251,9 +245,7 @@ public class CliTests : IDisposable
 		InitializeProject();
 		Run( "plan", "create", "--name", "solo", "--description", "only one" );
 
-		CommandAppTester tester = new( console: new TestConsole().Width( 160 ).Interactive() );
-
-		tester.Configure( SqetchApp.Configure );
+		CommandAppTester tester = SqetchTester.Create( console: new TestConsole().Width( 160 ).Interactive() );
 
 		CommandAppResult result = tester.Run( "plan", "list" );
 

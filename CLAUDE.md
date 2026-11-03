@@ -30,7 +30,7 @@ projects, the 'sqetch' CLI) and **Deployment** (bundling and deploying them, the
 The database drivers and the CLI presentation layer sit beside them.
 
 Every project lives under `src/`, in the folder matching its solution folder: the four contract and
-model projects at `src/` itself, then `src/Planning`, `src/ProjectInfoStores`, `src/Deployment`,
+model projects and `Pug.Sqetch.Shared` (with its tests) at `src/` itself, then `src/Planning`, `src/ProjectInfoStores`, `src/Deployment`,
 `src/DatabaseDrivers`, `src/Cli` (the shared CLI layer), `src/Cli/Planning` (the 'sqetch' commands
 and host), `src/Cli/Deployment` (the 'sqetch-deploy' commands, host and bundling contracts) and
 `src/Cli/Deployment/Bundling`. Each test project sits beside what it tests. A new project goes in
@@ -45,25 +45,27 @@ root.
 | `Pug.Sqetch.Planning.Abstractions` (net8.0) | The authoring contracts: `IProject`/`IReadOnlyProject`, `IScriptsStore`, `IReleaseDependencyDeterminator`, domain exceptions; `ProjectInfoStore/` — `IProjectInfoStore` |
 | `Pug.Sqetch.Planning` | The engine (`Project`): business rules, dependency ordering, semaphores |
 | `Pug.Sqetch.Planning.ProjectInfoStores.FileSystem` | Git-friendly file store: `ProjectPaths`, sharding, plan index, `NameRules` |
-| `Pug.Sqetch.Cli.Commands` (net10.0) | The 'sqetch' commands (project, plan, step, release, journaling), `OptionParsing`, `Output/Rows` |
-| `Pug.Sqetch.Planning.Cli` | The 'sqetch' host: `Program`, the command tree (`SqetchApp.Configure`) and `CliErrors`. Its tool package keeps the id `Pug.Sqetch.Cli` |
+| `Pug.Sqetch.Cli.Commands` (net10.0) | The 'sqetch' commands (project, plan, step, release, journaling), `OptionParsing`, `Output/Rows`. References the driver contract, not the drivers |
+| `Pug.Sqetch.Planning.Cli` | The 'sqetch' host: `Program`, the command tree (`SqetchApp.Configure`), the default composition (`SqetchApp.CreateDefaultRegistrar`: the drivers, for their journaling templates, the template sources and the warning writer) and `CliErrors`. Its tool package keeps the id `Pug.Sqetch.Cli` |
 | **Deployment** | |
 | `Pug.Sqetch.Deployment.Bundling.Abstractions` (net8.0) | The bundling contracts: `Bundle`/`BundleManifest` models, `BundleMetadata` (the `META-DATA` entry), `IBundleType`/`IBundleWriter`/`IBundleReader`/`IBundleLayout`, registry interfaces, bundling exceptions. References only `Planning.Models` |
 | `Pug.Sqetch.Deployment.Bundling.BundleTypes` | zip / tar / tar.gz / directory implementations + `RegisterBundleTypes()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations; the one bundling project that also references the planning contracts |
 | `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses). References nothing |
-| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, driver registry, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
+| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
 | `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
-| `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, the only project referencing the concrete drivers), `TypeRegistrar` DI seam |
+| `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
 | **Database drivers** | |
-| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
-| `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`/`AdoDialect`: the ADO.NET half every provider driver inherits; references only the driver contract |
-| `Pug.Sqetch.DatabaseDrivers.Sqlite` | `SqliteDatabaseDriverFactory` (Microsoft.Data.Sqlite) + `RegisterSqliteDriver()` |
-| `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()` |
+| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
+| `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`/`AdoDialect`: the ADO.NET half every provider driver inherits, and `EmbeddedJournalingTemplate`, which reads a driver's `journaling/<slot>.sql` resources; references only the driver contract |
+| `Pug.Sqetch.DatabaseDrivers.Sqlite` | `SqliteDatabaseDriverFactory` (Microsoft.Data.Sqlite) + `RegisterSqliteDriver()`; `Journaling/*.sql`, its built-in journaling template |
+| `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()`; `Journaling/*.sql`, its built-in journaling template |
+| **Shared** | |
+| `Pug.Sqetch.Shared` (net8.0) | Implementations both CLIs' back ends use, so neither depends on the other's: `DatabaseDriverRegistry`. References only the driver contract |
 | **Shared CLI** | |
-| `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present and open projects with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter`; `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `UserIdentity`, `Defaults`. The only layer touching `ProjectPaths` for output |
-| **Tests** | xunit, one project per tier: `Pug.Sqetch.Planning.Tests` (engine), `Pug.Sqetch.Tests.Planning.Stores.FileSystem`, `Pug.Sqetch.Tests.Planning.Cli`, `Pug.Sqetch.Tests.Deployment.Bundling`, `Pug.Sqetch.Tests.Deployment`, `Pug.Sqetch.Tests.DatabaseDrivers`, `Pug.Sqetch.Tests.Deployment.Cli`, `Pug.Sqetch.Tests.Cli.Common` |
+| `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present and open projects with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter`; `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `UserIdentity`, `Defaults`; `TypeRegistrar` (both hosts' DI seam), `WarningWriter` (warnings on standard error), `JournalingTemplateSources`. The only layer touching `ProjectPaths` for output |
+| **Tests** | xunit, one project per tier: `Pug.Sqetch.Planning.Tests` (engine), `Pug.Sqetch.Tests.Planning.Stores.FileSystem`, `Pug.Sqetch.Tests.Planning.Cli`, `Pug.Sqetch.Tests.Deployment.Bundling`, `Pug.Sqetch.Tests.Deployment`, `Pug.Sqetch.Tests.DatabaseDrivers`, `Pug.Sqetch.Tests.Deployment.Cli`, `Pug.Sqetch.Tests.Cli.Common`, `Pug.Sqetch.Tests.Shared` |
 | `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + `Image.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `docker/` (the `sqetch-deploy` image), `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
 | `actions/` | GitHub Actions for users (GPL): `install-sqetch-deploy` (composite; `install.sh` in bash, since some arm64 runner images lack pwsh) |
 | `claude/pug-sqetch/` | The agent skills plugin for Sqetch's users (MIT): `sqetch` (entry point, concepts, versions, help), `sqetch-install`, `sqetch-new-project` (with tested journaling templates), `sqetch-plans-and-releases`, `sqetch-bundle-and-deploy`, `sqetch-ci`. Listed in the `pug-claude-plugins` marketplace (`NDWX/claude-code-plugins`) from this repository's `main` |
@@ -96,7 +98,7 @@ root.
   `Pug.Sqetch.DatabaseDriver.Abstractions`; sharding lives inside the file-system store), implementations
   in sibling projects that reference only those contracts, a registry keyed by name (`OrdinalIgnoreCase`). Bundling and
   deployment registries ship **empty**; the host registers built-ins via the `Register*()`
-  extension methods (see `SqetchDeployApp.CreateDefaultRegistrar`).
+  extension methods (see `SqetchDeployApp.CreateDefaultRegistrar` and `SqetchApp.CreateDefaultRegistrar`).
   Journaling is deliberately *not* a family:
   the SQL is the project's, so there is nothing to select at deploy time and no
   `--driver`/`--journal` pair to mismatch.
@@ -157,6 +159,25 @@ root.
   so `> file.sql` round-trips) and `set <slot>` taking exactly one of an SQL argument, `--file` or
   `--stdin`. SQL beginning with `--` cannot be passed as the argument — a leading-dash positional
   parses as an option — so a comment-first statement needs `--file` or `--stdin`.
+- **Journaling templates** (`journaling init [<driver>] [--template <name>] [--force]`,
+  `journaling templates [<driver>]`): a template is a starting point copied into the project, after
+  which the project owns the SQL — journaling is still not chosen at deploy time. Each driver ships
+  its `default` template (`IJournalingTemplateProvider`, embedded `Journaling/<slot>.sql`), because
+  the SQL is its engine's dialect and must suit its binding; the real-database scenarios run on
+  exactly those templates, and a test keeps the skills' reference copies identical to them.
+  `JournalingTemplateSources` looks, in order, at the repository level (the nearest
+  `.config/sqetch/` from the project folder up to the git work-tree root; only the project folder
+  outside git), the user level (`ApplicationData/sqetch`: `~/.config/sqetch`, `%APPDATA%\sqetch`,
+  `~/Library/Application Support/sqetch`) and the driver. Below either root a template is
+  `database-drivers/<driver>/journaling-templates/<name>/` with one file per slot named by
+  `JournalingSlots.FileName`, so a project's `journaling/` folder copies in as it is. Repository
+  wins over user — the team's choice for that codebase over one person's — and a template is used
+  whole, never mixed across levels, since two templates' SQL can disagree about tables. `init`
+  refuses when any slot is set unless `--force`; the store is not transactional, so a failure
+  partway says to rerun with `--force`. Without a driver argument it uses the project's engine when
+  that names a registered driver; `project init --engine` stays free text but warns when it names
+  none, and `init` warns when an explicit driver differs from the engine. Warnings go to standard
+  error through `WarningWriter`, keeping standard output clean for scripts.
 - **Query result contracts** (`StatementJournal`): read by **ordinal**, first N columns are the
   contract and extras are ignored — Oracle folds unquoted identifiers, and `GetOrdinal`'s case
   sensitivity is provider-defined. `GetLatestRelease` returns zero or one row (column 0 release
@@ -270,10 +291,13 @@ root.
   interactive console and header-less tab-separated rows when piped. Its types are public because
   other assemblies consume them. The CSV quoting, the JSON options and the interactive-vs-piped
   decision are exactly what drifts when duplicated. Each host references its own commands project
-  (`Pug.Sqetch.Cli.Commands`, `Pug.Sqetch.Deployment.Cli.Commands`), so 'sqetch' ships no deployment
-  assembly, while **'sqetch-deploy' ships the planning assemblies too** (engine, file-system store), which
-  `bundle` needs to read a project; the hosts stay thin, and only `Pug.Sqetch.Deployment.Cli` references
-  the concrete database drivers. **The machine formats
+  (`Pug.Sqetch.Cli.Commands`, `Pug.Sqetch.Deployment.Cli.Commands`). **The two CLIs keep separate
+  concerns, and their back ends never depend on each other to do their jobs, but they may share
+  dependencies where that makes sense**: 'sqetch-deploy' ships the planning assemblies (engine,
+  file-system store), which `bundle` needs to read a project, and 'sqetch' ships the database
+  drivers, for the journaling templates they own — it never connects to a database. Shared
+  implementations go to `Pug.Sqetch.Shared` rather than into either side. The hosts stay thin, and
+  only they reference the concrete database drivers. **The machine formats
   are written with wrapping widened out of the way**: Spectre wraps to the profile width, which is
   80 whenever stdout is not a terminal — precisely when those formats are used — and a wrapped line
   is a corrupt record, not an ugly one: the newline lands inside a tab-separated field, a quoted CSV
@@ -377,8 +401,9 @@ root.
 - Exceptions: plain classes with get-only properties and an optional message via `base(...)`
   (see `UnknownPlanException`); mapped to friendly CLI messages in `CliErrors.Describe`,
   surfaced by the central `SetExceptionHandler` in `SqetchApp` with exit code 1.
-- Tests: xunit. sqetch CLI tests drive the real command tree through `CommandAppTester` and
-  switch the process-wide current directory — every test class that does so must join
+- Tests: xunit. sqetch CLI tests drive the real command tree and composition through
+  `SqetchTester` (a `CommandAppTester` over `SqetchApp.CreateDefaultRegistrar`, with an empty
+  user-level template root and a captured warning console) and switch the process-wide current directory — every test class that does so must join
   `[Collection( "cli" )]` to stay sequential. sqetch-deploy CLI tests instead pass absolute
   paths and inject fakes via the production `TypeRegistrar` (`CommandAppTester( registrar )`),
   so they need no collection — except the one test of `bundle`'s default output name, which must

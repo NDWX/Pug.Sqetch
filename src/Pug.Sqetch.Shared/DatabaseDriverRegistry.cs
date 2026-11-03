@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Pug.Sqetch.DatabaseDriver;
 
-namespace Pug.Sqetch.Deployment;
+namespace Pug.Sqetch.Shared;
 
 /// <summary>
 /// Resolves database driver factories by driver name. Ships empty; the host registers the

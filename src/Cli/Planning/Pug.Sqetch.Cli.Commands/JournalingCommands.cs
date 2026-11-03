@@ -214,3 +214,172 @@ public sealed class JournalingSetCommand : Command<JournalingSetCommand.Settings
 		return 0;
 	}
 }
+/// <summary>
+/// Copies a journaling template into the project: every slot at once, from the repository level,
+/// the user level or the driver's built-in template, whichever has the name first. The driver
+/// defaults to the project's engine when that names one. From here on the project owns the SQL.
+/// </summary>
+public sealed class JournalingInitCommand(
+	IAnsiConsole console,
+	JournalingTemplateSources templates,
+	WarningWriter warnings ) : Command<JournalingInitCommand.Settings>
+{
+	public sealed class Settings : OutputSettings
+	{
+		[CommandArgument( 0, "[driver]" )]
+		[Description( "Database driver whose template to use; defaults to the project's engine when that names a driver" )]
+		public string? Driver { get; init; }
+
+		[CommandOption( "--template <NAME>" )]
+		[Description( "Template to use instead of 'default'; see 'sqetch journaling templates'" )]
+		public string? Template { get; init; }
+
+		[CommandOption( "--force" )]
+		[Description( "Replace journaling statements that are already set" )]
+		public bool Force { get; init; }
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		string driver = Driver( session.Project.GetDefinition().Engine, settings.Driver );
+
+		JournalingTemplate template = templates.Resolve(
+			session.Root, driver, settings.Template ?? JournalingTemplateSources.DefaultTemplate );
+
+		if( !settings.Force )
+		{
+			List<JournalingSlot> set = JournalingSlots.All
+				.Where( slot => session.Project.GetJournalingStatement( slot ) is not null )
+				.ToList();
+
+			if( set.Count > 0 )
+				throw new JournalingTemplateException(
+					$"journaling statements are already set: {string.Join( ", ", set )}; pass --force to replace them all" );
+		}
+
+		int written = 0;
+
+		try
+		{
+			foreach( JournalingSlot slot in JournalingSlots.All )
+			{
+				session.Project.SetJournalingStatement( slot, template.Statements[slot] );
+				written++;
+			}
+		}
+		catch( Exception exception ) when( written > 0 )
+		{
+			// the project store is not transactional, so the first slots are already replaced
+			throw new JournalingTemplateException(
+				$"stopped after setting {written} of {JournalingSlots.All.Count} journaling statements " +
+				$"({exception.Message}); fix the cause and rerun with --force" );
+		}
+
+		ResultWriter.WriteDetails(
+			console,
+			settings.Format,
+			new
+			{
+				driver = template.Driver,
+				template = template.Name,
+				level = JournalingTemplateLevels.Describe( template.Level ),
+				location = template.Location,
+				slots = JournalingSlots.Names
+			},
+			[
+				( "Driver", template.Driver ),
+				( "Template", template.Name ),
+				( "Level", JournalingTemplateLevels.Describe( template.Level ) ),
+				( "Location", template.Location ?? "(built in)" ),
+				( "Slots set", JournalingSlots.All.Count.ToString() )
+			]
+		);
+
+		return 0;
+	}
+
+	private string Driver( string engine, string? argument )
+	{
+		bool engineIsDriver = !string.IsNullOrWhiteSpace( engine ) && templates.IsDriver( engine );
+
+		if( argument is null )
+		{
+			if( engineIsDriver )
+				return templates.ResolveDriver( engine );
+
+			string drivers = string.Join( ", ", templates.Drivers.Order( StringComparer.OrdinalIgnoreCase ) );
+
+			throw new JournalingTemplateException(
+				string.IsNullOrWhiteSpace( engine ) ?
+					$"the project names no engine; pass a driver: {drivers}" :
+					$"the project's engine '{engine}' names no database driver; pass one: {drivers}" );
+		}
+
+		string driver = templates.ResolveDriver( argument );
+
+		if( engineIsDriver && !string.Equals( templates.ResolveDriver( engine ), driver, StringComparison.OrdinalIgnoreCase ) )
+			warnings.Write( $"the project's engine is '{engine}', but this template is for driver '{driver}'" );
+
+		return driver;
+	}
+}
+
+/// <summary>
+/// The journaling templates 'journaling init' can use: per driver, at the repository level, the
+/// user level and built in, marking the ones a more preferred level shadows. Works outside a
+/// project too, from the current directory.
+/// </summary>
+public sealed class JournalingTemplatesCommand(
+	IAnsiConsole console,
+	JournalingTemplateSources templates,
+	WarningWriter warnings ) : Command<JournalingTemplatesCommand.Settings>
+{
+	public sealed class Settings : OutputSettings
+	{
+		[CommandArgument( 0, "[driver]" )]
+		[Description( "Show only this driver's templates" )]
+		public string? Driver { get; init; }
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		string directory = Directory.GetCurrentDirectory();
+
+		foreach( string folder in templates.UnknownDriverFolders( directory ) )
+			warnings.Write( $"'{folder}' names no database driver and is ignored" );
+
+		ResultWriter.WriteRows(
+			console,
+			settings.Format,
+			[ "Driver", "Template", "Level", "Location", "Used" ],
+			templates.List( directory, settings.Driver ),
+			x => [
+				x.Driver, x.Name, JournalingTemplateLevels.Describe( x.Level ), x.Location ?? "(built in)",
+				x.Shadowed ? "shadowed" : "yes"
+			],
+			x => new
+			{
+				driver = x.Driver,
+				template = x.Name,
+				level = JournalingTemplateLevels.Describe( x.Level ),
+				location = x.Location,
+				shadowed = x.Shadowed
+			}
+		);
+
+		return 0;
+	}
+}
+
+internal static class JournalingTemplateLevels
+{
+	public static string Describe( JournalingTemplateLevel level )
+		=> level switch
+		{
+			JournalingTemplateLevel.Repository => "repository",
+			JournalingTemplateLevel.User => "user",
+			_ => "built-in"
+		};
+}

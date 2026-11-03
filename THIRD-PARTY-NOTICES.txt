@@ -8,9 +8,9 @@ below in their runtime output. Test-only packages are not distributed and are
 not listed. Licence identifiers and copyright lines are taken from each
 package's NuGet metadata.
 
-Where the package is used: 'sqetch' (Pug.Sqetch.Planning.Cli) uses the Spectre.Console
-packages only; 'sqetch-deploy' (Pug.Sqetch.Deployment.Cli) uses every package
-listed.
+Where the package is used: 'sqetch' (Pug.Sqetch.Planning.Cli) and 'sqetch-deploy'
+(Pug.Sqetch.Deployment.Cli) both use every package listed; 'sqetch' includes the
+database drivers for the journaling templates they ship.
 
 ==============================================================================
 PACKAGES

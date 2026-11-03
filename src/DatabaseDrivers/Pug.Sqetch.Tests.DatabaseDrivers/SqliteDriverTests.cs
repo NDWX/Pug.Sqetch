@@ -3,6 +3,7 @@ using System.Data;
 using Microsoft.Data.Sqlite;
 
 using Pug.Sqetch.Deployment;
+using Pug.Sqetch.Shared;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
 

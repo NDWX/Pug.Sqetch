@@ -32,6 +32,7 @@ repository-root `LICENSE` is the AGPL text and applies to everything else.
 | `src/DatabaseDrivers/Pug.Sqetch.DatabaseDrivers.Ado` | AGPL-3.0-or-later |
 | `src/DatabaseDrivers/Pug.Sqetch.DatabaseDrivers.Sqlite` | AGPL-3.0-or-later |
 | `src/DatabaseDrivers/Pug.Sqetch.DatabaseDrivers.PostgreSql` | AGPL-3.0-or-later |
+| `src/Pug.Sqetch.Shared` | AGPL-3.0-or-later |
 | `src/Cli/Pug.Sqetch.Cli.Common` | GPL-3.0-or-later |
 | `src/Cli/Planning/Pug.Sqetch.Cli.Commands` | GPL-3.0-or-later |
 | `src/Cli/Planning/Pug.Sqetch.Planning.Cli` | GPL-3.0-or-later |
@@ -42,6 +43,7 @@ repository-root `LICENSE` is the AGPL text and applies to everything else.
 | `src/Cli/Deployment/Bundling/Pug.Sqetch.Tests.Deployment.Bundling` | AGPL-3.0-or-later |
 | `src/Deployment/Pug.Sqetch.Tests.Deployment` | AGPL-3.0-or-later |
 | `src/DatabaseDrivers/Pug.Sqetch.Tests.DatabaseDrivers` | AGPL-3.0-or-later |
+| `src/Pug.Sqetch.Tests.Shared` | AGPL-3.0-or-later |
 | `src/Cli/Pug.Sqetch.Tests.Cli.Common` | GPL-3.0-or-later |
 | `src/Cli/Planning/Pug.Sqetch.Tests.Planning.Cli` | GPL-3.0-or-later |
 | `src/Cli/Deployment/Pug.Sqetch.Tests.Deployment.Cli` | GPL-3.0-or-later |

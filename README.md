@@ -14,8 +14,9 @@ The two tools are versioned and released separately.
 A Sqetch **project** lives in your application's repository, beside the code whose schema it
 changes. It is plain folders and files, so its history is your repository's: changes are reviewed,
 merged and branched like the code. The project also holds its **journaling** SQL, the statements
-that record each deployment in a table of your choosing. Set them once with `sqetch journaling`;
-`sqetch-deploy bundle` refuses until they are all set.
+that record each deployment in a table of your choosing. Set them all at once with
+`sqetch journaling init`, which copies your database driver's template (or your team's own) into
+the project; `sqetch-deploy bundle` refuses until they are all set.
 
 | Sqetch | What it is | In your development lifecycle |
 |---|---|---|
@@ -96,6 +97,9 @@ A few commands answer questions that `--help` can't:
   required together.
 - `sqetch journaling parameters` lists the parameters each journaling statement can use, and
   `sqetch journaling list` shows which statements the project has set.
+- `sqetch journaling templates` lists the journaling templates `sqetch journaling init` can use:
+  each driver's own, and any kept in the repository's `.config/sqetch/` or your user configuration
+  folder.
 - `--version` prints either tool's version.
 
 ## Installing

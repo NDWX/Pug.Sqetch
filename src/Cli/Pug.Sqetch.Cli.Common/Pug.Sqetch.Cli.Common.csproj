@@ -10,6 +10,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Planning\Pug.Sqetch.Planning\Pug.Sqetch.Planning.csproj"/>
         <ProjectReference Include="..\..\ProjectInfoStores\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem\Pug.Sqetch.Planning.ProjectInfoStores.FileSystem.csproj"/>
+        <ProjectReference Include="..\..\Pug.Sqetch.DatabaseDriver.Abstractions\Pug.Sqetch.DatabaseDriver.Abstractions.csproj"/>
         <PackageReference Include="Spectre.Console.Cli" Version="0.55.0"/>
     </ItemGroup>
 

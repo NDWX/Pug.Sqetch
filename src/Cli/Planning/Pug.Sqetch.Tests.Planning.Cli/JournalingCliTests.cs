@@ -1,7 +1,5 @@
 using System.Text.Json;
 
-using Pug.Sqetch.Planning.Cli;
-
 using Spectre.Console.Cli.Testing;
 
 namespace Pug.Sqetch.Tests.Planning.Cli;
@@ -41,11 +39,7 @@ public class JournalingCliTests : IDisposable
 
 	private static CommandAppResult Run( params string[] args )
 	{
-		CommandAppTester tester = new();
-
-		tester.Configure( SqetchApp.Configure );
-
-		return tester.Run( args );
+		return SqetchTester.Create().Run( args );
 	}
 
 	private void InitializeProject()

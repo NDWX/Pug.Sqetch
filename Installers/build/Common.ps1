@@ -614,7 +614,12 @@ function Test-ProductCommands
 		'sqetch'
 		{
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'project', 'user', 'Smoke Test', 'smoke@example.com' )
-			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'project', 'init', 'smoke' )
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'project', 'init', 'smoke', '--engine', 'sqlite' )
+
+			# the drivers ship their templates as embedded resources, which every installed form,
+			# the single file included, must still find
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'journaling', 'init' ) -Expect 'built-in'
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'journaling', 'print', 'PrepareJournal' ) -Expect 'sqetch_journal'
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'plan', 'create', '-n', 'smoke-plan' )
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'plan', 'add-step', '-p', 'smoke-plan', '-n', 'smoke-step' )
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'plan', 'list' ) -Expect 'smoke-plan'

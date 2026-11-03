@@ -14,4 +14,9 @@
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <!-- the journaling template 'sqetch journaling init' copies into a project; one file per slot -->
+        <EmbeddedResource Include="Journaling\*.sql" LogicalName="journaling/%(Filename)%(Extension)"/>
+    </ItemGroup>
+
 </Project>

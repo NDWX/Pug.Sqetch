@@ -1,3 +1,5 @@
+using Pug.Sqetch.DatabaseDrivers.Sqlite;
+
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
 
 /// <summary>
@@ -13,7 +15,7 @@ public class SqliteDeploymentTests : IDisposable
 	public SqliteDeploymentTests()
 		=> _deployment = new RealDatabaseDeployment(
 			() => _database.Driver(),
-			SqliteJournal.Statements(),
+			BuiltInJournal.Statements( new SqliteDatabaseDriverFactory() ),
 			sql => _database.Query( sql ),
 			() => _database.Query(
 				"select name from sqlite_master where type = 'table' and name like '%\\_s1' escape '\\' order by name"

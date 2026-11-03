@@ -1,9 +1,9 @@
-using Pug.Sqetch.Deployment;
 using Pug.Sqetch.DatabaseDriver;
+using Pug.Sqetch.Shared;
 
-namespace Pug.Sqetch.Tests.Deployment;
+namespace Pug.Sqetch.Tests.Shared;
 
-public class RegistryTests
+public class DatabaseDriverRegistryTests
 {
 	[Fact]
 	public void DriversResolveCaseInsensitivelyAndUnknownNamesListTheKnownOnes()
@@ -31,6 +31,6 @@ public class RegistryTests
 		public DatabaseDriverParametersDefinition GetParametersDefinition() => new( [ ], [ ] );
 
 		public IDatabaseDriver Create( IDictionary<string, string> parameters, TimeSpan stepScriptTimeout )
-			=> new FakeDatabaseDriver();
+			=> throw new NotSupportedException( "the registry never creates a driver" );
 	}
 }

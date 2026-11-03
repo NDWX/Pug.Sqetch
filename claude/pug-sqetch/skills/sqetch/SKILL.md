@@ -40,7 +40,7 @@ Its **journaling** SQL records each deployment in a table the project chooses, a
 - **A finalized release is frozen**, with its plans and their scripts. A change after that is a new
   plan in a later release, never an edit.
 - **Every `sqetch` command needs a user identity**, set once with `sqetch project user`; only that
-  command and `sqetch journaling parameters` work without one. `sqetch-deploy` needs none. Ask the user for their name and e-mail
+  command, `sqetch journaling parameters` and `sqetch journaling templates` work without one. `sqetch-deploy` needs none. Ask the user for their name and e-mail
   address rather than inventing them.
 - **Never deploy to a database the user did not name**, and never with `--rollback on-success`
   against anything but a throwaway database.
@@ -86,6 +86,9 @@ Some answers `--help` cannot give:
   It needs no project.
 - `sqetch journaling list` shows which journaling statements the project has set, and
   `sqetch journaling print <slot>` prints one.
+- `sqetch journaling templates [<driver>]` (since 0.2) lists the journaling templates
+  `sqetch journaling init` can copy into a project: built into each driver, or kept in the
+  repository or the user's configuration folder. It needs no project.
 - `--version` prints either tool's version.
 
 ## Where to go next
