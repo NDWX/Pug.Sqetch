@@ -19,8 +19,8 @@ the category alone. The message printed with the code names the cause.
 | `41` | `PrepareJournal` failed | Fix that journaling SQL, or the role's rights |
 | `42` | A journal query failed, or returned something unusable | Fix `GetLatestRelease` / `GetDeployedPlans` |
 | `43` | A journal write failed | Fix the failing write slot's SQL |
-| `51` | A step script failed; the database is as it was before the run | Fix the script (a new plan if its release is finalized), rebuild, deploy again |
-| `52` | A step script failed partway; work committed before it stays | Fix the cause, deploy the same or a rebuilt bundle again: it resumes |
+| `51` | A step's deploy or (since 0.2) verify script failed; the database is as it was before the run | Fix the script (a new plan if its release is finalized), rebuild, deploy again |
+| `52` | A step's deploy or verify script failed partway; work committed before it stays | Fix the cause, deploy the same or a rebuilt bundle again: it resumes |
 | `61` | A rollback script failed; the database is neither deployed nor undone | Stop. A person must repair the database |
 | `71` | `bundle`: the project could not be read (not a project folder, damaged, or written by a newer `sqetch`) | Check `--project`; upgrade `sqetch-deploy` if the project is newer |
 | `72` | `bundle`: the project cannot be bundled: unset journaling statements, a missing step script, `--since` naming an unknown release, or nothing to bundle | Follow the message |

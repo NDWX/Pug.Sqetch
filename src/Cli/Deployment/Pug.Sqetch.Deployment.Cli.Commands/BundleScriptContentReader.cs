@@ -12,6 +12,9 @@ public sealed class BundleScriptContentReader( IBundleReader reader, IBundleLayo
 	public string ReadDeployScript( string release, string plan, string step )
 		=> Read( plan, step, StepScriptKind.Deploy );
 
+	public string ReadVerifyScript( string release, string plan, string step )
+		=> Read( plan, step, StepScriptKind.Verify );
+
 	public string ReadRollbackScript( string release, string plan, string step )
 		=> Read( plan, step, StepScriptKind.Rollback );
 

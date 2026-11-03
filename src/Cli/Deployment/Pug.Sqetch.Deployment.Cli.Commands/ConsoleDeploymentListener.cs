@@ -52,6 +52,13 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 			$"(layout {metadata.Layout}, format {metadata.Format})"
 		);
 
+	/// <summary>
+	/// Says verification is off for this run (<c>--no-verify</c>), so the console and the log show
+	/// that the steps deployed were not checked. Not part of <see cref="IDeploymentListener"/>: the
+	/// command decides it, and the engine just runs no verify scripts.
+	/// </summary>
+	public void VerificationSkipped() => Report( "step verification skipped (--no-verify)" );
+
 	public void ContinuingFrom( string release ) => Report( $"continuing from {Name( release )}" );
 
 	public void SkippingRelease( string release ) => Report( $"skipping {Name( release )}: already deployed" );
@@ -66,6 +73,9 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 
 	public void DeployingStep( string release, string plan, string step ) =>
 		Report( $"deploying step '{step}' of plan '{plan}'" );
+
+	public void VerifyingStep( string release, string plan, string step ) =>
+		Report( $"verifying step '{step}' of plan '{plan}'" );
 
 	public void StepDeployed( string release, string plan, string step ) =>
 		Report( $"deployed step '{step}' of plan '{plan}'" );

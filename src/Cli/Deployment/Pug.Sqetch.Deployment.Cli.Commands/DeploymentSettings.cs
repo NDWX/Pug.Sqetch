@@ -37,6 +37,10 @@ public class DeploymentSettings : CommandSettings
 	)]
 	public string Rollback { get; init; } = "none";
 
+	[CommandOption( "--no-verify" )]
+	[Description( "Do not run each step's verify.sql after its deploy.sql; for emergencies" )]
+	public bool NoVerify { get; init; }
+
 	[CommandOption( "--log <PATH>" )]
 	[Description( "Append timestamped progress lines to this log file" )]
 	public string? Log { get; init; }

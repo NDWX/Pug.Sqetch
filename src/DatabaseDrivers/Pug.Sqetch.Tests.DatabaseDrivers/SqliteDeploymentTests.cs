@@ -47,4 +47,8 @@ public class SqliteDeploymentTests : IDisposable
 	[Fact]
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 		=> _deployment.AFailingRollbackScriptLeavesNoHalfFinishedCompensation();
+
+	[Fact]
+	public void AFailingVerifyFailsTheStep()
+		=> _deployment.AFailingVerifyFailsTheStep( "select json('x')" );
 }

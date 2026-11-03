@@ -51,7 +51,8 @@ sqetch-deploy deploy test.zip --driver sqlite --sqlite-file test.db --rollback o
 | `--<driver>-<parameter> <value>` | the driver's connection switches; see `references/drivers.md` or `sqetch-deploy drivers parameters <driver>`. A value starting with `-` is written `--<driver>-<parameter>=<value>` |
 | `--commit-level <LEVEL>` | `release` (default): each release commits whole. `plan`: commit after every plan, so a failure keeps the plans before it |
 | `--rollback <MODE>` | `on-error`: undo what this run committed if it fails. `on-success`: undo everything after it succeeds, to prove a bundle on a throwaway database. Default: none |
-| `--timeout <SECONDS>` | per step script; default 300, `0` for none |
+| `--no-verify` | since 0.2: do not run the steps' `verify.sql`. For emergencies only |
+| `--timeout <SECONDS>` | per step script (deploy and verify each); default 300, `0` for none |
 | `--log <PATH>` | append timestamped progress lines to a file |
 | `-t, --bundle-type` | inferred from the path; needed only for an unusual file name |
 
@@ -61,6 +62,13 @@ sqetch-deploy deploy test.zip --driver sqlite --sqlite-file test.db --rollback o
   throwaway databases only.
 - The `rollback` command is not implemented yet (exit `91`). Undoing is done through
   `deploy --rollback`.
+- Since 0.2, each step's `verify.sql` runs right after its `deploy.sql`, in the same transaction
+  (the output shows "verifying step …"). An error from it fails the step: exit `51`/`52`, and
+  `--rollback on-error` undoes it as for any failure. On MySQL and MariaDB the step's schema changes
+  committed before the verify ran, so only `--rollback on-error` takes them back. Only errors fail it; a blank `verify.sql` is
+  skipped. A project whose verify scripts never ran before may start failing on upgrade: fix the
+  script, or, to get a deployment out in an emergency, pass `--no-verify`. Writing verify scripts:
+  skill `sqetch-plans-and-releases`.
 
 ## How the journal decides what deploys
 

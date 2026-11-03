@@ -52,7 +52,7 @@ root.
 | `Pug.Sqetch.Deployment.Bundling.BundleTypes` | zip / tar / tar.gz / directory implementations + `RegisterBundleTypes()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations; the one bundling project that also references the planning contracts |
-| `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses). References nothing |
+| `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`: each step's deploy, verify and rollback script), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses, `StepVerificationFailedException` deriving from `StepScriptFailedException`). References nothing |
 | `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
 | `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
@@ -218,6 +218,18 @@ root.
   same transaction as the release's last plan. Neither the prepare nor the read commit is reported
   to `IDeploymentListener`: they are not deployment progress. On failure the open transaction rolls
   back — earlier commits stand.
+- **Steps are verified** (`Deploy( project, groups, verifySteps = true )`; `deploy --no-verify` turns
+  it off, for emergencies): each step's `verify.sql` runs right after its `deploy.sql`, in the same
+  transaction and with the same timeout and batch splitting, before `StepDeployed` is journaled, so a
+  failing check leaves the step undeployed in the journal too. **Only an error fails it** — Sqetch
+  reads no results, as it never interprets SQL — and that failure is
+  `StepVerificationFailedException`, a `StepScriptFailedException`, so the failure path, the exit
+  codes (`51`/`52`) and on-error compensation are exactly a failing deploy script's; on an engine
+  that commits DDL implicitly the step is already among those whose deploy started, so it is
+  compensated. A **blank** verify script is skipped, not run: new steps start with an empty one and
+  SqlClient and MySqlConnector refuse an empty command. Compensation runs no verify scripts. The
+  switch is a parameter of `Deploy` rather than the constructor, being a choice about one
+  deployment. `IDeploymentListener.VerifyingStep` is a default member, so older listeners compile.
 - **Rollback is compensating, not transactional** (`RollbackTrigger`, `deploy --rollback`):
   `on-error` undoes what the run committed after a failure, `on-success` undoes a deployment that
   worked — for proving a bundle applies cleanly, usually a test bundle, though a bundle of
@@ -322,6 +334,9 @@ root.
   `identifier` function; the `mysql` driver's tests run against MySQL and MariaDB alike through
   `MySqlFamilyServer`, skip only the half-finished-compensation scenario, which implicit DDL
   commits make impossible to hold there, and alone run `OnErrorUndoesAPlanTheServerCommittedPartway`.
+  Every scenario step has a passing verify script, and `AFailingVerifyFailsTheStep` takes each provider's
+  own run-time failing check (SQLite has `1 / 0` as NULL, MySQL and MariaDB too), proving each provider
+  surfaces an error raised while a `select` runs through `ExecuteNonQuery`.
   The scenarios' rollback scripts use `drop table if exists`, as compensation on those engines also
   runs for a step that never applied — the only place the engine's resume decision is read back out of SQL the deployment
   itself wrote, and the only check that a journal's `completed` column works as both a count

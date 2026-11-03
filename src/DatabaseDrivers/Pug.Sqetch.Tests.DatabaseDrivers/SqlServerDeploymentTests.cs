@@ -56,4 +56,8 @@ public class SqlServerDeploymentTests : IClassFixture<SqlServerDatabase>
 	[DockerAmd64Fact]
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 		=> _deployment.Value.AFailingRollbackScriptLeavesNoHalfFinishedCompensation();
+
+	[DockerAmd64Fact]
+	public void AFailingVerifyFailsTheStep()
+		=> _deployment.Value.AFailingVerifyFailsTheStep( "select 1 / count(*) from v_s1" );
 }
