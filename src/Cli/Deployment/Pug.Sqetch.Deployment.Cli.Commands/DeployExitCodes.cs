@@ -66,6 +66,13 @@ public static class DeployExitCodes
 	/// <summary>The driver was configured, but the database could not be reached.</summary>
 	public const int DatabaseUnreachable = 33;
 
+	/// <summary>
+	/// Another deployment holds the database's deployment lock (the journaling SQL's AcquireLock), so
+	/// this one was refused before touching anything. Like <see cref="DatabaseUnreachable"/>, retrying
+	/// later is safe.
+	/// </summary>
+	public const int DatabaseBusy = 34;
+
 	public const int JournalError = 40;
 	public const int JournalPreparationFailed = 41;
 	public const int JournalQueryFailed = 42;
@@ -159,6 +166,7 @@ public static class DeployExitCodes
 			UnknownDatabaseDriverException => UnknownDriver,
 			DriverCreationException => DriverCreationFailed,
 			DatabaseConnectionException => DatabaseUnreachable,
+			DeploymentLockedException => DatabaseBusy,
 
 			JournalingStatementException journaling => ForJournalingSlot( journaling.Slot ),
 			StepScriptFailedException => DeploymentFailed,

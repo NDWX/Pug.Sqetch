@@ -796,6 +796,75 @@ public class DeployCliTests : IDisposable
 		Assert.Equal( [ "create table t ()", "create index i" ], _driver.AppliedScripts );
 	}
 
+	// ------------------------------------------------------------------ the deployment lock
+
+	[Fact]
+	public void ARefusedLockExitsWithDatabaseBusyAndChangesNothing()
+	{
+		_journal.LockAvailable = false;
+
+		CommandAppResult result = DeployWithLock( "busy.zip" );
+
+		string output = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Equal( DeployExitCodes.DatabaseBusy, result.ExitCode );
+		Assert.Equal( 34, result.ExitCode );
+		Assert.Contains( "another deployment holds this database's deployment lock", output );
+		Assert.Contains( "nothing was changed", output );
+		Assert.DoesNotContain( "acquired the deployment lock", output );
+
+		// only the lock's own transaction ran, and nothing was applied
+		Assert.Single( _driver.Transactions );
+		Assert.Empty( _driver.AppliedScripts );
+		Assert.True( _driver.Disposed );
+	}
+
+	[Fact]
+	public void ADeploymentThatTookTheLockSaysSoAndGivesItBack()
+	{
+		CommandAppResult result = DeployWithLock( "locked.zip" );
+
+		string output = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "acquired the deployment lock", output );
+		Assert.Contains( "deployment complete", output );
+		Assert.Equal( "journal ReleaseLock", _driver.Transactions[^1].JournalingCalls.Single().Statement );
+		Assert.Equal( [ "commit #5", "dispose" ], _driver.Events.TakeLast( 2 ) );
+	}
+
+	[Fact]
+	public void ABundleWithoutTheLockSlotsDeploysWithoutALockLine()
+	{
+		CommandAppResult result = Deploy( "unlocked.zip" );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.DoesNotContain( "deployment lock", result.Output );
+	}
+
+	[Fact]
+	public void AFailingReleaseWarnsAndKeepsTheSuccessfulExitCode()
+	{
+		_driver.FailingJournalingStatements.Add( FakeJournal.Marker( JournalingSlot.ReleaseLock ) );
+
+		CommandAppResult result = DeployWithLock( "stuck.zip" );
+
+		string output = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "warning: the deployment lock could not be released", output );
+		Assert.Contains( "it ends with this database session", output );
+		Assert.Contains( "deployment complete", output );
+	}
+
+	/// <summary>Deploys the standard bundle, its journaling including the lock slots.</summary>
+	private CommandAppResult DeployWithLock( string name )
+		=> Run(
+			[
+				"deploy", WriteBundle( name, withLock: true ), "--driver", "pg", "--pg-host", "h", "--pg-database", "d"
+			]
+		);
+
 	/// <summary>Deploys the standard bundle under <paramref name="name"/> with the fake driver.</summary>
 	private CommandAppResult Deploy( string name, params string[] switches )
 		=> Run(
@@ -838,13 +907,14 @@ public class DeployCliTests : IDisposable
 		string type = ZipBundleType.TypeName,
 		bool withRollbackScripts = true,
 		string dependency = "",
-		string indexVerifyScript = "-- v"
+		string indexVerifyScript = "-- v",
+		bool withLock = false
 	)
 	{
 		Bundle bundle = new(
 			new ProjectDefinition( "demo", "", "postgres" ),
 			BundleSelection.Finalized,
-			Manifests.Journaling(),
+			withLock ? FakeJournal.Statements( withLock: true ) : Manifests.Journaling(),
 			[ new BundleRelease( "2026.07", "", dependency, true ) ],
 			[
 				new BundlePlan(

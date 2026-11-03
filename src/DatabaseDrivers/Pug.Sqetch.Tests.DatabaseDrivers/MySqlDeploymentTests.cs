@@ -1,3 +1,5 @@
+using MySqlConnector;
+
 using Pug.Sqetch.DatabaseDrivers.MySql;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -32,7 +34,8 @@ public abstract class MySqlFamilyDeploymentTests
 						order by table_name
 						"""
 					),
-					name => $"`{name}`"
+					name => $"`{name}`",
+					endPooledSessions: MySqlConnection.ClearAllPools
 				);
 			}
 		);
@@ -89,6 +92,14 @@ public abstract class MySqlFamilyDeploymentTests
 	[DockerFact]
 	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
 		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
+
+	[DockerFact]
+	public void ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing()
+		=> _deployment.Value.ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing();
+
+	[DockerFact]
+	public void TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen()
+		=> _deployment.Value.TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen();
 }
 
 public sealed class MySqlDeploymentTests( MySqlServer server )

@@ -100,6 +100,22 @@ Optional, since 0.2: whether the journal table exists, so that `sqetch-deploy st
 select to_regclass( 'sqetch_journal' ) is not null
 ```
 
+### AcquireLock
+
+Optional, since 0.2: a query that takes the project's deployment lock, so a second concurrent deployment is refused (exit `34`). It returns one row whose first column is true when the lock was taken. The lock is released when the deployment ends, or at the latest when `sqetch-deploy` exits.
+
+```sql
+select pg_try_advisory_lock( hashtext( 'sqetch' ), hashtext( @project ) )
+```
+
+### ReleaseLock
+
+Optional, since 0.2: releases the deployment lock when the deployment ends; if it is unset or fails, the lock is released when `sqetch-deploy` exits and its database session ends.
+
+```sql
+select pg_advisory_unlock( hashtext( 'sqetch' ), hashtext( @project ) )
+```
+
 ## Deployment events
 
 ### DeployingRelease

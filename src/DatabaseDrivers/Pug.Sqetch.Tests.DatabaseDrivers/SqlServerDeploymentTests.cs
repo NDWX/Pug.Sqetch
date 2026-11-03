@@ -1,3 +1,5 @@
+using Microsoft.Data.SqlClient;
+
 using Pug.Sqetch.DatabaseDrivers.SqlServer;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -26,7 +28,8 @@ public class SqlServerDeploymentTests : IClassFixture<SqlServerDatabase>
 						connection,
 						"select name from sys.tables where name like '%[_]s1' order by name"
 					),
-					name => $"[{name}]"
+					name => $"[{name}]",
+					endPooledSessions: SqlConnection.ClearAllPools
 				);
 			}
 		);
@@ -84,4 +87,16 @@ public class SqlServerDeploymentTests : IClassFixture<SqlServerDatabase>
 	[DockerAmd64Fact]
 	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
 		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
+
+	[DockerAmd64Fact]
+	public void ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing()
+		=> _deployment.Value.ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing();
+
+	[DockerAmd64Fact]
+	public void TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen()
+		=> _deployment.Value.TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen();
+
+	[DockerAmd64Fact]
+	public void AcquireLockAnswersZeroNotNullWhileTheLockIsHeldElsewhere()
+		=> _deployment.Value.AcquireLockAnswersFalseWhileTheLockIsHeldElsewhere();
 }

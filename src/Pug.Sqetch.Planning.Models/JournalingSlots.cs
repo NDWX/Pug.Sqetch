@@ -41,7 +41,8 @@ public static class JournalingSlots
 	/// that does refuses a bundle lacking them. Optional so that projects and templates written before
 	/// a slot existed stay complete, and so older tools, which never look for its file, are unaffected.
 	/// </summary>
-	public static bool IsOptional( JournalingSlot slot ) => slot is JournalingSlot.JournalExists;
+	public static bool IsOptional( JournalingSlot slot )
+		=> slot is JournalingSlot.JournalExists or JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock;
 
 	/// <summary>Every slot a project must set before it can be bundled, in declaration order.</summary>
 	public static IReadOnlyList<JournalingSlot> Required { get; } = All.Where( slot => !IsOptional( slot ) ).ToList();
@@ -51,24 +52,29 @@ public static class JournalingSlots
 	/// has to come from somewhere unambiguous.
 	/// </summary>
 	public static bool IsQuery( JournalingSlot slot )
-		=> slot is JournalingSlot.GetLatestRelease or JournalingSlot.GetDeployedPlans or JournalingSlot.JournalExists;
+		=> slot is JournalingSlot.GetLatestRelease or JournalingSlot.GetDeployedPlans or JournalingSlot.JournalExists
+			or JournalingSlot.AcquireLock;
+
+	/// <summary>
+	/// The twelve slots a deployment event fires — deploying and rolling back releases, plans and
+	/// steps — as opposed to the queries, <see cref="JournalingSlot.PrepareJournal"/> and the lock.
+	/// </summary>
+	public static bool IsEvent( JournalingSlot slot )
+		=> slot is >= JournalingSlot.DeployingRelease and <= JournalingSlot.RolledBackRelease;
 
 	/// <summary>
 	/// The slot's file name in the project's 'journaling' folder and in a bundle. Event slots take an
-	/// 'On' prefix so they read as what they respond to; the queries and
-	/// <see cref="JournalingSlot.PrepareJournal"/> are not events and take none.
+	/// 'On' prefix so they read as what they respond to; the others are not events and take none.
 	/// </summary>
-	public static string FileName( JournalingSlot slot )
-		=> IsQuery( slot ) || slot == JournalingSlot.PrepareJournal ? $"{slot}.sql" : $"On{slot}.sql";
+	public static string FileName( JournalingSlot slot ) => IsEvent( slot ) ? $"On{slot}.sql" : $"{slot}.sql";
 
 	/// <summary>
-	/// The slots that record something in the journal, as opposed to reading it
-	/// (<see cref="IsQuery"/>) or migrating its schema (<see cref="JournalingSlot.PrepareJournal"/>).
-	/// Only these are given <see cref="Parameters.UtcTimestamp"/>: a query filters on identity alone,
-	/// and prepare is DDL that records no event.
+	/// The slots that record something in the journal — the events — as opposed to reading it
+	/// (<see cref="IsQuery"/>), migrating its schema (<see cref="JournalingSlot.PrepareJournal"/>) or
+	/// locking. Only these are given <see cref="Parameters.UtcTimestamp"/>: a query filters on
+	/// identity alone, prepare is DDL that records no event, and a lock records nothing.
 	/// </summary>
-	public static bool Writes( JournalingSlot slot )
-		=> !IsQuery( slot ) && slot != JournalingSlot.PrepareJournal;
+	public static bool Writes( JournalingSlot slot ) => IsEvent( slot );
 
 	/// <summary>
 	/// The parameters supplied to the slot's statements. Every slot gets
@@ -83,10 +89,11 @@ public static class JournalingSlots
 	public static IReadOnlyList<string> ParameterNames( JournalingSlot slot )
 		=> slot switch
 		{
-			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease or JournalingSlot.JournalExists =>
-			[
-				Parameters.Project
-			],
+			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease or JournalingSlot.JournalExists
+				or JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock =>
+				[
+					Parameters.Project
+				],
 
 			JournalingSlot.GetDeployedPlans => [ Parameters.Project, Parameters.Release ],
 

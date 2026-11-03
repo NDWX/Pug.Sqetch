@@ -47,6 +47,9 @@ public static class DeployCliErrors
 					$"set it with 'sqetch journaling set {unset.Slots[0]}'" :
 					"set each with 'sqetch journaling set <SLOT>'" ) +
 				" and rebuild the bundle",
+			DeploymentLockedException =>
+				"another deployment holds this database's deployment lock; nothing was changed — retry when it " +
+				"has finished",
 			UnknownReleaseException unknownRelease => $"release '{unknownRelease.ReleaseName}' does not exist",
 			MissingStepScriptsException missingScripts =>
 				$"step '{missingScripts.Step}' of plan '{missingScripts.Plan}' is missing script(s): " +

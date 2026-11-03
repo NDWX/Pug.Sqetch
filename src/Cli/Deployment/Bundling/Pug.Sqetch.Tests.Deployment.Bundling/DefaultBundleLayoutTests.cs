@@ -69,6 +69,8 @@ public class DefaultBundleLayoutTests
 				"journaling/GetLatestRelease.sql",
 				"journaling/GetDeployedPlans.sql",
 				"journaling/JournalExists.sql",
+				"journaling/AcquireLock.sql",
+				"journaling/ReleaseLock.sql",
 				"plans/table/steps/create/deploy.sql",
 				"plans/table/steps/create/verify.sql",
 				"plans/table/steps/create/rollback.sql",
@@ -79,8 +81,8 @@ public class DefaultBundleLayoutTests
 			writer.Entries.Select( x => x.Path ).ToArray()
 		);
 
-		// entry 0 is the manifest and 1..16 the journaling slots, so the first script is 17
-		Assert.Equal( "-- deploy", writer.Entries[17].Content );
+		// entry 0 is the manifest and 1..18 the journaling slots, so the first script is 19
+		Assert.Equal( "-- deploy", writer.Entries[19].Content );
 
 		// each step's scripts are disposed right after they are written
 		Assert.True( deploy.Disposed );
@@ -249,7 +251,7 @@ public class DefaultBundleLayoutTests
 
 		List<string> paths = writer.Entries.Select( x => x.Path ).ToList();
 
-		Assert.Equal( 16, paths.Count( x => x.StartsWith( "journaling/" ) ) );
+		Assert.Equal( 18, paths.Count( x => x.StartsWith( "journaling/" ) ) );
 		Assert.Equal( 0, paths.IndexOf( "manifest.json" ) );
 
 		Assert.True(
@@ -281,7 +283,7 @@ public class DefaultBundleLayoutTests
 
 		List<string> paths = writer.Entries.Select( x => x.Path ).ToList();
 
-		Assert.Equal( 15, paths.Count( x => x.StartsWith( "journaling/" ) ) );
+		Assert.Equal( 17, paths.Count( x => x.StartsWith( "journaling/" ) ) );
 		Assert.DoesNotContain( "journaling/JournalExists.sql", paths );
 
 		JournalingStatements read = layout.ReadJournalingStatements( new FakeReader( writer ) );

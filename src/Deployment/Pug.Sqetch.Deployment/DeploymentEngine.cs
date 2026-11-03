@@ -13,7 +13,10 @@ namespace Pug.Sqetch.Deployment;
 /// <see cref="DeploymentPlanner"/> decides — the same decision <see cref="DeploymentForecaster"/>
 /// reports without deploying.
 ///
-/// A deployment opens three kinds of transaction, in order. First the journal's own schema, from
+/// When the journaling SQL sets the optional deployment lock, a deployment first takes it, in a
+/// transaction committed alone, and gives it back in another when it ends, however it ends; a lock
+/// held elsewhere refuses the deployment (<see cref="DeploymentLockedException"/>). Between them, a
+/// deployment opens three kinds of transaction, in order. First the journal's own schema, from
 /// the <see cref="JournalingSlot.PrepareJournal"/> slot, committed alone: it must exist before the
 /// journal can be read, and DDL auto-commits on some engines, which would implicitly end a
 /// transaction shared with anything else. Then both journal queries together, so the resume
@@ -60,6 +63,25 @@ public class DeploymentEngine(
 
 		StatementJournal journal = new( statements, project );
 
+		bool locked = false;
+
+		try
+		{
+			// marked held the moment the database says so, so a commit or listener failing after that
+			// still releases it
+			AcquireLock( journal, () => locked = true );
+
+			Deploy( journal, groups, verifySteps );
+		}
+		finally
+		{
+			if( locked )
+				ReleaseLock( journal );
+		}
+	}
+
+	private void Deploy( StatementJournal journal, IReadOnlyList<ReleaseGroup> groups, bool verifySteps )
+	{
 		Prepare( journal );
 
 		( JournaledRelease? latest, List<string>? deployedPlans ) = Read( journal, groups );
@@ -83,6 +105,73 @@ public class DeploymentEngine(
 		// dependency between them are ordered by registration, which the journal never records.
 		// An empty set resumes at the release's first plan, without journaling its start again.
 		Deploy( groups, journal, verifySteps, latest, deployedPlans );
+	}
+
+	/// <summary>
+	/// Takes the database's deployment lock, when the journaling SQL sets one, before anything else —
+	/// even the journal's provisioning, whose DDL two deployments must not race on. Committed on its
+	/// own and, like provisioning, not reported as a commit: the lock is a session's, so it outlives
+	/// this transaction and holds until <see cref="ReleaseLock"/> or the session ends.
+	/// <paramref name="held"/> is called as soon as the lock is taken; nothing is called when no lock
+	/// is set, and a lock held elsewhere refuses the deployment.
+	/// </summary>
+	private void AcquireLock( StatementJournal journal, Action held )
+	{
+		// no transaction at all without a lock, so an unguarded deployment runs exactly as it did
+		if( !statements.IsSet( JournalingSlot.AcquireLock ) )
+			return;
+
+		IDatabaseTransaction transaction = driver.BeginTransaction();
+
+		try
+		{
+			if( journal.AcquireLock( transaction ) != true )
+				throw new DeploymentLockedException();
+
+			held();
+
+			transaction.Commit();
+		}
+		catch
+		{
+			transaction.Rollback();
+
+			throw;
+		}
+
+		listener.LockAcquired();
+	}
+
+	/// <summary>
+	/// Gives the deployment lock back, however the deployment ended. A failure here never replaces
+	/// the deployment's outcome — success or the failure being reported — and needs no remedy beyond
+	/// a warning: the lock is a session's, so it ends with the connection anyway.
+	/// </summary>
+	private void ReleaseLock( StatementJournal journal )
+	{
+		IDatabaseTransaction? transaction = null;
+
+		try
+		{
+			transaction = driver.BeginTransaction();
+
+			journal.ReleaseLock( transaction );
+
+			transaction.Commit();
+		}
+		catch( Exception exception )
+		{
+			try
+			{
+				transaction?.Rollback();
+			}
+			catch
+			{
+				// the release failure below is what is reported
+			}
+
+			listener.LockNotReleased( exception );
+		}
 	}
 
 	/// <summary>

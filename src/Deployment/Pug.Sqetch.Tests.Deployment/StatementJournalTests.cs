@@ -665,6 +665,129 @@ public class StatementJournalTests
 		driver.QueryResults["-- JournalExists"] = table;
 	}
 
+	// ------------------------------------------------------------------ AcquireLock and ReleaseLock
+
+	[Fact]
+	public void AcquireLockIsNullWhenTheSlotIsUnsetAndRunsNothing()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.AcquireLock );
+
+		( FakeTransaction transaction, StatementJournal journal ) = Setup( text );
+
+		Assert.Null( journal.AcquireLock( transaction ) );
+		Assert.Empty( transaction.JournalingCalls );
+	}
+
+	[Fact]
+	public void AcquireLockIsCalledWithTheProjectAlone()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedAcquireLock( transaction.Driver, true );
+
+		journal.AcquireLock( transaction );
+
+		AssertCall( transaction, 0, "-- AcquireLock", ( "project", Project ) );
+		Assert.All( transaction.QueryReaders, reader => Assert.True( reader.IsClosed ) );
+	}
+
+	[Theory]
+	[InlineData( true, true )]
+	[InlineData( false, false )]
+	[InlineData( 1, true )]
+	[InlineData( 0, false )]
+	[InlineData( 1L, true )]
+	[InlineData( 0L, false )]
+	[InlineData( "1", true )]
+	[InlineData( "0", false )]
+	[InlineData( "t", true )]
+	[InlineData( "YES", true )]
+	[InlineData( 'n', false )]
+	public void AcquireLockCoercesLikeCompleted( object stored, bool expected )
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedAcquireLock( transaction.Driver, stored );
+
+		Assert.Equal( expected, journal.AcquireLock( transaction ) );
+	}
+
+	[Fact]
+	public void AcquireLockWithNoRowIsFalse()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		DataTable table = new();
+
+		table.Columns.Add( "acquired", typeof(bool) );
+		transaction.Driver.QueryResults["-- AcquireLock"] = table;
+
+		Assert.False( journal.AcquireLock( transaction ) );
+	}
+
+	[Fact]
+	public void AcquireLockNullThrowsNamingTheSlot()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedAcquireLock( transaction.Driver, DBNull.Value );
+
+		JournalingStatementException error =
+			Assert.Throws<JournalingStatementException>( () => journal.AcquireLock( transaction ) );
+
+		Assert.Contains( "AcquireLock", error.Message );
+		Assert.Contains( "NULL", error.Message );
+	}
+
+	[Fact]
+	public void AFailingAcquireLockQueryIsAJournalingStatementException()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		transaction.Driver.FailingJournalingQueries.Add( "-- AcquireLock" );
+
+		Assert.Contains(
+			"AcquireLock",
+			Assert.Throws<JournalingStatementException>( () => journal.AcquireLock( transaction ) ).Message );
+	}
+
+	[Fact]
+	public void ReleaseLockRunsNothingWhenTheSlotIsUnset()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.ReleaseLock );
+
+		( FakeTransaction transaction, StatementJournal journal ) = Setup( text );
+
+		journal.ReleaseLock( transaction );
+
+		Assert.Empty( transaction.JournalingCalls );
+	}
+
+	[Fact]
+	public void ReleaseLockRunsEveryStatementWithTheProjectAlone()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text[JournalingSlot.ReleaseLock] = "-- first\n;;\n-- second";
+
+		( FakeTransaction transaction, StatementJournal journal ) = Setup( text );
+
+		journal.ReleaseLock( transaction );
+
+		Assert.Equal( 2, transaction.JournalingCalls.Count );
+		AssertCall( transaction, 0, "-- first", ( "project", Project ) );
+		AssertCall( transaction, 1, "-- second", ( "project", Project ) );
+	}
+
+	private static void SeedAcquireLock( FakeDatabaseDriver driver, object value )
+	{
+		DataTable table = new();
+
+		table.Columns.Add( "acquired", typeof(object) );
+		table.Rows.Add( value );
+
+		driver.QueryResults["-- AcquireLock"] = table;
+	}
+
 	// ------------------------------------------------------------------ helpers
 
 	private static (FakeTransaction Transaction, StatementJournal Journal) Setup(

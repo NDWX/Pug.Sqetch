@@ -277,10 +277,14 @@ public sealed class JournalingInitCommand(
 				$"the template does not set {string.Join( ", ", kept )}, so the project keeps its earlier SQL " +
 				"for it; check it suits this template's journal, and change it with 'sqetch journaling set'" );
 
-		if( unset.Count > 0 )
+		// a built-in template leaves a slot out on purpose (SQLite has no session lock to take), so only a
+		// repository or user template, likely written before the slot existed, is worth a warning
+		if( unset.Count > 0 && template.Level != JournalingTemplateLevel.BuiltIn )
 			warnings.Write(
-				$"the template does not set the optional {string.Join( ", ", unset )}, so it stays unset; " +
-				"'sqetch-deploy status' needs JournalExists: set it with 'sqetch journaling set'" );
+				$"the template does not set the optional {string.Join( ", ", unset )}, so " +
+				$"{( unset.Count == 1 ? "it stays" : "they stay" )} unset; " +
+				string.Join( "; ", unset.Select( Consequence ).Distinct() ) +
+				$"; set {( unset.Count == 1 ? "it" : "them" )} with 'sqetch journaling set' if wanted" );
 
 		int written = 0;
 
@@ -322,6 +326,16 @@ public sealed class JournalingInitCommand(
 
 		return 0;
 	}
+
+	/// <summary>What leaving an optional slot unset means, for the warning.</summary>
+	private static string Consequence( JournalingSlot slot )
+		=> slot switch
+		{
+			JournalingSlot.JournalExists => "'sqetch-deploy status' refuses a bundle without JournalExists",
+			JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock =>
+				"without AcquireLock nothing stops two deployments to one database running at once",
+			_ => $"{slot} is optional"
+		};
 
 	private string Driver( string engine, string? argument )
 	{

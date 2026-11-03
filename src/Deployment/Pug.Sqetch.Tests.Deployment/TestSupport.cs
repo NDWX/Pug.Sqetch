@@ -45,6 +45,9 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 	/// </summary>
 	public bool FailingRollback { get; set; }
 
+	/// <summary>Numbers of the transactions whose commit should throw, leaving them uncommitted.</summary>
+	public HashSet<int> FailingCommits { get; } = [ ];
+
 	/// <summary>Journaling statements whose execution should fail, by exact statement text.</summary>
 	public HashSet<string> FailingJournalingStatements { get; } = [ ];
 
@@ -192,6 +195,13 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 
 	public void Commit()
 	{
+		if( driver.FailingCommits.Contains( Number ) )
+		{
+			driver.Events.Add( $"commit-failed #{Number}" );
+
+			throw new InvalidOperationException( "commit failed" );
+		}
+
 		Committed = true;
 
 		foreach( Action apply in _onCommit )
@@ -239,6 +249,19 @@ public sealed class RecordingListener : IDeploymentListener
 	public void RollingBackPlan( string release, string plan ) => Events.Add( $"rollback-plan {release}/{plan}" );
 
 	public void RolledBack() => Events.Add( "rolled-back" );
+
+	/// <summary>Makes <see cref="LockAcquired"/> throw, as a misbehaving host listener could.</summary>
+	public bool FailingLockAcquired { get; set; }
+
+	public void LockAcquired()
+	{
+		Events.Add( "lock-acquired" );
+
+		if( FailingLockAcquired )
+			throw new InvalidOperationException( "listener failed" );
+	}
+
+	public void LockNotReleased( Exception exception ) => Events.Add( $"lock-not-released {exception.Message}" );
 }
 
 /// <summary>
@@ -270,9 +293,22 @@ public sealed class FakeJournal
 
 	public static string Marker( JournalingSlot slot ) => $"{Prefix}{slot}";
 
-	/// <summary>Marker SQL for every slot — what a test bundles.</summary>
-	public static JournalingStatements Statements()
-		=> new( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Marker( slot ) ) );
+	/// <summary>
+	/// What the optional AcquireLock query answers: true poses as a lock that was free, false as one
+	/// another deployment holds. Read by <see cref="Attach"/>.
+	/// </summary>
+	public bool LockAvailable { get; set; } = true;
+
+	/// <summary>
+	/// Marker SQL for every slot but the lock pair — what a test bundles. The lock is opt-in
+	/// (<paramref name="withLock"/>) because setting it changes the transactions a deployment opens.
+	/// </summary>
+	public static JournalingStatements Statements( bool withLock = false )
+		=> new(
+			JournalingSlots.All
+				.Where( slot => withLock || slot is not (JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock) )
+				.ToDictionary( slot => slot, slot => (string?)Marker( slot ) )
+		);
 
 	/// <summary>Marker SQL for the required slots alone — a bundle made without the optional JournalExists.</summary>
 	public static JournalingStatements RequiredStatements()
@@ -292,6 +328,13 @@ public sealed class FakeJournal
 		exists.Rows.Add( JournalExists );
 
 		driver.QueryResults[Marker( JournalingSlot.JournalExists )] = exists;
+
+		DataTable acquired = new();
+
+		acquired.Columns.Add( "acquired", typeof(bool) );
+		acquired.Rows.Add( LockAvailable );
+
+		driver.QueryResults[Marker( JournalingSlot.AcquireLock )] = acquired;
 
 		DataTable latest = new();
 

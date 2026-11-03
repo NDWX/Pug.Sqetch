@@ -24,6 +24,22 @@ public interface IDeploymentListener
 	void DeployingStep( string release, string plan, string step );
 
 	/// <summary>
+	/// Fired when the deployment took the database's deployment lock, before anything else ran. Not
+	/// fired when the journaling SQL sets no lock. A default member, so older listeners compile.
+	/// </summary>
+	void LockAcquired()
+	{
+	}
+
+	/// <summary>
+	/// Fired when giving the deployment lock back failed. The deployment's own outcome stands; a
+	/// session lock still ends with the connection. A default member, so older listeners compile.
+	/// </summary>
+	void LockNotReleased( Exception exception )
+	{
+	}
+
+	/// <summary>
 	/// Fired when a step's verify script is about to run, after its deploy script succeeded; not fired
 	/// for a blank verify script, nor when the deployment skips verification. A default member, so
 	/// listeners written before verification ran keep compiling.

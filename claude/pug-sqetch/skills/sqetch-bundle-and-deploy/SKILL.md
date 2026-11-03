@@ -98,6 +98,16 @@ release, in order, or "nothing to deploy". A bundle that does not fit is refused
 - The sqlite driver creates a missing database file. To leave a missing file alone, pass
   `--sqlite-connection-string "Data Source=<file>;Mode=ReadOnly"`.
 
+## Concurrent deployments (since 0.2)
+
+When the project's journaling SQL sets the optional `AcquireLock`/`ReleaseLock` (the PostgreSQL,
+SQL Server and MySQL templates do), each deployment takes the database's lock before anything else
+and prints "acquired the deployment lock". A second deployment to the same database while one runs
+is refused at once with exit `34`, having changed nothing; retry it when the first finishes. The
+lock is released when the deployment ends, failures and rollbacks included, and in any case when
+`sqetch-deploy` exits. SQLite sets no lock: run SQLite deployments one at a time. `status` takes no
+lock, so during a deployment it may show a release partway.
+
 ## How the journal decides what deploys
 
 Each database's journal, read through the project's journaling SQL, decides where a deployment
@@ -135,6 +145,7 @@ The tens digit is the category; the full table, with what to do for each, is
 | `23` / `24` | the bundle does not fit this database / needs a newer `sqetch-deploy` |
 | `25` | the bundle's journaling SQL lacks a statement the command needs (`status`: `JournalExists`) |
 | `33` | database unreachable |
+| `34` | another deployment holds the database's lock; nothing changed, retry later |
 | `41`–`43` | the journaling SQL failed |
 | `51` | a step failed; the database is as it was |
 | `52` | a step failed partway; earlier work stayed committed |

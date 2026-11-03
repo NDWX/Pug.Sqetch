@@ -2,8 +2,9 @@
 
 The project's journaling SQL is how `sqetch-deploy` records a deployment and learns where a
 database stands. Sqetch never generates it, so it can write to any table the project likes. Fifteen
-slots are required before `bundle` will run; a sixteenth, `JournalExists` (since 0.2), is optional
-and needed only by `sqetch-deploy status`.
+slots are required before `bundle` will run. Three more are optional (since 0.2): `JournalExists`,
+which `sqetch-deploy status` needs, and `AcquireLock`/`ReleaseLock`, which stop two deployments to
+one database running at once.
 
 ## Slots and their parameters
 
@@ -15,6 +16,8 @@ and needed only by `sqetch-deploy status`.
 | `GetLatestRelease` | query | `@project` |
 | `GetDeployedPlans` | query | `@project @release` |
 | `JournalExists` (optional) | query | `@project` |
+| `AcquireLock` (optional) | lock query | `@project` |
+| `ReleaseLock` (optional) | lock | `@project` |
 | `DeployingRelease` | write | `@project @release @description @utcTimestamp` |
 | `DeployingPlan` | write | `@project @release @plan @description @utcTimestamp` |
 | `DeployingStep` | write | `@project @release @plan @step @description @utcTimestamp` |
@@ -70,6 +73,36 @@ will then misreport the database: "nothing to deploy" after an `on-success` roll
 skipped because they once deployed. A rollback after a failure undoes only what that run committed:
 plans an earlier run deployed in the same release stay in place, even though `RolledBackRelease`
 is journaled. The templates handle all of this. Keep their query logic when adapting them.
+
+## The deployment lock (optional, since 0.2)
+
+With `AcquireLock` set, every deployment takes the database's lock first, before `PrepareJournal`,
+and refuses to run when another deployment holds it: exit `34`, nothing changed, safe to retry
+later. `ReleaseLock` gives it back when the deployment ends, success or failure, rollbacks included.
+Without them a deployment runs unguarded, as before 0.2.
+
+- **`AcquireLock`** is a query: one row whose first column is true when the lock was taken (coerced
+  like `completed`); false or no row means another deployment holds it.
+- Use a **session-level** lock: `AcquireLock` runs in a transaction committed on its own, and the lock
+  must outlive it. A session lock also ends with its database session, so a deployment that crashes
+  does not leave the database locked for long: the server ends the session when the connection
+  drops, though a host that vanishes without closing it (a CI runner VM gone) holds it until TCP
+  keepalive notices, which can take hours. Every deployment meanwhile exits `34`. To end it, find
+  the holder and end its session: PostgreSQL `pg_locks` where `locktype = 'advisory'`, then
+  `pg_terminate_backend( pid )`; SQL Server `sys.dm_tran_locks` where `resource_type = 'APPLICATION'`,
+  then `KILL <session>`; MySQL and MariaDB `is_used_lock( <name> )`, then `KILL <id>`.
+- **Session locks need a session.** Behind a pooler in transaction mode (PgBouncer, Supavisor or
+  similar on PostgreSQL), each transaction may run on a different server connection, so the lock
+  is taken and released on different sessions and guards nothing. Connect directly, or through
+  session pooling, or leave `AcquireLock`/`ReleaseLock` unset there.
+- **Take it without waiting**, so a second deployment fails fast rather than queueing. Name it after
+  `@project`, so projects sharing a database do not block each other.
+- The templates: PostgreSQL `pg_try_advisory_lock`, SQL Server `sp_getapplock` with
+  `@LockOwner = 'Session'` and `@LockTimeout = 0`, MySQL and MariaDB `get_lock(…, 0)` (lock names are
+  server-wide there, so the name includes `database()`).
+- **SQLite has no session locks**, so its template sets neither. Each SQLite transaction takes the
+  write lock, but two deployments can still interleave between commits: run them one at a time.
+- `sqetch-deploy status` takes no lock; while a deployment runs it may show a release partway.
 
 ## Changing the SQL later
 

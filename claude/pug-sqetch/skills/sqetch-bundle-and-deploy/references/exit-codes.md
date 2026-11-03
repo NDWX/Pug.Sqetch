@@ -17,8 +17,9 @@ the category alone. The message printed with the code names the cause.
 | `31` | Unknown driver | `sqetch-deploy drivers list` |
 | `32` | The driver could not be created: bad or missing connection switches | `sqetch-deploy drivers parameters <driver>` |
 | `33` | Database unreachable | Check host, network and credentials; retrying later is safe |
+| `34` | Since 0.2: another deployment holds the database's deployment lock (the journaling SQL's `AcquireLock`); nothing was changed | Retry when the other deployment has finished |
 | `41` | `PrepareJournal` failed | Fix that journaling SQL, or the role's rights |
-| `42` | A journal query failed, or returned something unusable | Fix `GetLatestRelease` / `GetDeployedPlans` |
+| `42` | A journal query failed, or returned something unusable | Fix the query the message names: `GetLatestRelease`, `GetDeployedPlans`, or (since 0.2) `JournalExists` or `AcquireLock` |
 | `43` | A journal write failed | Fix the failing write slot's SQL |
 | `51` | A step's deploy or (since 0.2) verify script failed; the database is as it was before the run | Fix the script (a new plan if its release is finalized), rebuild, deploy again |
 | `52` | A step's deploy or verify script failed partway; work committed before it stays | Fix the cause, deploy the same or a rebuilt bundle again: it resumes |

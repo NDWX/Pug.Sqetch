@@ -98,7 +98,7 @@ public class BundleCliTests : IDisposable
 		);
 
 		// the project's journaling SQL travels with the bundle, between the manifest and the plans
-		Assert.Equal( 16, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
+		Assert.Equal( 18, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
 
 		Assert.Equal(
 			"select 'JournalExists'",
