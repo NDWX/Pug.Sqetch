@@ -85,7 +85,7 @@ public class DeployCliTests : IDisposable
 
 		// #1 prepares the journal and #2 reads it, so the deployment's own transaction is #3
 		Assert.Equal(
-			[ "script #3 create table t ()", "script #3 create index i" ],
+			[ "script #3 create table t ()", "script #3 -- v", "script #3 create index i", "script #3 -- v" ],
 			_driver.Events.Where( x => x.StartsWith( "script" ) )
 		);
 
@@ -290,7 +290,7 @@ public class DeployCliTests : IDisposable
 		Assert.Equal( 0, result.ExitCode );
 
 		Assert.Equal(
-			[ "create table t ()", "create index i", "-- r", "-- r" ],
+			[ "create table t ()", "-- v", "create index i", "-- v", "-- r", "-- r" ],
 			_driver.AppliedScripts
 		);
 	}
@@ -644,7 +644,7 @@ public class DeployCliTests : IDisposable
 		CommandAppResult partway = Deploy( "partway.zip", "--commit-level", "plan" );
 
 		Assert.Equal( DeployExitCodes.DeploymentFailedPartway, partway.ExitCode );
-		Assert.Equal( [ "create table t ()" ], _driver.AppliedScripts );
+		Assert.Equal( [ "create table t ()", "-- v" ], _driver.AppliedScripts );
 	}
 
 	/// <summary>
@@ -666,7 +666,7 @@ public class DeployCliTests : IDisposable
 		);
 
 		Assert.Equal( DeployExitCodes.DeploymentFailed, result.ExitCode );
-		Assert.Equal( [ "create table t ()", "-- r" ], _driver.AppliedScripts );
+		Assert.Equal( [ "create table t ()", "-- v", "-- r" ], _driver.AppliedScripts );
 	}
 
 	/// <summary>
@@ -725,6 +725,77 @@ public class DeployCliTests : IDisposable
 		);
 	}
 
+	// ------------------------------------------------------------------ step verification
+
+	[Fact]
+	public void AFailingVerifyScriptFailsTheDeploymentAndSaysSo()
+	{
+		_driver.FailingScripts.Add( "-- v" );
+
+		CommandAppResult result = Deploy( "verify-fails.zip" );
+
+		Assert.Equal( DeployExitCodes.DeploymentFailed, result.ExitCode );
+		Assert.Contains(
+			"verification of step 'create' of plan 'table' in release '2026.07' failed",
+			Regex.Replace( result.Output, @"\s+", " " )
+		);
+		Assert.DoesNotContain( "committed", result.Output );
+		Assert.Empty( _driver.AppliedScripts );
+	}
+
+	/// <summary>The first plan committed with its verify passing; the second plan's verify fails.</summary>
+	[Fact]
+	public void AFailingVerifyAfterAPlanLevelCommitLeavesTheDatabasePartway()
+	{
+		_driver.FailingScripts.Add( "-- v index" );
+
+		CommandAppResult result = Run(
+			[
+				"deploy",
+				WriteBundle( "verify-partway.zip", indexVerifyScript: "-- v index" ),
+				"--driver",
+				"pg",
+				"--pg-host",
+				"h",
+				"--pg-database",
+				"d",
+				"--commit-level",
+				"plan"
+			]
+		);
+
+		Assert.Equal( DeployExitCodes.DeploymentFailedPartway, result.ExitCode );
+		Assert.Equal( [ "create table t ()", "-- v" ], _driver.AppliedScripts );
+	}
+
+	[Fact]
+	public void SuccessfulDeploymentNarratesEachVerification()
+	{
+		CommandAppResult result = Deploy( "verified.zip" );
+
+		string output = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "verifying step 'create' of plan 'table'", output );
+		Assert.Contains( "verifying step 'add' of plan 'index'", output );
+		Assert.DoesNotContain( "verification skipped", output );
+	}
+
+	[Fact]
+	public void NoVerifyDeploysWithoutRunningAnyVerifyScript()
+	{
+		_driver.FailingScripts.Add( "-- v" );
+
+		CommandAppResult result = Deploy( "no-verify.zip", "--no-verify" );
+
+		string output = Regex.Replace( result.Output, @"\s+", " " );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "step verification skipped (--no-verify)", output );
+		Assert.DoesNotContain( "verifying step", output );
+		Assert.Equal( [ "create table t ()", "create index i" ], _driver.AppliedScripts );
+	}
+
 	/// <summary>Deploys the standard bundle under <paramref name="name"/> with the fake driver.</summary>
 	private CommandAppResult Deploy( string name, params string[] switches )
 		=> Run(
@@ -766,7 +837,8 @@ public class DeployCliTests : IDisposable
 		string name,
 		string type = ZipBundleType.TypeName,
 		bool withRollbackScripts = true,
-		string dependency = ""
+		string dependency = "",
+		string indexVerifyScript = "-- v"
 	)
 	{
 		Bundle bundle = new(
@@ -805,7 +877,7 @@ public class DeployCliTests : IDisposable
 							[ "create" ],
 							() => new StepScripts(
 								Script( "create index i" ),
-								Script( "-- v" ),
+								Script( indexVerifyScript ),
 								withRollbackScripts ? Script( "-- r" ) : null
 							)
 						)

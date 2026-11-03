@@ -52,6 +52,9 @@ public sealed class DeployCommand(
 
 		listener.BundleRead( validated.Metadata );
 
+		if( settings.NoVerify )
+			listener.VerificationSkipped();
+
 		try
 		{
 			new DeploymentEngine(
@@ -62,7 +65,7 @@ public sealed class DeployCommand(
 					listener,
 					settings.RollbackTrigger
 				)
-				.Deploy( validated.Manifest.Project.Name, validated.Releases );
+				.Deploy( validated.Manifest.Project.Name, validated.Releases, verifySteps: !settings.NoVerify );
 		}
 		catch( Exception exception )
 		{

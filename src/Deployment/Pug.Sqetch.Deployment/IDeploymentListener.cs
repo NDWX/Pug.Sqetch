@@ -23,6 +23,15 @@ public interface IDeploymentListener
 
 	void DeployingStep( string release, string plan, string step );
 
+	/// <summary>
+	/// Fired when a step's verify script is about to run, after its deploy script succeeded; not fired
+	/// for a blank verify script, nor when the deployment skips verification. A default member, so
+	/// listeners written before verification ran keep compiling.
+	/// </summary>
+	void VerifyingStep( string release, string plan, string step )
+	{
+	}
+
 	void StepDeployed( string release, string plan, string step );
 
 	void PlanDeployed( string release, string plan );

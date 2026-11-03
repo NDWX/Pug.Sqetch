@@ -329,6 +329,39 @@ public sealed class RealDatabaseDeployment(
 		Assert.Empty( Journal().Where( row => row.Contains( "RollingBack" ) || row.Contains( "RolledBack" ) ) );
 	}
 
+	// ------------------------------------------------------------------ step verification
+
+	/// <summary>
+	/// A verify script is run for its errors alone, so the one thing worth proving on a real provider
+	/// is that a <c>select</c> run as a command surfaces a <em>run-time</em> error — not merely a
+	/// compile-time one — and that the failure takes the step back with it. The deploy creates the
+	/// table; the verify then fails at run time (each provider supplies its own SQL, since which
+	/// expressions raise at run time differs by engine). Where the transaction holds DDL nothing
+	/// reaches the database; where DDL commits itself, on-error compensation removes the table.
+	/// </summary>
+	/// <param name="failingVerify">SQL that fails at run time; it may or may not read the new table 'v_s1'.</param>
+	public void AFailingVerifyFailsTheStep( string failingVerify )
+	{
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "v", "r1", "s1" ) ] );
+
+		InMemoryScripts scripts = Scripts();
+
+		scripts.Verify( "v", "s1", failingVerify );
+
+		StepVerificationFailedException error = Assert.Throws<StepVerificationFailedException>( () => Deploy(
+				releases,
+				scripts,
+				rollback: CommitsDdlImplicitly() ? RollbackTrigger.OnError : RollbackTrigger.None
+			)
+		);
+
+		Assert.Equal( ( "r1", "v", "s1" ), ( error.Release, error.Plan, error.Step ) );
+		Assert.NotNull( error.InnerException );
+
+		Assert.Empty( StepTables() );
+		Assert.DoesNotContain( "StepDeployed|r1|v|s1", Journal() );
+	}
+
 	// ------------------------------------------------------------------ helpers
 
 	private void Deploy(
@@ -353,16 +386,19 @@ public sealed class RealDatabaseDeployment(
 	}
 
 	/// <summary>
-	/// A deploy script per step, each creating a table named after the plan and step, and the
-	/// rollback script that undoes it — which is what compensation runs, so it has to be real SQL
-	/// here rather than a marker.
+	/// A deploy script per step, each creating a table named after the plan and step, a verify script
+	/// selecting from it, so every scenario runs the passing verification path, and the rollback script
+	/// that undoes it — which is what compensation runs, so it has to be real SQL here rather than a
+	/// marker.
 	/// </summary>
 	private static InMemoryScripts Scripts()
 	{
 		InMemoryScripts reader = new(
 			( plan, step ) => $"create table {plan}_{step} ( id integer primary key )",
 			// 'if exists': where DDL commits itself, compensation also runs for a step that never applied
-			( plan, step ) => $"drop table if exists {plan}_{step}"
+			( plan, step ) => $"drop table if exists {plan}_{step}",
+			// reads what the step's deploy created, so a verify that cannot see it fails the step
+			( plan, step ) => $"select id from {plan}_{step} where 1 = 0"
 		);
 
 		return reader;

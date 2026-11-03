@@ -65,4 +65,8 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 	[DockerFact]
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 		=> _deployment.Value.AFailingRollbackScriptLeavesNoHalfFinishedCompensation();
+
+	[DockerFact]
+	public void AFailingVerifyFailsTheStep()
+		=> _deployment.Value.AFailingVerifyFailsTheStep( "select 1 / count(*) from v_s1" );
 }

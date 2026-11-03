@@ -31,9 +31,16 @@ public static class DeployCliErrors
 					$"unknown database driver '{unknownDriver.Name}'; known drivers: {string.Join( ", ", unknownDriver.Known )}",
 			DriverCreationException creation =>
 				$"failed to create database driver '{creation.Driver}': {creation.InnerException?.Message}",
+			// what the failure left behind is not said here: on an engine that commits DDL itself the
+			// open transaction's rollback may have taken nothing back, and the exit code (51 or 52) and
+			// the 'committed' lines before this one already tell. The verification arm comes first,
+			// since it derives from the step script one.
+			StepVerificationFailedException verification =>
+				$"verification of step '{verification.Step}' of plan '{verification.Plan}' in release " +
+				$"'{verification.Release}' failed: {verification.InnerException?.Message}",
 			StepScriptFailedException failed =>
 				$"step '{failed.Step}' of plan '{failed.Plan}' in release '{failed.Release}' failed: " +
-				$"{failed.InnerException?.Message}; the transaction has been rolled back",
+				$"{failed.InnerException?.Message}",
 			UnknownReleaseException unknownRelease => $"release '{unknownRelease.ReleaseName}' does not exist",
 			MissingStepScriptsException missingScripts =>
 				$"step '{missingScripts.Step}' of plan '{missingScripts.Plan}' is missing script(s): " +

@@ -61,6 +61,10 @@ public abstract class MySqlFamilyDeploymentTests
 	[DockerFact]
 	public void OnErrorUndoesAPlanTheServerCommittedPartway()
 		=> _deployment.Value.OnErrorUndoesAPlanTheServerCommittedPartway();
+
+	[DockerFact]
+	public void AFailingVerifyFailsTheStep()
+		=> _deployment.Value.AFailingVerifyFailsTheStep( "select ( select 1 union all select 2 )" );
 }
 
 public sealed class MySqlDeploymentTests( MySqlServer server )

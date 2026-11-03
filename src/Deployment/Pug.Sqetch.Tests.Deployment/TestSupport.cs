@@ -211,6 +211,9 @@ public sealed class RecordingListener : IDeploymentListener
 	public void DeployingStep( string release, string plan, string step ) =>
 		Events.Add( $"step {release}/{plan}/{step}" );
 
+	public void VerifyingStep( string release, string plan, string step ) =>
+		Events.Add( $"verifying {release}/{plan}/{step}" );
+
 	public void StepDeployed( string release, string plan, string step ) =>
 		Events.Add( $"step-done {release}/{plan}/{step}" );
 
@@ -349,28 +352,45 @@ public sealed class FakeJournal
 
 /// <summary>
 /// Step scripts for engine tests, without a bundle: every step has a marker deploy and rollback
-/// script ("-- deploy plan/step", "-- rollback plan/step") unless a test replaces one.
+/// script ("-- deploy plan/step", "-- rollback plan/step") unless a test replaces one. Verify scripts
+/// are blank, which the engine skips, unless a test sets one, so only verification tests see them run.
 /// </summary>
 public sealed class InMemoryScripts : IScriptContentReader
 {
 	private readonly Dictionary<(string Plan, string Step, bool Rollback), string> _scripts = new();
 
+	private readonly Dictionary<(string Plan, string Step), string> _verify = new();
+
 	private readonly Func<string, string, string> _deploy;
 
 	private readonly Func<string, string, string> _rollback;
 
-	public InMemoryScripts( Func<string, string, string>? deploy = null, Func<string, string, string>? rollback = null )
+	private readonly Func<string, string, string> _defaultVerify;
+
+	public InMemoryScripts(
+		Func<string, string, string>? deploy = null,
+		Func<string, string, string>? rollback = null,
+		Func<string, string, string>? verify = null
+	)
 	{
+		_defaultVerify = verify ?? ( ( _, _ ) => "" );
 		_deploy = deploy ?? ( ( plan, step ) => $"-- deploy {plan}/{step}" );
 		_rollback = rollback ?? ( ( plan, step ) => $"-- rollback {plan}/{step}" );
 	}
 
-	/// <summary>The releases asked about, one entry per script read, in order.</summary>
+	/// <summary>The releases asked about, one entry per deploy or rollback script read, in order.</summary>
 	public List<string> Releases { get; } = [ ];
 
 	public InMemoryScripts Deploy( string plan, string step, string script )
 	{
 		_scripts[( plan, step, false )] = script;
+
+		return this;
+	}
+
+	public InMemoryScripts Verify( string plan, string step, string script )
+	{
+		_verify[( plan, step )] = script;
 
 		return this;
 	}
@@ -388,6 +408,9 @@ public sealed class InMemoryScripts : IScriptContentReader
 
 		return _scripts.TryGetValue( ( plan, step, false ), out string? script ) ? script : _deploy( plan, step );
 	}
+
+	public string ReadVerifyScript( string release, string plan, string step )
+		=> _verify.TryGetValue( ( plan, step ), out string? script ) ? script : _defaultVerify( plan, step );
 
 	public string ReadRollbackScript( string release, string plan, string step )
 	{

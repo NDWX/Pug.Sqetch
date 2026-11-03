@@ -48,8 +48,13 @@ public class DeploymentEngine(
 	/// group before it as its dependency. That is checked before the database is touched, and a
 	/// violation is an <see cref="ArgumentException"/>, since it is the caller's grouping that is
 	/// wrong rather than anything about the database.
+	///
+	/// With <paramref name="verifySteps"/>, each step's verify script runs right after its deploy
+	/// script, in the same transaction, and an error from it fails the step
+	/// (<see cref="StepVerificationFailedException"/>) like an error from the deploy script would. A
+	/// blank verify script is not run. Turning verification off is for emergencies.
 	/// </summary>
-	public void Deploy( string project, IReadOnlyList<ReleaseGroup> groups )
+	public void Deploy( string project, IReadOnlyList<ReleaseGroup> groups, bool verifySteps = true )
 	{
 		ArgumentNullException.ThrowIfNull( project );
 		ArgumentNullException.ThrowIfNull( groups );
@@ -64,14 +69,14 @@ public class DeploymentEngine(
 
 		if( latest is null )
 		{
-			Deploy( groups, journal, deployedPlans: null );
+			Deploy( groups, journal, verifySteps, deployedPlans: null );
 
 			return;
 		}
 
 		if( latest.Completed )
 		{
-			Deploy( groups, journal, latest, deployedPlans: null );
+			Deploy( groups, journal, verifySteps, latest, deployedPlans: null );
 
 			return;
 		}
@@ -80,7 +85,7 @@ public class DeploymentEngine(
 		// the order the bundle lists plans in, which is only partly determined — plans with no
 		// dependency between them are ordered by registration, which the journal never records.
 		// An empty set resumes at the release's first plan, without journaling its start again.
-		Deploy( groups, journal, latest, deployedPlans );
+		Deploy( groups, journal, verifySteps, latest, deployedPlans );
 	}
 
 	/// <summary>
@@ -163,6 +168,7 @@ public class DeploymentEngine(
 	private void Deploy(
 		IReadOnlyList<ReleaseGroup> groups,
 		StatementJournal journal,
+		bool verifySteps,
 		JournaledRelease? latestJournaledRelease = null,
 		IReadOnlyCollection<string>? deployedPlans = null
 	)
@@ -204,7 +210,7 @@ public class DeploymentEngine(
 		{
 			inProgress = ( release, plan, [ ] );
 
-			DeployPlan( release.Name, plan, journal, Transaction, listener, inProgress.Value.Started );
+			DeployPlan( release.Name, plan, journal, Transaction, listener, inProgress.Value.Started, verifySteps );
 
 			pending.Add( ( release, plan ) );
 			inProgress = null;
@@ -577,7 +583,8 @@ public class DeploymentEngine(
 		StatementJournal journal,
 		Func<IDatabaseTransaction> transaction,
 		IDeploymentListener listener,
-		List<DeployableStep> started
+		List<DeployableStep> started,
+		bool verifySteps
 	)
 	{
 		listener.DeployingPlan( release, plan.Name );
@@ -601,12 +608,46 @@ public class DeploymentEngine(
 				throw new StepScriptFailedException( release, plan.Name, step.Name, exception );
 			}
 
+			if( verifySteps )
+				VerifyStep( release, plan.Name, step.Name, transaction(), listener );
+
 			journal.StepDeployed( release, plan.Name, step.Name, step.Description, transaction() );
 			listener.StepDeployed( release, plan.Name, step.Name );
 		}
 
 		journal.PlanDeployed( release, plan.Name, plan.Description, transaction() );
 		listener.PlanDeployed( release, plan.Name );
+	}
+
+	/// <summary>
+	/// Runs the step's verify script in the transaction its deploy script ran in, before the step is
+	/// journaled as deployed, so a failing check leaves the step undeployed in the journal too. Only an
+	/// error fails it: Sqetch reads no results. A blank script is skipped, since new steps start with
+	/// an empty one and some providers refuse an empty command.
+	/// </summary>
+	private void VerifyStep(
+		string release,
+		string plan,
+		string step,
+		IDatabaseTransaction transaction,
+		IDeploymentListener listener
+	)
+	{
+		string script = scripts.ReadVerifyScript( release, plan, step );
+
+		if( string.IsNullOrWhiteSpace( script ) )
+			return;
+
+		listener.VerifyingStep( release, plan, step );
+
+		try
+		{
+			transaction.ExecuteStepScript( script );
+		}
+		catch( Exception exception )
+		{
+			throw new StepVerificationFailedException( release, plan, step, exception );
+		}
 	}
 
 	/// <summary>Renders a release name for a message; mirrors the CLI listener's wording.</summary>

@@ -41,11 +41,35 @@ sqetch plan add-step -p add-orders -n orders-customer-index --requires orders-ta
   restore what was changed). `sqetch-deploy deploy --rollback` runs it, so it must work against
   the state `deploy.sql` leaves. Where data would be lost, say so in the script's comments and to the
   user.
-- **`verify.sql`** checks the change is in place. It is bundled but not run yet; write it anyway
-  (a `select` that fails when the change is missing).
+- **`verify.sql`** checks the change is in place. Since `sqetch-deploy` 0.2 it runs right after
+  `deploy.sql`, in the same transaction, and **fails the step only by raising an error**: Sqetch
+  reads no results, so a `select` returning `false`, `0` or no rows passes. Select what the deploy
+  created (`select id, customer_id from orders where 1 = 0` fails if the table or a column is
+  missing); to check a condition, make the SQL error when it does not hold (see "Verify scripts"
+  below). A failing verify fails the step exactly like a failing deploy script: the same exit codes,
+  and the same rollback (`--rollback on-error` undoes the step on MySQL and MariaDB). A blank
+  `verify.sql` is skipped; `deploy --no-verify` skips them all, for emergencies. Earlier versions
+  bundle it without running it.
 
 Write SQL for the project's engine (the `engine` in `sqetch-project.json` names it). A step should be
 small enough to review on its own; split a plan into steps rather than writing one large script.
+
+### Verify scripts
+
+Since `sqetch-deploy` 0.2 a verify script passes unless it raises an error. Two kinds of check:
+
+- **The change exists**: select what the deploy created, so a missing table or column is an error.
+  `select id, customer_id from orders where 1 = 0` works on every engine.
+- **A condition holds**: turn "false" into a run-time error. Plain `select count(*) = 1 …` passes
+  whatever it returns. Each check below fails while `orders` is empty, tested on its engine:
+
+| Engine | Fails when `orders` is empty |
+|---|---|
+| PostgreSQL, SQL Server | `select 1 / count(*) from orders` (division by zero) |
+| MySQL, MariaDB (`1 / 0` is NULL there) | `select ( select 1 union all select 2 where not exists ( select 1 from orders ) )` (subquery returns more than one row) |
+| SQLite (`1 / 0` is NULL there) | `select case when exists ( select 1 from orders ) then 1 else json( 'x' ) end` (malformed JSON) |
+
+Keep verify scripts read-only: they run in the deployment's transaction.
 
 ## Dependencies
 

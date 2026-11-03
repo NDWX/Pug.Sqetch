@@ -76,7 +76,12 @@ the project; `sqetch-deploy bundle` refuses until they are all set.
    again does nothing. `bundle --since 1.4` makes a bundle holding only the releases after 1.4,
    for databases that already have it.
 
-`verify.sql` is written and bundled with each step, but `sqetch-deploy` does not run it yet.
+Each step's `verify.sql` runs right after its `deploy.sql`, in the same transaction, and an error
+from it fails the step (since `sqetch-deploy` 0.2; earlier versions bundle it without running it).
+On MySQL and MariaDB the deploy's schema changes have already committed by then, so deploy there with
+`--rollback on-error`. A blank `verify.sql` is skipped. Verify scripts that never ran before may
+start failing after upgrading: fix them, or pass `deploy --no-verify` to get a deployment out in an
+emergency.
 
 ### Getting help
 
