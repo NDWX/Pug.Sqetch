@@ -35,7 +35,7 @@ model projects and `Pug.Sqetch.Shared` (with its tests) at `src/` itself, then `
 and host), `src/Cli/Deployment` (the 'sqetch-deploy' commands, host and bundling contracts) and
 `src/Cli/Deployment/Bundling`. Each test project sits beside what it tests. A new project goes in
 the folder of its solution folder, and the two must stay the same. `Installers/`, `actions/`,
-`claude/` and the repository files (`Directory.Build.props`, `global.json`, licences) stay at the
+`claude/` and the repository files (`Directory.Build.props`, `Directory.Build.targets`, `global.json`, licences) stay at the
 root.
 
 | Project | Role |
@@ -57,10 +57,12 @@ root.
 | `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
 | **Database drivers** | |
-| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
-| `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`/`AdoDialect`: the ADO.NET half every provider driver inherits, and `EmbeddedJournalingTemplate`, which reads a driver's `journaling/<slot>.sql` resources; references only the driver contract |
+| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, `IDatabaseDriver.CommitsDdlImplicitly` (a default member, false), the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
+| `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`: the ADO.NET half every provider driver inherits, with `AdoDriverOptions` (a provider's step-script splitter and parameter adjustment) and `StepScriptBatchFailedException`; `ServerConnectionParameters`, the host/port/database/username/password(-env)/connection-string rules every server driver shares; and `EmbeddedJournalingTemplate`, which reads a driver's `journaling/<slot>.sql` resources; references only the driver contract |
 | `Pug.Sqetch.DatabaseDrivers.Sqlite` | `SqliteDatabaseDriverFactory` (Microsoft.Data.Sqlite) + `RegisterSqliteDriver()`; `Journaling/*.sql`, its built-in journaling template |
 | `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()`; `Journaling/*.sql`, its built-in journaling template |
+| `Pug.Sqetch.DatabaseDrivers.SqlServer` | `SqlServerDatabaseDriverFactory` (Microsoft.Data.SqlClient, managed networking) + `RegisterSqlServerDriver()`, `SqlServerBatches` ('GO' splitting); `Journaling/*.sql`, its built-in T-SQL template |
+| `Pug.Sqetch.DatabaseDrivers.MySql` | `MySqlDatabaseDriverFactory` (MySqlConnector; MySQL and MariaDB) + `RegisterMySqlDriver()`; `Journaling/*.sql`, its built-in template |
 | **Shared** | |
 | `Pug.Sqetch.Shared` (net8.0) | Implementations both CLIs' back ends use, so neither depends on the other's: `DatabaseDriverRegistry`. References only the driver contract |
 | **Shared CLI** | |
@@ -225,7 +227,14 @@ root.
   `DeploymentCommitLevel`**, which is the whole point: at plan level the earlier plans are already
   durable and no database transaction could take them back. The engine therefore records committed
   units — a plan moves from pending to committed only when its transaction commits, so a plan the
-  open transaction took back is never compensated for a change that never reached the database. A
+  open transaction took back is never compensated for a change that never reached the database.
+  **Except where the driver says its engine commits DDL implicitly**
+  (`IDatabaseDriver.CommitsDdlImplicitly`, MySQL and MariaDB): there a failed transaction's rollback
+  may have taken nothing back, so the engine treats what it held as committed — its whole plans,
+  and the failed plan cut down to the steps whose deploy script started (`inProgress`), **the failing
+  step included**, since it may have half applied — and reports `Committed` to the listener, so the
+  CLI exits `52` unless on-error compensation then completes (`51`). Rollback scripts on those
+  engines must therefore tolerate a deploy that applied only partly or not at all. A
   failing rollback script throws `RollbackFailedException` and replaces the failure that triggered
   it: a half-compensated database is worse than either end state, and the reason was already
   reported to the listener. The standalone `sqetch-deploy rollback` command is still a stub;
@@ -237,9 +246,13 @@ root.
   verified per provider, since neither behaviour can be read off a provider's documentation
   (Npgsql ignores an unreferenced parameter despite rewriting named placeholders to positional
   ones, and both providers resolve a prefixless name against every placeholder form they accept).
-  A provider needing the prefix spelled out, or refusing what it cannot see, belongs in
-  `AdoDatabaseTransaction.Bind` *with a test proving the need* — an earlier dialect-plus-SQL-scan
-  for exactly that was deleted once the probe showed no provider needed it.
+  SqlClient adds the missing '@' itself and ignores unreferenced parameters too. A provider needing
+  more goes through `AdoDriverOptions` *with a test proving the need* — so far only SQL Server's
+  `ConfigureParameter`, binding a `DateTime` as `datetime2` because SqlClient's default `datetime`
+  rounds the instant — and an earlier dialect-plus-SQL-scan was deleted once the probe showed no
+  provider needed it. `AdoDriverOptions.SplitStepScript` lets a provider run a step script as several
+  batches in its transaction; a failing batch is `StepScriptBatchFailedException`, naming its
+  position.
   **One connection per driver**, opened on first use and reused: a deployment's transactions are
   strictly sequential, and session state a maintainer's statements set up survives between them. A
   second overlapping transaction is refused as a bug. `IDatabaseDriver` is `IDisposable` because it
@@ -272,14 +285,45 @@ root.
   extending them. `password-env` names an environment variable holding the password, since a command
   line is readable by every process on the host. Journaled instants arrive as `timestamptz`; a
   `timestamp` column would store whatever the session time zone made of them.
-- **Both engines run DDL inside a transaction**, so a release deployed at release commit level
-  really is all-or-nothing on them — the engines that commit DDL implicitly are what make the
-  compensating rollback necessary, not these.
+- **`sqlserver` driver**: `--sqlserver-host` and `--sqlserver-database` (plus `port`, `username`,
+  `password`, `password-env`, `trust-server-certificate`), or `--sqlserver-connection-string`, which
+  replaces them. No `username` means integrated authentication. Step scripts split into batches at
+  lines whose trimmed content is `GO` (any case; no `GO <count>`), run in order in the step's
+  transaction; a script without one runs exactly as written, and journaling never splits on `GO`.
+  **SqlClient's Windows native networking library (`Microsoft.Data.SqlClient.SNI.dll`) is not
+  shipped**: its proprietary licence terms cannot be met by a GPL/AGPL distribution, so
+  `Directory.Build.targets` drops it from every project's output and the factory's static
+  constructor sets `Switch.Microsoft.Data.SqlClient.UseManagedNetworkingOnWindows`, the managed
+  networking Linux and macOS always use. Windows Authentication then works only on domain-joined
+  machines. The smoke checks deploy to a port nothing listens on and expect `33` through SqlClient's
+  "TCP Provider", which a missing native library would never reach. The template quotes `[plan]`,
+  reserved in T-SQL.
+- **`mysql` driver** (MySQL and MariaDB): `--mysql-host` and `--mysql-database` (plus `port`,
+  `username`, `password`, `password-env`), or `--mysql-connection-string`, which replaces them. The
+  connection strings it builds set `AllowUserVariables`, so a step script may use `@variables`
+  without MySqlConnector taking them for missing parameters; a supplied string is used as written.
+  Journaled instants go to `datetime(6)` as UTC (`timestamp` would convert through the session time
+  zone). The template quotes `` `release` ``, reserved there, and declares its index inside the
+  table, there being no `create index if not exists`.
+- **SQLite, PostgreSQL and SQL Server run DDL inside a transaction**, so a release deployed at
+  release commit level really is all-or-nothing on them. **MySQL and MariaDB commit DDL
+  implicitly** — a CREATE, ALTER or DROP commits the open transaction, journal rows included — so a
+  failing plan leaves earlier steps' changes in place whatever its transaction does. The `mysql`
+  driver sets `CommitsDdlImplicitly`, so on-error compensation undoes the failed plan as far as it got
+  (see the rollback bullet) and the release then reads as rolled back; without it a rerun restarts
+  the failed plan from its first step. Compensation is itself not atomic there, so a failing rollback
+  script can leave it half done. Those engines are what make the compensating rollback necessary.
 - **Driver tests run against real databases**: SQLite in temp files (never `:memory:`, whose
-  contents die with the connection), PostgreSQL in a Testcontainers container gated by
-  `[DockerFact]`/`[DockerTheory]`, which *skip* where the daemon socket cannot be reached rather
-  than failing. `RealDatabaseDeployment` holds the end-to-end scenarios so both providers run the
-  same ones — the only place the engine's resume decision is read back out of SQL the deployment
+  contents die with the connection), PostgreSQL, SQL Server, MySQL and MariaDB in Testcontainers
+  containers gated by `[DockerFact]`/`[DockerTheory]`, which *skip* where the daemon socket cannot be
+  reached rather than failing — SQL Server's by `[DockerAmd64Fact]`, since its image is amd64-only.
+  `RealDatabaseDeployment` holds the end-to-end scenarios so every provider runs the same ones, on
+  the driver's own built-in template, quoting reserved journal columns through the provider's
+  `identifier` function; the `mysql` driver's tests run against MySQL and MariaDB alike through
+  `MySqlFamilyServer`, skip only the half-finished-compensation scenario, which implicit DDL
+  commits make impossible to hold there, and alone run `OnErrorUndoesAPlanTheServerCommittedPartway`.
+  The scenarios' rollback scripts use `drop table if exists`, as compensation on those engines also
+  runs for a step that never applied — the only place the engine's resume decision is read back out of SQL the deployment
   itself wrote, and the only check that a journal's `completed` column works as both a count
   (SQLite) and a boolean (PostgreSQL). Compensating rollback is among them: that a committed plan is
   undone by its own `rollback.sql`, that `on-success` undoes releases and their plans in reverse,

@@ -116,6 +116,63 @@ jobs:
   same workflow run.
 - **A SQLite project** needs no service: deploy the test bundle with
   `--driver sqlite --sqlite-file test.db --rollback on-success`.
+- **A SQL Server project** (driver since 0.2) swaps the service and the deploy step. The image
+  starts with no application database, so create one first:
+
+  ```yaml
+      services:
+        sqlserver:
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          env:
+            ACCEPT_EULA: 'Y'
+            MSSQL_SA_PASSWORD: Test-Passw0rd
+          ports: ['1433:1433']
+          options: >-
+            --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Test-Passw0rd -Q 'select 1'"
+            --health-interval 5s --health-timeout 5s --health-retries 20
+      steps:
+        # … checkout, install and bundle as above …
+        - run: >-
+            docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools18/bin/sqlcmd -C -S localhost
+            -U sa -P Test-Passw0rd -Q 'create database app'
+        - run: >-
+            sqetch-deploy deploy test.zip --driver sqlserver
+            --sqlserver-host localhost --sqlserver-database app --sqlserver-username sa
+            --sqlserver-password-env SA_PASSWORD --sqlserver-trust-server-certificate true
+            --rollback on-success
+          env:
+            SA_PASSWORD: Test-Passw0rd
+  ```
+
+  The image runs on x64 runners only.
+- **A MySQL or MariaDB project** (driver since 0.2) uses `mysql:8.4` or `mariadb:11` as the
+  service, which creates the database itself:
+
+  ```yaml
+      services:
+        mysql:
+          image: mysql:8.4
+          env:
+            MYSQL_ROOT_PASSWORD: test
+            MYSQL_DATABASE: app
+          ports: ['3306:3306']
+          options: >-
+            --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest"
+            --health-interval 5s --health-timeout 5s --health-retries 20
+      steps:
+        # … checkout, install and bundle as above …
+        - run: >-
+            sqetch-deploy deploy test.zip --driver mysql
+            --mysql-host 127.0.0.1 --mysql-database app --mysql-username root
+            --mysql-password-env MYSQL_PASSWORD --rollback on-success
+          env:
+            MYSQL_PASSWORD: test
+  ```
+
+  For MariaDB, use `MARIADB_ROOT_PASSWORD`/`MARIADB_DATABASE` and
+  `healthcheck.sh --connect --innodb_initialized` as the health command. In the deploy jobs of a
+  MySQL or MariaDB project, add `--rollback on-error`: these engines commit schema changes as they
+  run, and only that cleans up after a failed plan.
 - **The action's `@ref`** pins the action's code and `version` the tool. Bump both together when
   asked to upgrade.
 

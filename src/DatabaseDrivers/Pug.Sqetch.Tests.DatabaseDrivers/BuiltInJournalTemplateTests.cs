@@ -1,8 +1,10 @@
 using System.Text.RegularExpressions;
 
 using Pug.Sqetch.DatabaseDriver;
+using Pug.Sqetch.DatabaseDrivers.MySql;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
+using Pug.Sqetch.DatabaseDrivers.SqlServer;
 using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -13,12 +15,21 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// </summary>
 public class BuiltInJournalTemplateTests
 {
-	public static TheoryData<string> Drivers => [ SqliteDatabaseDriverFactory.DriverName, PostgreSqlDatabaseDriverFactory.DriverName ];
+	public static TheoryData<string> Drivers =>
+	[
+		SqliteDatabaseDriverFactory.DriverName, PostgreSqlDatabaseDriverFactory.DriverName,
+		SqlServerDatabaseDriverFactory.DriverName, MySqlDatabaseDriverFactory.DriverName
+	];
 
 	private static IJournalingTemplateProvider Driver( string name )
-		=> name == SqliteDatabaseDriverFactory.DriverName ?
-			new SqliteDatabaseDriverFactory() :
-			new PostgreSqlDatabaseDriverFactory();
+		=> name switch
+		{
+			SqliteDatabaseDriverFactory.DriverName => new SqliteDatabaseDriverFactory(),
+			PostgreSqlDatabaseDriverFactory.DriverName => new PostgreSqlDatabaseDriverFactory(),
+			SqlServerDatabaseDriverFactory.DriverName => new SqlServerDatabaseDriverFactory(),
+			MySqlDatabaseDriverFactory.DriverName => new MySqlDatabaseDriverFactory(),
+			_ => throw new ArgumentOutOfRangeException( nameof(name), name, null )
+		};
 
 	[Theory]
 	[MemberData( nameof(Drivers) )]
@@ -32,13 +43,18 @@ public class BuiltInJournalTemplateTests
 
 		Assert.All( template.Values, sql => Assert.False( string.IsNullOrWhiteSpace( sql ) ) );
 
-		// creating the table and its index: the multi-statement form a maintainer will copy
-		Assert.Equal( 2, BuiltInJournal.Statements( Driver( driver ) ).Statements( JournalingSlot.PrepareJournal ).Count );
+		// creating the table and its index, as two statements except on MySQL, which has no
+		// 'create index if not exists' and so declares the index inside the table
+		Assert.Equal(
+			driver == MySqlDatabaseDriverFactory.DriverName ? 1 : 2,
+			BuiltInJournal.Statements( Driver( driver ) ).Statements( JournalingSlot.PrepareJournal ).Count );
 	}
 
 	[Theory]
 	[InlineData( "sqlite", "journaling-sqlite.md" )]
 	[InlineData( "postgres", "journaling-postgresql.md" )]
+	[InlineData( "sqlserver", "journaling-sqlserver.md" )]
+	[InlineData( "mysql", "journaling-mysql.md" )]
 	public void TheSkillsReferenceMatchesTheShippedTemplate( string driver, string reference )
 	{
 		string path = Path.Combine(

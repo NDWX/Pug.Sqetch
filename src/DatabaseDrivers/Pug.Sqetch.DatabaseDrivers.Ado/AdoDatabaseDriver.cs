@@ -27,19 +27,24 @@ public class AdoDatabaseDriver : IDatabaseDriver
 
 	private readonly TimeSpan _stepScriptTimeout;
 
+	private readonly AdoDriverOptions _options;
+
 	private DbConnection? _connection;
 
 	private AdoDatabaseTransaction? _transaction;
 
 	private bool _disposed;
 
-	public AdoDatabaseDriver( Func<DbConnection> connect, TimeSpan stepScriptTimeout )
+	public AdoDatabaseDriver( Func<DbConnection> connect, TimeSpan stepScriptTimeout, AdoDriverOptions? options = null )
 	{
 		ArgumentNullException.ThrowIfNull( connect );
 
 		_connect = connect;
 		_stepScriptTimeout = stepScriptTimeout;
+		_options = options ?? AdoDriverOptions.Default;
 	}
+
+	public bool CommitsDdlImplicitly => _options.CommitsDdlImplicitly;
 
 	public IDatabaseTransaction BeginTransaction()
 	{
@@ -55,7 +60,7 @@ public class AdoDatabaseDriver : IDatabaseDriver
 
 		DbConnection connection = Connection();
 
-		_transaction = new AdoDatabaseTransaction( connection.BeginTransaction(), _stepScriptTimeout );
+		_transaction = new AdoDatabaseTransaction( connection.BeginTransaction(), _stepScriptTimeout, _options );
 
 		return _transaction;
 	}

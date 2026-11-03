@@ -63,6 +63,9 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 	/// <summary>Whether the host released the driver, as a real one's connection would need.</summary>
 	public bool Disposed { get; private set; }
 
+	/// <summary>Poses as an engine that commits DDL by itself, as MySQL and MariaDB do.</summary>
+	public bool CommitsDdlImplicitly { get; set; }
+
 	public IDatabaseTransaction BeginTransaction()
 	{
 		FakeTransaction transaction = new( this, Transactions.Count + 1 );

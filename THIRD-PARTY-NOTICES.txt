@@ -38,60 +38,193 @@ Microsoft.Data.Sqlite 10.0.12
   Project URL: https://docs.microsoft.com/dotnet/standard/data/sqlite/
   Licence:     MIT
   Copyright:   (c) Microsoft Corporation. All rights reserved.
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 Microsoft.Data.Sqlite.Core 10.0.12
   Project URL: https://docs.microsoft.com/dotnet/standard/data/sqlite/
   Licence:     MIT
   Copyright:   (c) Microsoft Corporation. All rights reserved.
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 Microsoft.Extensions.DependencyInjection.Abstractions 10.0.0
   Project URL: https://dot.net/
   Licence:     MIT
   Copyright:   (c) Microsoft Corporation. All rights reserved.
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 Microsoft.Extensions.Logging.Abstractions 10.0.0
   Project URL: https://dot.net/
   Licence:     MIT
   Copyright:   (c) Microsoft Corporation. All rights reserved.
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 Npgsql 10.0.3
   Project URL: https://github.com/npgsql/npgsql
   Licence:     PostgreSQL
   Copyright:   Copyright 2025 (c) The Npgsql Development Team
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
+
+MySqlConnector 2.6.2
+  Project URL: https://mysqlconnector.net/
+  Licence:     MIT
+  Copyright:   Copyright 2016–2026 Bradley Grainger
+  Used by:     sqetch and sqetch-deploy
 
 SQLitePCLRaw.bundle_e_sqlite3 2.1.12
   Project URL: https://github.com/ericsink/SQLitePCL.raw
   Licence:     Apache-2.0
   Copyright:   Copyright 2014-2024 SourceGear, LLC
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 SQLitePCLRaw.core 2.1.12
   Project URL: https://github.com/ericsink/SQLitePCL.raw
   Licence:     Apache-2.0
   Copyright:   Copyright 2014-2024 SourceGear, LLC
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 SQLitePCLRaw.provider.e_sqlite3 2.1.12
   Project URL: https://github.com/ericsink/SQLitePCL.raw
   Licence:     Apache-2.0
   Copyright:   Copyright 2014-2024 SourceGear, LLC
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
 
 SQLitePCLRaw.lib.e_sqlite3 2.1.12
   Project URL: https://github.com/ericsink/SQLitePCL.raw
   Licence:     Apache-2.0
   Copyright:   Copyright 2014-2024 SourceGear, LLC
-  Used by:     sqetch-deploy
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Data.SqlClient 7.1.1
+  Project URL: https://aka.ms/sqlclientproject
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Data.SqlClient.Extensions.Abstractions 7.1.1
+  Project URL: https://aka.ms/sqlclientproject
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Data.SqlClient.Internal.Logging 7.1.1
+  Project URL: https://aka.ms/sqlclientproject
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.SqlServer.Server 1.0.0
+  Project URL: https://aka.ms/sqlclientproject
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Bcl.Cryptography 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Extensions.Caching.Abstractions 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Extensions.Caching.Memory 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Extensions.Options 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.Extensions.Primitives 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.Abstractions 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.JsonWebTokens 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.Logging 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.Protocols 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.Protocols.OpenIdConnect 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+Microsoft.IdentityModel.Tokens 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.IdentityModel.Tokens.Jwt 8.16.0
+  Project URL: https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.Configuration.ConfigurationManager 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.Diagnostics.EventLog 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.Security.Cryptography.Pkcs 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.Security.Cryptography.ProtectedData 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
+
+System.Threading.RateLimiting 9.0.18
+  Project URL: https://dot.net/
+  Licence:     MIT
+  Copyright:   (c) Microsoft Corporation. All rights reserved.
+  Used by:     sqetch and sqetch-deploy
 
 SQLitePCLRaw.lib.e_sqlite3 contains the native SQLite library (e_sqlite3).
 SQLite itself is in the public domain; see the section 'SQLite' below.
 
-The Microsoft.Extensions.* packages carry their own THIRD-PARTY-NOTICES.TXT
+The Microsoft.Extensions.*, Microsoft.Bcl.* and System.* packages carry their
+own THIRD-PARTY-NOTICES.TXT
 (identical to the .NET runtime's notices for code the runtime libraries
 incorporate). Self-contained artifacts ship that file alongside the runtime's
 own.
@@ -101,7 +234,9 @@ MIT LICENSE
 Applies to: Spectre.Console.Cli, Spectre.Console, Spectre.Console.Ansi,
 Microsoft.Data.Sqlite, Microsoft.Data.Sqlite.Core,
 Microsoft.Extensions.DependencyInjection.Abstractions,
-Microsoft.Extensions.Logging.Abstractions
+Microsoft.Extensions.Logging.Abstractions, MySqlConnector, and the
+Microsoft.Data.SqlClient packages listed above with their Microsoft.*, System.*
+and Microsoft.IdentityModel.* dependencies
 ==============================================================================
 
 Copyright lines:
@@ -112,9 +247,12 @@ Frank Ray
 Spectre.Console, Spectre.Console.Ansi: Patrik Svensson, Phil Scott, Nils
 Andresen, Cédric Luthi
 
+MySqlConnector: Copyright 2016–2026 Bradley Grainger
+
 Microsoft.Data.Sqlite, Microsoft.Data.Sqlite.Core,
 Microsoft.Extensions.DependencyInjection.Abstractions,
-Microsoft.Extensions.Logging.Abstractions:
+Microsoft.Extensions.Logging.Abstractions, Microsoft.Data.SqlClient and its
+dependencies listed above:
   (c) Microsoft Corporation. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

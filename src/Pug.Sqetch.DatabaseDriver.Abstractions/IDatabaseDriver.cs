@@ -17,4 +17,13 @@ public interface IDatabaseDriver : IDisposable
 	/// </summary>
 	/// <returns>Instance of IDatabaseTransaction</returns>
 	public IDatabaseTransaction BeginTransaction();
+
+	/// <summary>
+	/// Whether the engine commits DDL implicitly — MySQL and MariaDB end the open transaction at every
+	/// CREATE, ALTER or DROP, committing what came before. When true, a failed transaction's rollback
+	/// cannot be trusted to have taken its work back, so the deployment engine treats everything it
+	/// held as possibly committed: the database counts as changed, and a compensating rollback
+	/// undoes it, the failed step included. False for engines that run DDL inside the transaction.
+	/// </summary>
+	public bool CommitsDdlImplicitly => false;
 }

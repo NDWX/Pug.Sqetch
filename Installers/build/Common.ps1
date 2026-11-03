@@ -629,6 +629,18 @@ function Test-ProductCommands
 		{
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'drivers', 'list' ) -Expect 'sqlite'
 
+			# a driver with no server to reach still has to load from every installed form: only a
+			# connection attempt loads the provider's assemblies, and nothing listens on port 1, so
+			# reaching 'database unreachable' (33) through SqlClient's TCP provider proves the provider
+			# and its managed networking work — on Windows a missing native library would fail before
+			# any TCP provider was involved
+			$null = Assert-Invocation -Invoke $Invoke -ExitCode 33 -Expect 'TCP Provider' -Arguments @(
+				'deploy', $BundlePath, '--driver', 'sqlserver', '--sqlserver-connection-string',
+				'Server=127.0.0.1,1;Database=smoke;User ID=smoke;Password=smoke;Connect Timeout=3' )
+			$null = Assert-Invocation -Invoke $Invoke -ExitCode 33 -Arguments @(
+				'deploy', $BundlePath, '--driver', 'mysql', '--mysql-connection-string',
+				'Server=127.0.0.1;Port=1;Database=smoke;User ID=smoke;Password=smoke;Connection Timeout=3' )
+
 			# a real deployment loads the native e_sqlite3 beside the executable; deploying the same
 			# bundle again is 'nothing to deploy', which is also success
 			$deploy = @( 'deploy', $BundlePath, '--driver', 'sqlite', '--sqlite-file', 'smoke.db' )

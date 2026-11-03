@@ -11,7 +11,8 @@ It has two command-line tools, versioned and released separately:
 - **`sqetch`** authors a project: plans of schema change, each made of steps with `deploy.sql`,
   `verify.sql` and `rollback.sql`, grouped into releases.
 - **`sqetch-deploy`** bundles a project into a deployable file and deploys bundles to a database
-  (SQLite and PostgreSQL), journaling what it deployed through SQL the project defines.
+  (SQLite, PostgreSQL and, since 0.2, SQL Server, MySQL and MariaDB), journaling what it deployed
+  through SQL the project defines.
 
 Source, releases and documentation: https://github.com/NDWX/Pug.Sqetch
 

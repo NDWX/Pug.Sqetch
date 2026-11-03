@@ -233,6 +233,87 @@ public class DeploymentRollbackTests
 		Assert.DoesNotContain( _listener.Events, x => x.StartsWith( "rolling-back" ) );
 	}
 
+	// ------------------------------------------------------------------ engines committing DDL by themselves
+
+	/// <summary>
+	/// On an engine whose DDL commits itself, a failed transaction may have kept everything it ran,
+	/// so on-error undoes the failed plan as far as it got — the failing step included, since it may
+	/// have half applied — before the plans that committed. A transaction rollback alone left both
+	/// tables behind on MySQL.
+	/// </summary>
+	[Fact]
+	public void WhereDdlCommitsItselfOnErrorUndoesTheFailedPlanAsFarAsItGot()
+	{
+		_driver.CommitsDdlImplicitly = true;
+		_driver.FailingScripts.Add( "-- deploy b/s2" );
+
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
+			[ Release( "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1", "s2", "s3" ) ]
+		);
+
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases, DeploymentCommitLevel.Plan, RollbackTrigger.OnError ) );
+
+		Assert.Equal(
+			[ "-- deploy a/s1", "-- rollback b/s2", "-- rollback b/s1", "-- rollback a/s1" ],
+			_driver.AppliedScripts
+		);
+		Assert.Contains( "rolled-back", _listener.Events );
+	}
+
+	/// <summary>
+	/// At release commit level the plans before the failure shared its transaction; on a
+	/// transactional engine that rollback took them back, but here it may not have.
+	/// </summary>
+	[Fact]
+	public void WhereDdlCommitsItselfThePlansTheFailedTransactionHeldAreUndoneToo()
+	{
+		_driver.CommitsDdlImplicitly = true;
+		_driver.FailingScripts.Add( "-- deploy b/s1" );
+
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
+			[ Release( "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ) ]
+		);
+
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases, DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+
+		Assert.Equal( [ "-- rollback b/s1", "-- rollback a/s1" ], _driver.AppliedScripts );
+	}
+
+	/// <summary>
+	/// Without a rollback the run still counts as having changed the database once a step ran, so
+	/// the CLI reports 'left partway' rather than 'unchanged'.
+	/// </summary>
+	[Fact]
+	public void WhereDdlCommitsItselfAFailedStepCountsAsAChange()
+	{
+		_driver.CommitsDdlImplicitly = true;
+		_driver.FailingScripts.Add( "-- deploy a/s1" );
+
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
+
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases, DeploymentCommitLevel.Release, RollbackTrigger.None ) );
+
+		Assert.Contains( "committed", _listener.Events );
+		Assert.Empty( _driver.AppliedScripts );
+	}
+
+	/// <summary>A failure before any step script ran left nothing the server could have kept.</summary>
+	[Fact]
+	public void WhereDdlCommitsItselfAFailureBeforeAnyStepIsNoChange()
+	{
+		_driver.CommitsDdlImplicitly = true;
+		_driver.FailingJournalingStatements.Add( "journal DeployingStep" );
+
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "a", "r1", "s1" ) ] );
+
+		Assert.ThrowsAny<Exception>( () => Deploy( releases, DeploymentCommitLevel.Release, RollbackTrigger.OnError ) );
+
+		Assert.DoesNotContain( "committed", _listener.Events );
+		Assert.DoesNotContain( _listener.Events, x => x.StartsWith( "rolling-back" ) );
+	}
+
 	/// <summary>r1 holds 'a' then 'b', r2 holds 'c'; one step each.</summary>
 	private static IReadOnlyList<ReleaseGroup> TwoReleases()
 		=> Lineage(

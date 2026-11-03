@@ -29,13 +29,21 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// The tables the step scripts created, in name order — asked of the provider rather than derived
 /// from one catalog query, since SQLite has no information_schema.
 /// </param>
+/// <param name="identifier">
+/// Quotes a journal column name for reading the journal back: 'release' and 'plan' are reserved on
+/// some engines ('RELEASE' in MySQL, 'PLAN' in T-SQL), and their templates quote them too. Names
+/// are used as they are when omitted.
+/// </param>
 public sealed class RealDatabaseDeployment(
 	Func<IDatabaseDriver> driver,
 	JournalingStatements journaling,
 	Func<string, List<string>> query,
-	Func<List<string>> stepTables
+	Func<List<string>> stepTables,
+	Func<string, string>? identifier = null
 )
 {
+	private string Column( string name ) => identifier?.Invoke( name ) ?? name;
+
 	/// <summary>Two releases, three plans, one step each; every step creates its own table.</summary>
 	private static IReadOnlyList<ReleaseGroup> TwoReleases()
 		=> Lineage(
@@ -180,8 +188,13 @@ public sealed class RealDatabaseDeployment(
 			)
 		);
 
-		// a was committed and is now compensated for; b never reached the database
+		// a was committed and is now compensated for; b never reached the database — though where DDL
+		// commits itself the engine cannot know that, and compensates b's failed step as well
 		Assert.Empty( StepTables() );
+
+		List<string> failedPlan = CommitsDdlImplicitly() ?
+			[ "RollingBackPlan|r1|b|", "RollingBackStep|r1|b|s1", "RolledBackStep|r1|b|s1", "RolledBackPlan|r1|b|" ] :
+			[ ];
 
 		Assert.Equal(
 			[
@@ -191,6 +204,7 @@ public sealed class RealDatabaseDeployment(
 				"StepDeployed|r1|a|s1",
 				"PlanDeployed|r1|a|",
 				"RollingBackRelease|r1||",
+				..failedPlan,
 				"RollingBackPlan|r1|a|",
 				"RollingBackStep|r1|a|s1",
 				"RolledBackStep|r1|a|s1",
@@ -199,6 +213,56 @@ public sealed class RealDatabaseDeployment(
 			],
 			Journal()
 		);
+	}
+
+	/// <summary>
+	/// Where DDL commits itself, a plan failing partway leaves its earlier steps' changes — and the
+	/// failing step's own — in place whatever its transaction does. On-error has to undo them all, and
+	/// the journal has to show the release rolled back so the next run starts clean, as a fixed bundle
+	/// then does. Only engines that commit DDL by themselves run this.
+	/// </summary>
+	public void OnErrorUndoesAPlanTheServerCommittedPartway()
+	{
+		IReadOnlyList<ReleaseGroup> releases = Lineage( [ Release( "r1" ) ], [ Plan( "p", "r1", "s1", "s2" ) ] );
+
+		InMemoryScripts broken = Scripts();
+
+		broken.Deploy( "p", "s2", "create table p_s2 ( id integer primary key ); insert into nowhere ( id ) values ( 1 )" );
+
+		Assert.Throws<StepScriptFailedException>( () => Deploy(
+				releases,
+				broken,
+				DeploymentCommitLevel.Release,
+				rollback: RollbackTrigger.OnError
+			)
+		);
+
+		Assert.Empty( StepTables() );
+
+		Assert.Equal(
+			[
+				"DeployingRelease|r1||",
+				"DeployingPlan|r1|p|",
+				"DeployingStep|r1|p|s1",
+				"StepDeployed|r1|p|s1",
+				"DeployingStep|r1|p|s2",
+				"RollingBackRelease|r1||",
+				"RollingBackPlan|r1|p|",
+				"RollingBackStep|r1|p|s2",
+				"RolledBackStep|r1|p|s2",
+				"RollingBackStep|r1|p|s1",
+				"RolledBackStep|r1|p|s1",
+				"RolledBackPlan|r1|p|",
+				"RolledBackRelease|r1||"
+			],
+			Journal()
+		);
+
+		// the release reads as rolled back, so the fixed bundle deploys from the start
+		Deploy( releases, Scripts() );
+
+		Assert.Equal( [ "p_s1" ], StepTables() );
+		Assert.Equal( [ "PlanDeployed|r1|p|", "ReleaseDeployed|r1||" ], Journal().TakeLast( 2 ) );
 	}
 
 	/// <summary>
@@ -297,7 +361,8 @@ public sealed class RealDatabaseDeployment(
 	{
 		InMemoryScripts reader = new(
 			( plan, step ) => $"create table {plan}_{step} ( id integer primary key )",
-			( plan, step ) => $"drop table {plan}_{step}"
+			// 'if exists': where DDL commits itself, compensation also runs for a step that never applied
+			( plan, step ) => $"drop table if exists {plan}_{step}"
 		);
 
 		return reader;
@@ -305,12 +370,19 @@ public sealed class RealDatabaseDeployment(
 
 	private List<string> StepTables() => stepTables();
 
+	private bool CommitsDdlImplicitly()
+	{
+		using IDatabaseDriver probe = driver();
+
+		return probe.CommitsDdlImplicitly;
+	}
+
 	/// <summary>The journal as 'slot|release|plan|step' rows, in the order they were written.</summary>
 	private List<string> Journal()
 		=> query(
-			"select slot, release, coalesce( plan, '' ), coalesce( step, '' ) from sqetch_journal order by id"
+			$"select slot, {Column( "release" )}, coalesce( {Column( "plan" )}, '' ), coalesce( step, '' ) from sqetch_journal order by id"
 		);
 
 	private List<string> Journal( string slot )
-		=> query( $"select release from sqetch_journal where slot = '{slot}' order by id" );
+		=> query( $"select {Column( "release" )} from sqetch_journal where slot = '{slot}' order by id" );
 }

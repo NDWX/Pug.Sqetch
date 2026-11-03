@@ -59,3 +59,18 @@ public sealed class DockerTheoryAttribute : TheoryAttribute
 			Skip = Docker.Reason;
 	}
 }
+/// <summary>
+/// A fact that also needs an x64 host: SQL Server's container image is published for amd64 only, so
+/// an arm64 host skips rather than failing to pull it.
+/// </summary>
+public sealed class DockerAmd64FactAttribute : FactAttribute
+{
+	public DockerAmd64FactAttribute()
+	{
+		if( !Docker.Available )
+			Skip = Docker.Reason;
+		else if( System.Runtime.InteropServices.RuntimeInformation.OSArchitecture !=
+				System.Runtime.InteropServices.Architecture.X64 )
+			Skip = "requires an x64 host: SQL Server's container image is published for amd64 only";
+	}
+}

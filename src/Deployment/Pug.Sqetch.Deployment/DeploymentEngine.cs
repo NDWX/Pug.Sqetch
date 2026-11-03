@@ -178,7 +178,37 @@ public class DeploymentEngine(
 		Stack<CommittedRelease> committed = new();
 		List<(ReleaseGroup Release, DeployablePlan Plan)> pending = new();
 
+		// the plan being deployed and the steps whose deploy script started, which only an engine that
+		// commits DDL by itself needs: there a failed transaction may have kept them
+		(ReleaseGroup Release, DeployablePlan Plan, List<DeployableStep> Started)? inProgress = null;
+
 		IDatabaseTransaction Transaction() => transaction ??= driver.BeginTransaction();
+
+		// a transaction never spans releases — each release's deployment ends by committing — so the
+		// plans recorded between two commits all belong to one release, and at most one frame opens
+		void Record( ReleaseGroup release, DeployablePlan plan )
+		{
+			CommittedRelease? top = committed.Count > 0 ? committed.Peek() : null;
+
+			if( top is null || !string.Equals( top.Name, release.Name, StringComparison.Ordinal ) )
+			{
+				top = new CommittedRelease( release.Name, new Stack<DeployablePlan>() );
+
+				committed.Push( top );
+			}
+
+			top.Plans.Push( plan );
+		}
+
+		void DeployOne( ReleaseGroup release, DeployablePlan plan )
+		{
+			inProgress = ( release, plan, [ ] );
+
+			DeployPlan( release.Name, plan, journal, Transaction, listener, inProgress.Value.Started );
+
+			pending.Add( ( release, plan ) );
+			inProgress = null;
+		}
 
 		void CommitBoundary()
 		{
@@ -190,21 +220,8 @@ public class DeploymentEngine(
 
 			transaction = null;
 
-			// a transaction never spans releases — each release's deployment ends by committing —
-			// so these plans all belong to one release, and at most one frame is opened here
 			foreach( ( ReleaseGroup release, DeployablePlan plan ) in pending )
-			{
-				CommittedRelease? top = committed.Count > 0 ? committed.Peek() : null;
-
-				if( top is null || !string.Equals( top.Name, release.Name, StringComparison.Ordinal ) )
-				{
-					top = new CommittedRelease( release.Name, new Stack<DeployablePlan>() );
-
-					committed.Push( top );
-				}
-
-				top.Plans.Push( plan );
-			}
+				Record( release, plan );
 
 			pending.Clear();
 		}
@@ -359,8 +376,7 @@ public class DeploymentEngine(
 						continue;
 					}
 
-					DeployPlan( release.Name, plan, journal, Transaction, listener );
-					pending.Add( ( release, plan ) );
+					DeployOne( release, plan );
 
 					if( commitLevel == DeploymentCommitLevel.Plan && index < release.Plans.Count - 1 )
 						CommitBoundary();
@@ -371,8 +387,7 @@ public class DeploymentEngine(
 				for( int index = 0; index < release.Plans.Count; index++ )
 				{
 					DeployablePlan plan = release.Plans[index];
-					DeployPlan( release.Name, plan, journal, Transaction, listener );
-					pending.Add( ( release, plan ) );
+					DeployOne( release, plan );
 
 					if( commitLevel == DeploymentCommitLevel.Plan && index < release.Plans.Count - 1 )
 						CommitBoundary();
@@ -396,7 +411,21 @@ public class DeploymentEngine(
 		{
 			transaction?.Rollback();
 
-			// the open transaction took its own plans back; only what committed needs compensating
+			// the open transaction took its own plans back, so only what committed needs compensating —
+			// unless the engine commits DDL by itself, when the rollback may have taken nothing back.
+			// There what the transaction held counts as committed: its whole plans, and the failed plan
+			// as far as it got, the failing step included since it may have half applied
+			if( driver.CommitsDdlImplicitly && ( pending.Count > 0 || inProgress is { Started.Count: > 0 } ) )
+			{
+				listener.Committed();
+
+				foreach( ( ReleaseGroup release, DeployablePlan plan ) in pending )
+					Record( release, plan );
+
+				if( inProgress is { Started.Count: > 0 } partway )
+					Record( partway.Release, partway.Plan with { Steps = partway.Started } );
+			}
+
 			pending.Clear();
 
 			if( rollback == RollbackTrigger.OnError && committed.Count > 0 )
@@ -547,7 +576,8 @@ public class DeploymentEngine(
 		DeployablePlan plan,
 		StatementJournal journal,
 		Func<IDatabaseTransaction> transaction,
-		IDeploymentListener listener
+		IDeploymentListener listener,
+		List<DeployableStep> started
 	)
 	{
 		listener.DeployingPlan( release, plan.Name );
@@ -559,6 +589,8 @@ public class DeploymentEngine(
 			journal.DeployingStep( release, plan.Name, step.Name, step.Description, transaction() );
 
 			string script = scripts.ReadDeployScript( release, plan.Name, step.Name );
+
+			started.Add( step );
 
 			try
 			{
