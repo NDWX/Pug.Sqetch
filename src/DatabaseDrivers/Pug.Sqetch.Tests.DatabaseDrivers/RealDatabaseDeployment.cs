@@ -29,13 +29,21 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// The tables the step scripts created, in name order — asked of the provider rather than derived
 /// from one catalog query, since SQLite has no information_schema.
 /// </param>
+/// <param name="identifier">
+/// Quotes a journal column name for reading the journal back: 'release' and 'plan' are reserved on
+/// some engines ('RELEASE' in MySQL, 'PLAN' in T-SQL), and their templates quote them too. Names
+/// are used as they are when omitted.
+/// </param>
 public sealed class RealDatabaseDeployment(
 	Func<IDatabaseDriver> driver,
 	JournalingStatements journaling,
 	Func<string, List<string>> query,
-	Func<List<string>> stepTables
+	Func<List<string>> stepTables,
+	Func<string, string>? identifier = null
 )
 {
+	private string Column( string name ) => identifier?.Invoke( name ) ?? name;
+
 	/// <summary>Two releases, three plans, one step each; every step creates its own table.</summary>
 	private static IReadOnlyList<ReleaseGroup> TwoReleases()
 		=> Lineage(
@@ -308,9 +316,9 @@ public sealed class RealDatabaseDeployment(
 	/// <summary>The journal as 'slot|release|plan|step' rows, in the order they were written.</summary>
 	private List<string> Journal()
 		=> query(
-			"select slot, release, coalesce( plan, '' ), coalesce( step, '' ) from sqetch_journal order by id"
+			$"select slot, {Column( "release" )}, coalesce( {Column( "plan" )}, '' ), coalesce( step, '' ) from sqetch_journal order by id"
 		);
 
 	private List<string> Journal( string slot )
-		=> query( $"select release from sqetch_journal where slot = '{slot}' order by id" );
+		=> query( $"select {Column( "release" )} from sqetch_journal where slot = '{slot}' order by id" );
 }

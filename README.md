@@ -4,8 +4,8 @@ A database schema upgrader for DevOps pipelines, made of two command-line tools:
 
 - **`sqetch`** authors a project: plans of schema change, each made of steps with deploy, verify and
   rollback scripts, grouped into releases.
-- **`sqetch-deploy`** bundles a project for a pipeline and deploys bundles to a database (SQLite and
-  PostgreSQL), journaling what it deployed through SQL the project defines.
+- **`sqetch-deploy`** bundles a project for a pipeline and deploys bundles to a database (SQLite,
+  PostgreSQL and SQL Server), journaling what it deployed through SQL the project defines.
 
 The two tools are versioned and released separately.
 
@@ -325,7 +325,7 @@ dotnet tool install -g Pug.Sqetch.Deployment.Cli
 The `pug-sqetch` plugin teaches AI coding agents to use Sqetch:
 - installing the tools;
 - mapping plans, steps and releases onto tasks and software releases;
-- starting a project, with ready journaling SQL for SQLite and PostgreSQL;
+- starting a project, with ready journaling SQL for SQLite, PostgreSQL and SQL Server;
 - bundling and deploying;
 - CI pipelines;
 - getting help from the CLIs.

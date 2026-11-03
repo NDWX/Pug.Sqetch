@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
+using Pug.Sqetch.DatabaseDrivers.SqlServer;
 using Pug.Sqetch.Planning.Models;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -13,12 +14,20 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// </summary>
 public class BuiltInJournalTemplateTests
 {
-	public static TheoryData<string> Drivers => [ SqliteDatabaseDriverFactory.DriverName, PostgreSqlDatabaseDriverFactory.DriverName ];
+	public static TheoryData<string> Drivers =>
+	[
+		SqliteDatabaseDriverFactory.DriverName, PostgreSqlDatabaseDriverFactory.DriverName,
+		SqlServerDatabaseDriverFactory.DriverName
+	];
 
 	private static IJournalingTemplateProvider Driver( string name )
-		=> name == SqliteDatabaseDriverFactory.DriverName ?
-			new SqliteDatabaseDriverFactory() :
-			new PostgreSqlDatabaseDriverFactory();
+		=> name switch
+		{
+			SqliteDatabaseDriverFactory.DriverName => new SqliteDatabaseDriverFactory(),
+			PostgreSqlDatabaseDriverFactory.DriverName => new PostgreSqlDatabaseDriverFactory(),
+			SqlServerDatabaseDriverFactory.DriverName => new SqlServerDatabaseDriverFactory(),
+			_ => throw new ArgumentOutOfRangeException( nameof(name), name, null )
+		};
 
 	[Theory]
 	[MemberData( nameof(Drivers) )]
@@ -39,6 +48,7 @@ public class BuiltInJournalTemplateTests
 	[Theory]
 	[InlineData( "sqlite", "journaling-sqlite.md" )]
 	[InlineData( "postgres", "journaling-postgresql.md" )]
+	[InlineData( "sqlserver", "journaling-sqlserver.md" )]
 	public void TheSkillsReferenceMatchesTheShippedTemplate( string driver, string reference )
 	{
 		string path = Path.Combine(

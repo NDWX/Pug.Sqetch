@@ -10,6 +10,7 @@
     <ItemGroup>
         <PackageReference Include="coverlet.collector" Version="6.0.4"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
+        <PackageReference Include="Testcontainers.MsSql" Version="4.15.0"/>
         <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0"/>
         <PackageReference Include="xunit" Version="2.9.3"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"/>
@@ -23,6 +24,7 @@
         <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj"/>
         <ProjectReference Include="..\..\Deployment\Pug.Sqetch.Tests.Deployment\Pug.Sqetch.Tests.Deployment.csproj"/>
         <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj"/>
+        <ProjectReference Include="..\Pug.Sqetch.DatabaseDrivers.SqlServer\Pug.Sqetch.DatabaseDrivers.SqlServer.csproj"/>
         <ProjectReference Include="..\..\Pug.Sqetch.Shared\Pug.Sqetch.Shared.csproj"/>
     </ItemGroup>
 

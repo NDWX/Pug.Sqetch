@@ -47,7 +47,7 @@ sqetch-deploy deploy test.zip --driver sqlite --sqlite-file test.db --rollback o
 | Option | Meaning |
 |---|---|
 | `<BUNDLE>` | the bundle file or folder |
-| `-d, --driver <NAME>` | `sqlite` or `postgres` (`sqetch-deploy drivers list`) |
+| `-d, --driver <NAME>` | `sqlite`, `postgres` or, since 0.2, `sqlserver` (`sqetch-deploy drivers list`) |
 | `--<driver>-<parameter> <value>` | the driver's connection switches; see `references/drivers.md` or `sqetch-deploy drivers parameters <driver>`. A value starting with `-` is written `--<driver>-<parameter>=<value>` |
 | `--commit-level <LEVEL>` | `release` (default): each release commits whole. `plan`: commit after every plan, so a failure keeps the plans before it |
 | `--rollback <MODE>` | `on-error`: undo what this run committed if it fails. `on-success`: undo everything after it succeeds, to prove a bundle on a throwaway database. Default: none |

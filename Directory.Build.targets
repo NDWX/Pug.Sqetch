@@ -1,0 +1,17 @@
+<Project>
+
+    <!-- Microsoft.Data.SqlClient brings, on Windows, a native networking library
+         (Microsoft.Data.SqlClient.SNI.dll) under proprietary Microsoft licence terms that a GPL/AGPL
+         distribution cannot meet. The sqlserver driver switches SqlClient to its managed networking
+         instead (SqlServerDatabaseDriverFactory), the code Linux and macOS always use, so the native
+         files are dropped from every project's output here, whichever project brings SqlClient in. -->
+    <Target Name="ExcludeSqlClientNativeNetworking" AfterTargets="ResolvePackageAssets">
+        <ItemGroup>
+            <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)"
+                                  Condition="'%(NativeCopyLocalItems.NuGetPackageId)' == 'Microsoft.Data.SqlClient.SNI.runtime'"/>
+            <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)"
+                                          Condition="'%(RuntimeTargetsCopyLocalItems.NuGetPackageId)' == 'Microsoft.Data.SqlClient.SNI.runtime'"/>
+        </ItemGroup>
+    </Target>
+
+</Project>

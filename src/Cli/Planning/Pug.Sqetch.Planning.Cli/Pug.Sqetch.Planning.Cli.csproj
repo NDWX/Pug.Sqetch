@@ -33,6 +33,7 @@
         <ProjectReference Include="..\..\..\Pug.Sqetch.Shared\Pug.Sqetch.Shared.csproj"/>
         <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj"/>
         <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj"/>
+        <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.SqlServer\Pug.Sqetch.DatabaseDrivers.SqlServer.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

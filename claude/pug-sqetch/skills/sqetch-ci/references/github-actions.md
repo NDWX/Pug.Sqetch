@@ -116,6 +116,35 @@ jobs:
   same workflow run.
 - **A SQLite project** needs no service: deploy the test bundle with
   `--driver sqlite --sqlite-file test.db --rollback on-success`.
+- **A SQL Server project** (driver since 0.2) swaps the service and the deploy step. The image
+  starts with no application database, so create one first:
+
+  ```yaml
+      services:
+        sqlserver:
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          env:
+            ACCEPT_EULA: 'Y'
+            MSSQL_SA_PASSWORD: Test-Passw0rd
+          ports: ['1433:1433']
+          options: >-
+            --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Test-Passw0rd -Q 'select 1'"
+            --health-interval 5s --health-timeout 5s --health-retries 20
+      steps:
+        # … checkout, install and bundle as above …
+        - run: >-
+            docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools18/bin/sqlcmd -C -S localhost
+            -U sa -P Test-Passw0rd -Q 'create database app'
+        - run: >-
+            sqetch-deploy deploy test.zip --driver sqlserver
+            --sqlserver-host localhost --sqlserver-database app --sqlserver-username sa
+            --sqlserver-password-env SA_PASSWORD --sqlserver-trust-server-certificate true
+            --rollback on-success
+          env:
+            SA_PASSWORD: Test-Passw0rd
+  ```
+
+  The image runs on x64 runners only.
 - **The action's `@ref`** pins the action's code and `version` the tool. Bump both together when
   asked to upgrade.
 

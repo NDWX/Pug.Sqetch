@@ -80,6 +80,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Shared", "src\Pu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.Tests.Shared", "src\Pug.Sqetch.Tests.Shared\Pug.Sqetch.Tests.Shared.csproj", "{59F111F2-ED37-421C-8027-F358211A1BDC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pug.Sqetch.DatabaseDrivers.SqlServer", "src\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.SqlServer\Pug.Sqetch.DatabaseDrivers.SqlServer.csproj", "{2194E7ED-E66B-47C1-8C16-74BD00805B12}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -450,6 +452,18 @@ Global
 		{59F111F2-ED37-421C-8027-F358211A1BDC}.Release|x64.Build.0 = Release|Any CPU
 		{59F111F2-ED37-421C-8027-F358211A1BDC}.Release|x86.ActiveCfg = Release|Any CPU
 		{59F111F2-ED37-421C-8027-F358211A1BDC}.Release|x86.Build.0 = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|x64.Build.0 = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Debug|x86.Build.0 = Debug|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|x64.ActiveCfg = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|x64.Build.0 = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|x86.ActiveCfg = Release|Any CPU
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -483,5 +497,6 @@ Global
 		{25527F14-4F2C-401C-A6D3-27D8E6DDCFE9} = {AACCC7B7-950C-4FA4-93B4-7E906B456C68}
 		{A4B8B214-FBCA-4BF6-9537-7DE3016737A2} = {6D27AC82-A82A-4790-88BE-E6A7C03150EE}
 		{2DDD65D4-1419-4777-A790-E20821FA3902} = {85D06A72-FE3B-4488-9EF6-6C4D35284BC9}
+		{2194E7ED-E66B-47C1-8C16-74BD00805B12} = {5701DFA7-30AF-4A14-B199-C28522888718}
 	EndGlobalSection
 EndGlobal

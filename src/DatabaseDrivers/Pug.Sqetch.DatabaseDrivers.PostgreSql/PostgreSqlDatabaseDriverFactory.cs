@@ -59,70 +59,23 @@ public sealed class PostgreSqlDatabaseDriverFactory : IDatabaseDriverFactory, IJ
 		return new AdoDatabaseDriver( () => new NpgsqlConnection( connectionString ), stepScriptTimeout );
 	}
 
-	/// <summary>
-	/// 'connection-string' replaces the individual parameters rather than extending them: merging the
-	/// two would leave it unclear which host won, and the whole point of the escape hatch is that the
-	/// maintainer's string is used as written.
-	/// </summary>
 	private static string ConnectionString( IDictionary<string, string> parameters )
 	{
-		string? Value( string name )
-			=> parameters.TryGetValue( name, out string? value ) && !string.IsNullOrWhiteSpace( value ) ? value : null;
+		ServerConnectionParameters given = new( parameters );
 
-		string? supplied = Value( "connection-string" );
-
-		if( supplied is not null )
-		{
-			string[] conflicting = [ "host", "port", "database", "username", "password", "password-env" ];
-
-			if( conflicting.Any( name => Value( name ) is not null ) )
-				throw new ArgumentException(
-					"'connection-string' replaces the individual connection parameters; specify one or the other."
-				);
-
+		if( given.ConnectionString( "host", "port", "database", "username", "password", "password-env" ) is { } supplied )
 			return new NpgsqlConnectionStringBuilder( supplied ).ConnectionString;
-		}
 
-		string host = Value( "host" ) ??
-					throw new ArgumentException( "'host' is required unless 'connection-string' is given." );
+		NpgsqlConnectionStringBuilder builder = new() { Host = given.Required( "host" ), Database = given.Required( "database" ) };
 
-		string database = Value( "database" ) ??
-						throw new ArgumentException( "'database' is required unless 'connection-string' is given." );
+		if( given.Port() is { } port )
+			builder.Port = port;
 
-		NpgsqlConnectionStringBuilder builder = new() { Host = host, Database = database };
-
-		if( Value( "port" ) is { } port )
-			builder.Port = int.TryParse( port, out int parsed ) ?
-				parsed :
-				throw new ArgumentException( $"'port' must be a number, not '{port}'." );
-
-		if( Value( "username" ) is { } username )
+		if( given.Value( "username" ) is { } username )
 			builder.Username = username;
 
-		builder.Password = Password( Value( "password" ), Value( "password-env" ) );
+		builder.Password = given.Password();
 
 		return builder.ConnectionString;
-	}
-
-	/// <summary>
-	/// The password, from the switch or from the environment variable the switch names. A command
-	/// line is readable by every process on the host and lands in shell history, so the environment
-	/// variable is the one to reach for in a pipeline; naming the variable rather than reading a
-	/// fixed one keeps it the maintainer's choice.
-	/// </summary>
-	private static string? Password( string? password, string? variable )
-	{
-		if( password is not null && variable is not null )
-			throw new ArgumentException( "specify either 'password' or 'password-env', not both." );
-
-		if( variable is null )
-			return password;
-
-		string? value = Environment.GetEnvironmentVariable( variable );
-
-		if( string.IsNullOrEmpty( value ) )
-			throw new ArgumentException( $"environment variable '{variable}' named by 'password-env' is not set." );
-
-		return value;
 	}
 }

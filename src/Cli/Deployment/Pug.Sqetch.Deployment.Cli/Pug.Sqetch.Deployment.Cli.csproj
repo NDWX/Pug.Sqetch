@@ -6,7 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>sqetch-deploy</AssemblyName>
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
     </PropertyGroup>
 
     <!-- also shipped as a framework-dependent dotnet tool -->
@@ -32,6 +32,7 @@
         <ProjectReference Include="..\Pug.Sqetch.Deployment.Cli.Commands\Pug.Sqetch.Deployment.Cli.Commands.csproj"/>
         <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.Sqlite\Pug.Sqetch.DatabaseDrivers.Sqlite.csproj"/>
         <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.PostgreSql\Pug.Sqetch.DatabaseDrivers.PostgreSql.csproj"/>
+        <ProjectReference Include="..\..\..\DatabaseDrivers\Pug.Sqetch.DatabaseDrivers.SqlServer\Pug.Sqetch.DatabaseDrivers.SqlServer.csproj"/>
         <ProjectReference Include="..\..\..\Pug.Sqetch.Shared\Pug.Sqetch.Shared.csproj"/>
     </ItemGroup>
 

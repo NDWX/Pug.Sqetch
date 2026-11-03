@@ -8,6 +8,7 @@ using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.DatabaseDriver;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
+using Pug.Sqetch.DatabaseDrivers.SqlServer;
 using Pug.Sqetch.Shared;
 
 using Spectre.Console;
@@ -40,6 +41,7 @@ public static class SqetchDeployApp
 		DatabaseDriverRegistry drivers = new();
 		drivers.RegisterPostgreSqlDriver();
 		drivers.RegisterSqliteDriver();
+		drivers.RegisterSqlServerDriver();
 
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), drivers );
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), bundleTypes );

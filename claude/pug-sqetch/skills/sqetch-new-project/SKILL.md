@@ -1,6 +1,6 @@
 ---
 name: sqetch-new-project
-description: Use when adding Sqetch to a repository or starting a new Sqetch project, i.e. choosing the project folder, setting the user identity (sqetch project user), running sqetch project init, setting the fifteen journaling statements (sqetch journaling init, repository and user templates, and ready SQLite and PostgreSQL SQL for older versions), creating the first plan and step, and proving the project bundles and deploys. Also for a project whose bundle fails because journaling statements are missing.
+description: Use when adding Sqetch to a repository or starting a new Sqetch project, i.e. choosing the project folder, setting the user identity (sqetch project user), running sqetch project init, setting the fifteen journaling statements (sqetch journaling init, repository and user templates, and ready SQLite, PostgreSQL and SQL Server SQL for older versions), creating the first plan and step, and proving the project bundles and deploys. Also for a project whose bundle fails because journaling statements are missing.
 ---
 
 # Starting a Sqetch project
@@ -40,9 +40,9 @@ sqetch project init orders-db -d "Schema of the orders service" --engine postgre
 - `<name>` names the project; it is recorded in every bundle and passed to journaling as
   `@project`, so pick it once. Names allow letters, digits and `-_+()@#.`, must start with a
   letter or digit, must not end with `.`, and are at most 128 characters.
-- `--engine` names the database engine. Give a `sqetch-deploy` driver name (`sqlite`, `postgres`)
-  so `journaling init` can default to it; since 0.2 `init` warns when the name is no driver. It is
-  otherwise a label: Sqetch never picks a driver from it at deploy time.
+- `--engine` names the database engine. Give a `sqetch-deploy` driver name (`sqlite`, `postgres`,
+  `sqlserver`) so `journaling init` can default to it; since 0.2 `init` warns when the name is no
+  driver. It is otherwise a label: Sqetch never picks a driver from it at deploy time.
 - `--shard-by-prefix [DELIMITER]` keeps finalized releases in folders by the part of their name
   before the delimiter (default `.`), so `1.4.0` is at `releases/1/1.4.0`. It helps a project with
   many version-named releases. Decide now; the default is flat.
@@ -82,6 +82,7 @@ sqetch journaling templates           # what is available, and where from
 templates:
 - SQLite: `references/journaling-sqlite.md`
 - PostgreSQL: `references/journaling-postgresql.md`
+- SQL Server (driver since 0.2): `references/journaling-sqlserver.md`
 
 Write each slot's SQL to a file and set it; the reference shows the loop. Use `--file` or
 `--stdin`, not the SQL as an argument: SQL starting with `--` would be read as an option. Write

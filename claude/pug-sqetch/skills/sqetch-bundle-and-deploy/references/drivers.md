@@ -39,9 +39,36 @@ Required sets: `--postgres-host` with `--postgres-database`, or `--postgres-conn
 - Each deployment uses one connection, so session settings a script makes carry over to later
   scripts in the same run.
 
-## Both
+## sqlserver (since 0.2)
+
+For SQL Server and Azure SQL.
+
+| Switch | Meaning |
+|---|---|
+| `--sqlserver-host <HOST>` | server host name or address |
+| `--sqlserver-port <PORT>` | server port; default 1433 |
+| `--sqlserver-database <NAME>` | database name |
+| `--sqlserver-username <LOGIN>` | SQL Server login; when omitted, Windows (integrated) authentication |
+| `--sqlserver-password-env <VARIABLE>` | name of an environment variable holding the password |
+| `--sqlserver-password <TEXT>` | the password itself; avoid, a command line is visible to every process |
+| `--sqlserver-trust-server-certificate <true\|false>` | accept a certificate that does not validate, such as a development server's self-signed one |
+| `--sqlserver-connection-string <TEXT>` | a full Microsoft.Data.SqlClient connection string |
+
+Required sets: `--sqlserver-host` with `--sqlserver-database`, or `--sqlserver-connection-string`.
+
+- Connections are always encrypted; against a container or other self-signed server, pass
+  `--sqlserver-trust-server-certificate true`.
+- A connection string replaces the other switches. Use it for Microsoft Entra authentication
+  (`Authentication=Active Directory Default`, for example) or anything else the switches lack.
+- **Step scripts may use `GO`**: a line holding only `GO` (any case) separates batches, as in
+  sqlcmd and SSMS, and the batches run in order in the step's transaction. `GO <count>` is not
+  supported. Journaling statements never split on `GO`; they use `;;`.
+- `sqetch-deploy` uses SqlClient's managed networking on every platform. Windows Authentication
+  therefore works only on domain-joined machines; use a login or Entra otherwise.
+
+## All drivers
 
 - A server that cannot be reached is exit code `33`. The driver connects only when the deployment
   begins, so wrong switches that still form a valid configuration surface then, not earlier.
-- Both engines run DDL inside transactions, so a failing release at the default commit level leaves
-  nothing behind.
+- SQLite, PostgreSQL and SQL Server run DDL inside transactions, so a failing release at the
+  default commit level leaves nothing behind.

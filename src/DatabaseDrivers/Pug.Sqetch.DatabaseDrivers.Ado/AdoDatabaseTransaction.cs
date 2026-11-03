@@ -15,6 +15,8 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 
 	private readonly TimeSpan _stepScriptTimeout;
 
+	private readonly AdoDriverOptions _options;
+
 	/// <summary>
 	/// Readers handed to the journal, each with the command that produced it. The command must outlive
 	/// its reader — disposing it closes the reader underneath the caller — so neither is disposed
@@ -25,27 +27,42 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 	/// </summary>
 	private readonly List<(DbCommand Command, DbDataReader Reader)> _queries = [ ];
 
-	internal AdoDatabaseTransaction( DbTransaction transaction, TimeSpan stepScriptTimeout )
+	internal AdoDatabaseTransaction( DbTransaction transaction, TimeSpan stepScriptTimeout, AdoDriverOptions options )
 	{
 		_transaction = transaction;
 		_stepScriptTimeout = stepScriptTimeout;
+		_options = options;
 	}
 
 	internal bool Finished { get; private set; }
 
 	/// <summary>
 	/// Runs the script as the maintainer wrote it, in one command — a step script is a reviewed
-	/// artifact, holds as many statements as its author wants, and takes no parameters. The step
-	/// script timeout applies here and nowhere else: it bounds the maintainer's own SQL, whereas a
-	/// journaling statement waiting on a lock is better left to the provider's default.
+	/// artifact, holds as many statements as its author wants, and takes no parameters — unless the
+	/// provider splits it into batches (<see cref="AdoDriverOptions.SplitStepScript"/>), which then
+	/// run in order in this transaction. The step script timeout applies to each command here and
+	/// nowhere else: it bounds the maintainer's own SQL, whereas a journaling statement waiting on a
+	/// lock is better left to the provider's default.
 	/// </summary>
 	public void ExecuteStepScript( string script )
 	{
-		using DbCommand command = Command( script );
+		IReadOnlyList<string> batches = _options.SplitStepScript?.Invoke( script ) ?? [ script ];
 
-		command.CommandTimeout = CommandTimeout( _stepScriptTimeout );
+		for( int index = 0; index < batches.Count; index++ )
+		{
+			using DbCommand command = Command( batches[index] );
 
-		command.ExecuteNonQuery();
+			command.CommandTimeout = CommandTimeout( _stepScriptTimeout );
+
+			try
+			{
+				command.ExecuteNonQuery();
+			}
+			catch( Exception exception ) when( batches.Count > 1 )
+			{
+				throw new StepScriptBatchFailedException( index + 1, batches.Count, exception );
+			}
+		}
 	}
 
 	public void ExecuteJournalingStatement( string statement, IReadOnlyList<JournalingParameter> parameters )
@@ -125,7 +142,7 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 	/// provider — asserted per provider, since a provider that refused them instead would need the
 	/// driver to scan.
 	/// </summary>
-	private static void Bind( DbCommand command, IReadOnlyList<JournalingParameter> parameters )
+	private void Bind( DbCommand command, IReadOnlyList<JournalingParameter> parameters )
 	{
 		foreach( JournalingParameter parameter in parameters )
 		{
@@ -133,6 +150,8 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 
 			bound.ParameterName = parameter.Name;
 			bound.Value = parameter.Value;
+
+			_options.ConfigureParameter?.Invoke( bound, parameter );
 
 			command.Parameters.Add( bound );
 		}
