@@ -89,7 +89,7 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		CommandAppResult noEngine = Run( "journaling", "init" );
 
 		Assert.Equal( 1, noEngine.ExitCode );
-		Assert.Contains( "names no engine; pass a driver: postgres, sqlite, sqlserver", noEngine.Output );
+		Assert.Contains( "names no engine; pass a driver: mysql, postgres, sqlite, sqlserver", noEngine.Output );
 	}
 
 	[Fact]

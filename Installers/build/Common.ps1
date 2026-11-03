@@ -637,6 +637,9 @@ function Test-ProductCommands
 			$null = Assert-Invocation -Invoke $Invoke -ExitCode 33 -Expect 'TCP Provider' -Arguments @(
 				'deploy', $BundlePath, '--driver', 'sqlserver', '--sqlserver-connection-string',
 				'Server=127.0.0.1,1;Database=smoke;User ID=smoke;Password=smoke;Connect Timeout=3' )
+			$null = Assert-Invocation -Invoke $Invoke -ExitCode 33 -Arguments @(
+				'deploy', $BundlePath, '--driver', 'mysql', '--mysql-connection-string',
+				'Server=127.0.0.1;Port=1;Database=smoke;User ID=smoke;Password=smoke;Connection Timeout=3' )
 
 			# a real deployment loads the native e_sqlite3 beside the executable; deploying the same
 			# bundle again is 'nothing to deploy', which is also success

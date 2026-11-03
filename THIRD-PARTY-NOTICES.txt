@@ -64,6 +64,12 @@ Npgsql 10.0.3
   Copyright:   Copyright 2025 (c) The Npgsql Development Team
   Used by:     sqetch and sqetch-deploy
 
+MySqlConnector 2.6.2
+  Project URL: https://mysqlconnector.net/
+  Licence:     MIT
+  Copyright:   Copyright 2016–2026 Bradley Grainger
+  Used by:     sqetch and sqetch-deploy
+
 SQLitePCLRaw.bundle_e_sqlite3 2.1.12
   Project URL: https://github.com/ericsink/SQLitePCL.raw
   Licence:     Apache-2.0
@@ -228,9 +234,9 @@ MIT LICENSE
 Applies to: Spectre.Console.Cli, Spectre.Console, Spectre.Console.Ansi,
 Microsoft.Data.Sqlite, Microsoft.Data.Sqlite.Core,
 Microsoft.Extensions.DependencyInjection.Abstractions,
-Microsoft.Extensions.Logging.Abstractions, and the Microsoft.Data.SqlClient
-packages listed above with their Microsoft.*, System.* and
-Microsoft.IdentityModel.* dependencies
+Microsoft.Extensions.Logging.Abstractions, MySqlConnector, and the
+Microsoft.Data.SqlClient packages listed above with their Microsoft.*, System.*
+and Microsoft.IdentityModel.* dependencies
 ==============================================================================
 
 Copyright lines:
@@ -240,6 +246,8 @@ Frank Ray
 
 Spectre.Console, Spectre.Console.Ansi: Patrik Svensson, Phil Scott, Nils
 Andresen, Cédric Luthi
+
+MySqlConnector: Copyright 2016–2026 Bradley Grainger
 
 Microsoft.Data.Sqlite, Microsoft.Data.Sqlite.Core,
 Microsoft.Extensions.DependencyInjection.Abstractions,

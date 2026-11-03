@@ -145,6 +145,32 @@ jobs:
   ```
 
   The image runs on x64 runners only.
+- **A MySQL or MariaDB project** (driver since 0.2) uses `mysql:8.4` or `mariadb:11` as the
+  service, which creates the database itself:
+
+  ```yaml
+      services:
+        mysql:
+          image: mysql:8.4
+          env:
+            MYSQL_ROOT_PASSWORD: test
+            MYSQL_DATABASE: app
+          ports: ['3306:3306']
+          options: >-
+            --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest"
+            --health-interval 5s --health-timeout 5s --health-retries 20
+      steps:
+        # … checkout, install and bundle as above …
+        - run: >-
+            sqetch-deploy deploy test.zip --driver mysql
+            --mysql-host 127.0.0.1 --mysql-database app --mysql-username root
+            --mysql-password-env MYSQL_PASSWORD --rollback on-success
+          env:
+            MYSQL_PASSWORD: test
+  ```
+
+  For MariaDB, use `MARIADB_ROOT_PASSWORD`/`MARIADB_DATABASE` and
+  `healthcheck.sh --connect --innodb_initialized` as the health command.
 - **The action's `@ref`** pins the action's code and `version` the tool. Bump both together when
   asked to upgrade.
 

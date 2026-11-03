@@ -66,9 +66,33 @@ Required sets: `--sqlserver-host` with `--sqlserver-database`, or `--sqlserver-c
 - `sqetch-deploy` uses SqlClient's managed networking on every platform. Windows Authentication
   therefore works only on domain-joined machines; use a login or Entra otherwise.
 
+## mysql (since 0.2)
+
+For MySQL and MariaDB.
+
+| Switch | Meaning |
+|---|---|
+| `--mysql-host <HOST>` | server host name or address |
+| `--mysql-port <PORT>` | server port; default 3306 |
+| `--mysql-database <NAME>` | database (schema) name |
+| `--mysql-username <USER>` | user to connect as |
+| `--mysql-password-env <VARIABLE>` | name of an environment variable holding the password |
+| `--mysql-password <TEXT>` | the password itself; avoid, a command line is visible to every process |
+| `--mysql-connection-string <TEXT>` | a full MySqlConnector connection string |
+
+Required sets: `--mysql-host` with `--mysql-database`, or `--mysql-connection-string`.
+
+- **DDL commits implicitly.** A CREATE, ALTER or DROP ends the open transaction, journal rows
+  included. A failing step can therefore leave earlier schema changes in place, a release is not
+  all-or-nothing, and a failing rollback script can leave compensation half done. Keep each step to
+  one schema change where possible, and use `--rollback on-error` in pipelines.
+- Step scripts may use user variables (`set @n = 1;`) when the driver builds the connection; with
+  `--mysql-connection-string`, add `AllowUserVariables=true` yourself.
+- A connection string replaces the other switches.
+
 ## All drivers
 
 - A server that cannot be reached is exit code `33`. The driver connects only when the deployment
   begins, so wrong switches that still form a valid configuration surface then, not earlier.
 - SQLite, PostgreSQL and SQL Server run DDL inside transactions, so a failing release at the
-  default commit level leaves nothing behind.
+  default commit level leaves nothing behind. MySQL and MariaDB do not; see `mysql` above.

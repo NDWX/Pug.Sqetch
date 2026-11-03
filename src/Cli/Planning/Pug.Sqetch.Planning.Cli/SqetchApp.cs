@@ -1,6 +1,7 @@
 using Pug.Sqetch.Cli;
 using Pug.Sqetch.Cli.Commands.Authoring;
 using Pug.Sqetch.DatabaseDriver;
+using Pug.Sqetch.DatabaseDrivers.MySql;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
 using Pug.Sqetch.DatabaseDrivers.SqlServer;
@@ -28,6 +29,7 @@ public static class SqetchApp
 		drivers.RegisterPostgreSqlDriver();
 		drivers.RegisterSqliteDriver();
 		drivers.RegisterSqlServerDriver();
+		drivers.RegisterMySqlDriver();
 
 		TypeRegistrar registrar = new();
 

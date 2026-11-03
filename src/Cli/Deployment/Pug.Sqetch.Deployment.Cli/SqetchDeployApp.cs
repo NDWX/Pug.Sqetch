@@ -6,6 +6,7 @@ using Pug.Sqetch.Deployment.Bundling.BundleTypes;
 using Pug.Sqetch.Deployment.Bundling.Layouts;
 using Pug.Sqetch.Deployment.Cli.Commands;
 using Pug.Sqetch.DatabaseDriver;
+using Pug.Sqetch.DatabaseDrivers.MySql;
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 using Pug.Sqetch.DatabaseDrivers.Sqlite;
 using Pug.Sqetch.DatabaseDrivers.SqlServer;
@@ -42,6 +43,7 @@ public static class SqetchDeployApp
 		drivers.RegisterPostgreSqlDriver();
 		drivers.RegisterSqliteDriver();
 		drivers.RegisterSqlServerDriver();
+		drivers.RegisterMySqlDriver();
 
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), drivers );
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), bundleTypes );

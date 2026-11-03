@@ -62,6 +62,7 @@ root.
 | `Pug.Sqetch.DatabaseDrivers.Sqlite` | `SqliteDatabaseDriverFactory` (Microsoft.Data.Sqlite) + `RegisterSqliteDriver()`; `Journaling/*.sql`, its built-in journaling template |
 | `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()`; `Journaling/*.sql`, its built-in journaling template |
 | `Pug.Sqetch.DatabaseDrivers.SqlServer` | `SqlServerDatabaseDriverFactory` (Microsoft.Data.SqlClient, managed networking) + `RegisterSqlServerDriver()`, `SqlServerBatches` ('GO' splitting); `Journaling/*.sql`, its built-in T-SQL template |
+| `Pug.Sqetch.DatabaseDrivers.MySql` | `MySqlDatabaseDriverFactory` (MySqlConnector; MySQL and MariaDB) + `RegisterMySqlDriver()`; `Journaling/*.sql`, its built-in template |
 | **Shared** | |
 | `Pug.Sqetch.Shared` (net8.0) | Implementations both CLIs' back ends use, so neither depends on the other's: `DatabaseDriverRegistry`. References only the driver contract |
 | **Shared CLI** | |
@@ -290,16 +291,28 @@ root.
   machines. The smoke checks deploy to a port nothing listens on and expect `33` through SqlClient's
   "TCP Provider", which a missing native library would never reach. The template quotes `[plan]`,
   reserved in T-SQL.
+- **`mysql` driver** (MySQL and MariaDB): `--mysql-host` and `--mysql-database` (plus `port`,
+  `username`, `password`, `password-env`), or `--mysql-connection-string`, which replaces them. The
+  connection strings it builds set `AllowUserVariables`, so a step script may use `@variables`
+  without MySqlConnector taking them for missing parameters; a supplied string is used as written.
+  Journaled instants go to `datetime(6)` as UTC (`timestamp` would convert through the session time
+  zone). The template quotes `` `release` ``, reserved there, and declares its index inside the
+  table, there being no `create index if not exists`.
 - **SQLite, PostgreSQL and SQL Server run DDL inside a transaction**, so a release deployed at
-  release commit level really is all-or-nothing on them — the engines that commit DDL implicitly are
-  what make the compensating rollback necessary, not these.
+  release commit level really is all-or-nothing on them. **MySQL and MariaDB commit DDL
+  implicitly** — a CREATE, ALTER or DROP commits the open transaction, journal rows included — so a
+  failing step can leave earlier schema changes in place, and the compensating rollback is what
+  undoes them; that rollback is itself not atomic there, so a failing rollback script can leave
+  compensation half done. Those engines are what make the compensating rollback necessary.
 - **Driver tests run against real databases**: SQLite in temp files (never `:memory:`, whose
-  contents die with the connection), PostgreSQL and SQL Server in Testcontainers containers gated by
-  `[DockerFact]`/`[DockerTheory]`, which *skip* where the daemon socket cannot be reached rather
-  than failing — SQL Server's by `[DockerAmd64Fact]`, since its image is amd64-only.
+  contents die with the connection), PostgreSQL, SQL Server, MySQL and MariaDB in Testcontainers
+  containers gated by `[DockerFact]`/`[DockerTheory]`, which *skip* where the daemon socket cannot be
+  reached rather than failing — SQL Server's by `[DockerAmd64Fact]`, since its image is amd64-only.
   `RealDatabaseDeployment` holds the end-to-end scenarios so every provider runs the same ones, on
   the driver's own built-in template, quoting reserved journal columns through the provider's
-  `identifier` function — the only place the engine's resume decision is read back out of SQL the deployment
+  `identifier` function; the `mysql` driver's tests run against MySQL and MariaDB alike through
+  `MySqlFamilyServer`, and skip only the half-finished-compensation scenario, which implicit DDL
+  commits make impossible to hold there — the only place the engine's resume decision is read back out of SQL the deployment
   itself wrote, and the only check that a journal's `completed` column works as both a count
   (SQLite) and a boolean (PostgreSQL). Compensating rollback is among them: that a committed plan is
   undone by its own `rollback.sql`, that `on-success` undoes releases and their plans in reverse,
