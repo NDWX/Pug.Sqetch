@@ -53,13 +53,13 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		Assert.Equal( 0, Run( [ "project", "init", "demo", ..options ] ).ExitCode );
 	}
 
-	private static void WriteTemplate( string root, string driver, string name, string marker )
+	private static void WriteTemplate( string root, string driver, string name, string marker, bool optional = true )
 	{
 		string folder = Path.Combine( root, "database-drivers", driver, "journaling-templates", name );
 
 		Directory.CreateDirectory( folder );
 
-		foreach( JournalingSlot slot in JournalingSlots.All )
+		foreach( JournalingSlot slot in optional ? JournalingSlots.All : JournalingSlots.Required )
 			File.WriteAllText( Path.Combine( folder, JournalingSlots.FileName( slot ) ), $"-- {marker} {slot}" );
 	}
 
@@ -76,9 +76,88 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		Assert.Contains( "Driver\tsqlite", result.Output );
 		Assert.Contains( "Level\tbuilt-in", result.Output );
 
-		Assert.All( Run( "journaling", "list" ).Output.Split( '\n' ), line => Assert.EndsWith( "\tyes", line ) );
+		Assert.Contains( "Slots set\t16", result.Output );
+		Assert.All( Run( "journaling", "list" ).Output.Split( '\n' ), line => Assert.Equal( "yes", line.Split( '\t' )[1] ) );
+		Assert.Contains( "sqetch_journal", Print( JournalingSlot.JournalExists ) );
 		Assert.Contains( "create table if not exists sqetch_journal", Print( JournalingSlot.PrepareJournal ) );
 		Assert.Equal( "", _warnings.Output );
+	}
+
+	[Fact]
+	public void ATemplateWithoutTheOptionalSlotIsAcceptedAndSetsTheRest()
+	{
+		InitializeProject( "--engine", "sqlite" );
+		WriteTemplate( Path.Combine( _root, ".config", "sqetch" ), "sqlite", "default", "team", optional: false );
+
+		CommandAppResult result = Run( "journaling", "init" );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "Level\trepository", result.Output );
+		Assert.Contains( "Slots set\t15", result.Output );
+
+		string[] lines = Run( "journaling", "list" ).Output.Split( '\n' );
+
+		Assert.Contains( "JournalExists\tno\tyes", lines );
+		Assert.Equal( 15, lines.Count( line => line.Contains( "\tyes\tno" ) ) );
+		Assert.Equal( "-- team GetDeployedPlans", Print( JournalingSlot.GetDeployedPlans ) );
+
+		// said now, rather than discovered later as status's exit 25
+		Assert.Contains( "does not set the optional JournalExists, so it stays unset", _warnings.Output );
+	}
+
+	[Fact]
+	public void ForcingATemplateWithoutTheOptionalSlotKeepsTheOldOneAndWarns()
+	{
+		InitializeProject( "--engine", "sqlite" );
+		Assert.Equal( 0, Run( "journaling", "init" ).ExitCode );
+		WriteTemplate( Path.Combine( _root, ".config", "sqetch" ), "sqlite", "default", "team", optional: false );
+
+		CommandAppResult result = Run( "journaling", "init", "--force" );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "Slots set\t15", result.Output );
+		Assert.Contains( "the template does not set JournalExists", _warnings.Output );
+		Assert.Contains( "sqlite_master", Print( JournalingSlot.JournalExists ) );
+		Assert.Equal( "-- team GetDeployedPlans", Print( JournalingSlot.GetDeployedPlans ) );
+	}
+
+	[Fact]
+	public void AUserTemplateWithoutTheOptionalSlotIsAccepted()
+	{
+		InitializeProject( "--engine", "sqlite" );
+		WriteTemplate( _userTemplates, "sqlite", "audit", "mine", optional: false );
+
+		Assert.Equal( 0, Run( "journaling", "init", "--template", "audit" ).ExitCode );
+		Assert.Equal( "-- mine RolledBackStep", Print( JournalingSlot.RolledBackStep ) );
+	}
+
+	[Fact]
+	public void ATemplateMissingARequiredSlotIsStillRefused()
+	{
+		InitializeProject( "--engine", "sqlite" );
+		WriteTemplate( _userTemplates, "sqlite", "audit", "mine", optional: false );
+		File.Delete( Path.Combine(
+			_userTemplates, "database-drivers", "sqlite", "journaling-templates", "audit",
+			JournalingSlots.FileName( JournalingSlot.PrepareJournal ) ) );
+
+		CommandAppResult result = Run( "journaling", "init", "--template", "audit" );
+
+		Assert.Equal( 1, result.ExitCode );
+		Assert.Contains( "missing: PrepareJournal.sql", result.Output );
+		Assert.DoesNotContain( "JournalExists.sql", result.Output );
+	}
+
+	[Fact]
+	public void InitRefusesWhenOnlyTheOptionalSlotIsSetWithoutForce()
+	{
+		InitializeProject( "--engine", "sqlite" );
+		Assert.Equal( 0, Run( "journaling", "set", "JournalExists", "select 1" ).ExitCode );
+
+		CommandAppResult refused = Run( "journaling", "init" );
+
+		Assert.Equal( 1, refused.ExitCode );
+		Assert.Contains( "already set: JournalExists; pass --force", refused.Output );
+		Assert.Equal( 0, Run( "journaling", "init", "--force" ).ExitCode );
 	}
 
 	[Fact]
@@ -138,7 +217,7 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		Assert.Equal( 1, refused.ExitCode );
 		Assert.Contains( "already set: PrepareJournal; pass --force", refused.Output );
 		Assert.Equal( "create table mine( id int )", Print( JournalingSlot.PrepareJournal ) );
-		Assert.Contains( "GetLatestRelease\tno", Run( "journaling", "list" ).Output );
+		Assert.Contains( "GetLatestRelease\tno\tno", Run( "journaling", "list" ).Output );
 
 		Assert.Equal( 0, Run( "journaling", "init", "--force" ).ExitCode );
 		Assert.Contains( "sqetch_journal", Print( JournalingSlot.PrepareJournal ) );
@@ -184,7 +263,7 @@ public sealed class JournalingTemplateCliTests : IDisposable
 
 		Assert.Equal( 1, template.ExitCode );
 		Assert.Contains( "no journaling template 'audit' for driver 'sqlite'; available: default", template.Output );
-		Assert.Contains( "PrepareJournal\tno", Run( "journaling", "list" ).Output );
+		Assert.Contains( "PrepareJournal\tno\tno", Run( "journaling", "list" ).Output );
 	}
 
 	[Fact]

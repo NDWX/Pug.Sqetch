@@ -37,11 +37,21 @@ public static class JournalingSlots
 	public static IReadOnlyList<string> Names { get; } = All.Select( slot => slot.ToString() ).ToList();
 
 	/// <summary>
-	/// The two slots that return a result set. A query slot holds exactly one statement — a result
-	/// set has to come from somewhere unambiguous.
+	/// The slots a project may leave unset: bundling and deploying never need them, and a command
+	/// that does refuses a bundle lacking them. Optional so that projects and templates written before
+	/// a slot existed stay complete, and so older tools, which never look for its file, are unaffected.
+	/// </summary>
+	public static bool IsOptional( JournalingSlot slot ) => slot is JournalingSlot.JournalExists;
+
+	/// <summary>Every slot a project must set before it can be bundled, in declaration order.</summary>
+	public static IReadOnlyList<JournalingSlot> Required { get; } = All.Where( slot => !IsOptional( slot ) ).ToList();
+
+	/// <summary>
+	/// The slots that return a result set. A query slot holds exactly one statement — a result set
+	/// has to come from somewhere unambiguous.
 	/// </summary>
 	public static bool IsQuery( JournalingSlot slot )
-		=> slot is JournalingSlot.GetLatestRelease or JournalingSlot.GetDeployedPlans;
+		=> slot is JournalingSlot.GetLatestRelease or JournalingSlot.GetDeployedPlans or JournalingSlot.JournalExists;
 
 	/// <summary>
 	/// The slot's file name in the project's 'journaling' folder and in a bundle. Event slots take an
@@ -73,7 +83,10 @@ public static class JournalingSlots
 	public static IReadOnlyList<string> ParameterNames( JournalingSlot slot )
 		=> slot switch
 		{
-			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease => [ Parameters.Project ],
+			JournalingSlot.PrepareJournal or JournalingSlot.GetLatestRelease or JournalingSlot.JournalExists =>
+			[
+				Parameters.Project
+			],
 
 			JournalingSlot.GetDeployedPlans => [ Parameters.Project, Parameters.Release ],
 

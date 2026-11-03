@@ -16,7 +16,9 @@ public static class BuiltInJournal
 		IReadOnlyDictionary<string, string> template = driver.GetJournalingTemplate();
 
 		return new JournalingStatements(
-			JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)template[slot.ToString()] )
+			JournalingSlots.All
+				.Where( slot => template.ContainsKey( slot.ToString() ) )
+				.ToDictionary( slot => slot, slot => (string?)template[slot.ToString()] )
 		);
 	}
 }

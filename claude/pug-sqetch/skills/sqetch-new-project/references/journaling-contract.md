@@ -2,7 +2,8 @@
 
 The project's journaling SQL is how `sqetch-deploy` records a deployment and learns where a
 database stands. Sqetch never generates it, so it can write to any table the project likes. Fifteen
-slots, all required before `bundle` will run.
+slots are required before `bundle` will run; a sixteenth, `JournalExists` (since 0.2), is optional
+and needed only by `sqetch-deploy status`.
 
 ## Slots and their parameters
 
@@ -13,6 +14,7 @@ slots, all required before `bundle` will run.
 | `PrepareJournal` | setup | `@project` |
 | `GetLatestRelease` | query | `@project` |
 | `GetDeployedPlans` | query | `@project @release` |
+| `JournalExists` (optional) | query | `@project` |
 | `DeployingRelease` | write | `@project @release @description @utcTimestamp` |
 | `DeployingPlan` | write | `@project @release @plan @description @utcTimestamp` |
 | `DeployingStep` | write | `@project @release @plan @step @description @utcTimestamp` |
@@ -39,7 +41,8 @@ slots, all required before `bundle` will run.
   That is the only parsing Sqetch does. Query slots hold exactly one statement.
 - `PrepareJournal` runs at the start of **every** deployment, in a transaction committed alone. Make
   it idempotent (`create table if not exists`).
-- The two queries run together, in one transaction, before anything deploys.
+- The two queries run together, in one transaction, before anything deploys. `status` runs
+  `JournalExists` and then them, in one transaction it rolls back.
 - The write slots run in the same transaction as the work they record. A failure rolls back both,
   so the journal never claims what did not happen.
 
@@ -55,6 +58,11 @@ Columns are read by position; extra columns are ignored.
   More than one row is an error.
 - **`GetDeployedPlans`**: the names of the plans of `@release` that are in place, one per row, in
   any order.
+- **`JournalExists`** (optional, since 0.2): one row whose first column says whether the journal
+  exists yet (coerced like `completed`); false or no row means it does not. Check the catalog, not
+  the table itself: a query against a missing table fails, which is the case it exists to answer.
+  `sqetch-deploy status` runs it instead of `PrepareJournal`, so it never creates the journal, and
+  reads a database whose journal does not exist as never deployed to.
 
 **Rollbacks must be accounted for.** `--rollback` journals `RollingBack*`/`RolledBack*` events and
 undoes the work. Queries that only look at `DeployingRelease`, `ReleaseDeployed` and `PlanDeployed`

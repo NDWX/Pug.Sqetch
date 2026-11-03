@@ -146,6 +146,45 @@ public sealed class JournalingTemplateSourcesTests : IDisposable
 	}
 
 	[Fact]
+	public void AFolderTemplateMayLackTheOptionalSlotsFile()
+	{
+		string user = Folder( "user" );
+
+		WriteTemplate( user, "withtemplate", "default", "user", JournalingSlot.JournalExists );
+
+		JournalingTemplate template = Sources( user ).Resolve( null, "withtemplate" );
+
+		Assert.Equal( JournalingSlots.Required.Count, template.Statements.Count );
+		Assert.False( template.Statements.ContainsKey( JournalingSlot.JournalExists ) );
+	}
+
+	[Fact]
+	public void AFolderTemplateWithTheOptionalSlotsFileCarriesIt()
+	{
+		string user = Folder( "user" );
+
+		WriteTemplate( user, "withtemplate", "default", "user" );
+
+		Assert.Equal(
+			"-- user JournalExists",
+			Sources( user ).Resolve( null, "withtemplate" ).Statements[JournalingSlot.JournalExists] );
+	}
+
+	[Fact]
+	public void LackingTheOptionalFileDoesNotHideARequiredOneMissingToo()
+	{
+		string user = Folder( "user" );
+
+		WriteTemplate( user, "withtemplate", "default", "user", JournalingSlot.JournalExists, JournalingSlot.PrepareJournal );
+
+		JournalingTemplateException error = Assert.Throws<JournalingTemplateException>(
+			() => Sources( user ).Resolve( null, "withtemplate" ) );
+
+		Assert.Contains( "PrepareJournal.sql", error.Message );
+		Assert.DoesNotContain( "JournalExists.sql", error.Message );
+	}
+
+	[Fact]
 	public void AnIncompleteTemplateIsRefusedNamingWhatIsMissing()
 	{
 		string user = Folder( "user" );

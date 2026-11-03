@@ -55,8 +55,8 @@ public class JournalingCliTests : IDisposable
 
 		string[] before = Run( "journaling", "list" ).Output.Split( '\n' );
 
-		Assert.Equal( 15, before.Length );
-		Assert.All( before, line => Assert.EndsWith( "\tno", line ) );
+		Assert.Equal( 16, before.Length );
+		Assert.All( before, line => Assert.Equal( "no", line.Split( '\t' )[1] ) );
 		Assert.Contains( before, line => line.StartsWith( "PrepareJournal\t" ) );
 
 		Assert.Equal(
@@ -66,8 +66,44 @@ public class JournalingCliTests : IDisposable
 
 		string[] after = Run( "journaling", "list" ).Output.Split( '\n' );
 
-		Assert.Contains( "PrepareJournal\tyes", after );
-		Assert.Contains( after, line => line.StartsWith( "DeployingRelease\t" ) && line.EndsWith( "\tno" ) );
+		Assert.Contains( "PrepareJournal\tyes\tno", after );
+		Assert.Contains( after, line => line.StartsWith( "DeployingRelease\t" ) && line.EndsWith( "\tno\tno" ) );
+	}
+
+	[Fact]
+	public void ListMarksOnlyJournalExistsOptional()
+	{
+		InitializeProject();
+
+		string[] lines = Run( "journaling", "list" ).Output.Split( '\n' );
+
+		Assert.Contains( "JournalExists\tno\tyes", lines );
+		Assert.Single( lines, line => line.EndsWith( "\tyes" ) );
+		Assert.Equal( 15, lines.Count( line => line.EndsWith( "\tno\tno" ) ) );
+	}
+
+	[Fact]
+	public void ListAsJsonCarriesTheOptionalFlag()
+	{
+		InitializeProject();
+
+		using JsonDocument document = JsonDocument.Parse( Run( "journaling", "list", "--output", "json" ).Output );
+
+		Assert.Equal(
+			[ "JournalExists" ],
+			document.RootElement.EnumerateArray()
+				.Where( x => x.GetProperty( "optional" ).GetBoolean() )
+				.Select( x => x.GetProperty( "slot" ).GetString() ) );
+	}
+
+	[Fact]
+	public void TheOptionalSlotCanBeSetAndPrintedLikeAnyOther()
+	{
+		InitializeProject();
+
+		Assert.Equal( 0, Run( "journaling", "set", "JournalExists", "select 1" ).ExitCode );
+		Assert.Equal( "select 1", Run( "journaling", "print", "JournalExists" ).Output.Trim() );
+		Assert.Contains( "JournalExists\tyes\tyes", Run( "journaling", "list" ).Output.Split( '\n' ) );
 	}
 
 	[Fact]
@@ -79,8 +115,11 @@ public class JournalingCliTests : IDisposable
 
 		string[] lines = Run( "journaling", "list", "--statements" ).Output.Split( '\n' );
 
+		// the columns 'list --statements' has always had: Statement stays third and last, its SQL
+		// possibly spanning lines, so the Optional column is left out here
 		Assert.Contains( "PrepareJournal\tyes\tcreate table journal( release text )", lines );
-		Assert.Contains( "GetLatestRelease\tno", lines );
+		Assert.Contains( lines, line => line.StartsWith( "GetLatestRelease\tno" ) );
+		Assert.DoesNotContain( lines, line => line.StartsWith( "JournalExists\tno\tyes" ) );
 	}
 
 	[Fact]
@@ -213,8 +252,9 @@ public class JournalingCliTests : IDisposable
 
 		string[] lines = result.Output.Split( '\n', StringSplitOptions.RemoveEmptyEntries );
 
-		Assert.Equal( 15, lines.Length );
+		Assert.Equal( 16, lines.Length );
 		Assert.Contains( lines, line => line.StartsWith( "DeployingStep\t" ) );
+		Assert.Contains( "JournalExists\t@project", lines );
 
 		// shown with the '@' a maintainer types, narrowing to the unit the slot names
 		Assert.Contains( "DeployingStep\t@project @release @plan @step @description", result.Output );

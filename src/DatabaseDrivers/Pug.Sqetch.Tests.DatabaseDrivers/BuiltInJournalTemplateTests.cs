@@ -33,13 +33,17 @@ public class BuiltInJournalTemplateTests
 
 	[Theory]
 	[MemberData( nameof(Drivers) )]
-	public void EveryTemplateHoldsExactlyTheFifteenSlots( string driver )
+	public void EveryTemplateHoldsTheFifteenRequiredSlotsAndTheOptionalJournalExists( string driver )
 	{
 		IReadOnlyDictionary<string, string> template = Driver( driver ).GetJournalingTemplate();
 
 		Assert.Equal(
 			JournalingSlots.All.Select( slot => slot.ToString() ).Order(),
 			template.Keys.Order() );
+
+		Assert.Equal( 16, template.Count );
+		Assert.All( JournalingSlots.Required, slot => Assert.Contains( slot.ToString(), template.Keys ) );
+		Assert.Contains( nameof(JournalingSlot.JournalExists), template.Keys );
 
 		Assert.All( template.Values, sql => Assert.False( string.IsNullOrWhiteSpace( sql ) ) );
 

@@ -47,6 +47,24 @@ it at least as new as the `sqetch` the team uses.
      --log deploy.log
    ```
 
+   Since 0.2, run `status` first, with the same bundle, `--driver` and driver switches (not
+   `deploy`'s own options such as `--log`), to show what the deploy will do, for the
+   approver to read; it changes nothing (skill `sqetch-bundle-and-deploy`). With `--exit-code` it
+   exits `81` when something would deploy, `0` when not, so the job can skip the deploy and its
+   approval when there is nothing to do:
+
+   ```sh
+   set +e
+   sqetch-deploy status db-bundle.zip --driver postgres --postgres-host "$DB_HOST" \
+     --postgres-database "$DB_NAME" --postgres-username "$DB_USER" --postgres-password-env DB_PASSWORD \
+     --exit-code
+   status=$?
+   set -e
+   [ "$status" -eq 0 ] || [ "$status" -eq 81 ] || exit "$status"
+   ```
+
+   It needs the project's `JournalExists` journaling statement (exit `25` without it).
+
    Each database's journal decides what is new, so redeploying is safe, and a failed run resumes.
    Never let two deployments to the same database run at once: serialize the jobs per
    environment.

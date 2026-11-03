@@ -85,7 +85,7 @@ public sealed class StatementJournal
 			);
 
 		string name = reader.GetValue( 0 ).ToString() ?? "";
-		bool completed = Completed( slot, reader.GetValue( 1 ) );
+		bool completed = Truth( slot, "column 1 (completed)", reader.GetValue( 1 ) );
 
 		if( reader.Read() )
 			throw new JournalingStatementException(
@@ -118,6 +118,27 @@ public sealed class StatementJournal
 		}
 
 		return plans;
+	}
+
+	/// <summary>
+	/// Whether the journal exists yet, from the optional <see cref="JournalingSlot.JournalExists"/>
+	/// query: true when its first row's column 0 is true, false when it is false or there is no row.
+	/// Column 0 coerces like <see cref="GetLatestRelease"/>'s completed column. Null when the slot is
+	/// not set, so a caller decides whether it can go on without it.
+	/// </summary>
+	public bool? JournalExists( IDatabaseTransaction transaction )
+	{
+		if( !_statements.IsSet( JournalingSlot.JournalExists ) )
+			return null;
+
+		const string slot = nameof(JournalingSlot.JournalExists);
+
+		using IDataReader reader = ExecuteQuery( JournalingSlot.JournalExists, transaction );
+
+		if( reader.FieldCount < 1 )
+			throw new JournalingStatementException( slot, 1, "must select at least one column (exists)." );
+
+		return reader.Read() && Truth( slot, "column 0 (exists)", reader.GetValue( 0 ) );
 	}
 
 	public void DeployingRelease( string release, string description, IDatabaseTransaction transaction )
@@ -343,19 +364,19 @@ public sealed class StatementJournal
 		};
 
 	/// <summary>
-	/// Coerces column 1 (completed) explicitly rather than with <see cref="Convert.ToBoolean(object)"/>,
+	/// Coerces a yes/no column (completed, exists) explicitly rather than with <see cref="Convert.ToBoolean(object)"/>,
 	/// which throws on 'Y' — exactly what an Oracle or DB2 maintainer stores in a <c>CHAR(1)</c>. NULL
 	/// throws: there is no valid completed state for a NULL. A <see cref="bool"/> passes through; any
 	/// numeric type is compared to zero; a string or char matches "1", "y", "yes", "t", "true" as true
 	/// and "0", "n", "no", "f", "false" as false, case-insensitively; anything else throws.
 	/// </summary>
-	private static bool Completed( string slot, object value )
+	private static bool Truth( string slot, string column, object value )
 		=> value switch
 		{
 			DBNull => throw new JournalingStatementException(
 				slot,
 				1,
-				"column 1 (completed) is NULL; there is no valid coercion for NULL."
+				$"{column} is NULL; there is no valid coercion for NULL."
 			),
 
 			bool boolean => boolean,
@@ -363,18 +384,18 @@ public sealed class StatementJournal
 			byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
 				Convert.ToDouble( value ) != 0,
 
-			char c => CompletedText( slot, c.ToString() ),
+			char c => TruthText( slot, column, c.ToString() ),
 
-			string text => CompletedText( slot, text ),
+			string text => TruthText( slot, column, text ),
 
 			_ => throw new JournalingStatementException(
 				slot,
 				1,
-				$"column 1 (completed) has an unsupported type '{value.GetType()}'."
+				$"{column} has an unsupported type '{value.GetType()}'."
 			)
 		};
 
-	private static bool CompletedText( string slot, string text )
+	private static bool TruthText( string slot, string column, string text )
 		=> text.Trim().ToLowerInvariant() switch
 		{
 			"1" or "y" or "yes" or "t" or "true" => true,
@@ -382,7 +403,7 @@ public sealed class StatementJournal
 			_ => throw new JournalingStatementException(
 				slot,
 				1,
-				$"column 1 (completed) has an unrecognized value '{text}'."
+				$"{column} has an unrecognized value '{text}'."
 			)
 		};
 }

@@ -37,10 +37,13 @@ internal static class BundleTestProjects
 		project.FinalizeRelease( "2026.07" );
 	}
 
-	/// <summary>Every journaling slot, which bundling requires.</summary>
-	public static void SetJournaling( IProject project )
+	/// <summary>
+	/// Every journaling slot — or, without <paramref name="includeOptional"/>, only the required ones,
+	/// which is all bundling needs.
+	/// </summary>
+	public static void SetJournaling( IProject project, bool includeOptional = true )
 	{
-		foreach( JournalingSlot slot in JournalingSlots.All )
+		foreach( JournalingSlot slot in includeOptional ? JournalingSlots.All : JournalingSlots.Required )
 			project.SetJournalingStatement( slot, $"select '{slot}'" );
 	}
 

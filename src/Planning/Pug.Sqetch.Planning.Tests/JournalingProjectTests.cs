@@ -68,7 +68,7 @@ public class JournalingProjectTests
 		);
 
 		Assert.Equal(
-			JournalingSlots.All.Where( slot =>
+			JournalingSlots.Required.Where( slot =>
 				slot is not JournalingSlot.PrepareJournal and not JournalingSlot.GetLatestRelease
 			),
 			error.Slots
@@ -76,7 +76,23 @@ public class JournalingProjectTests
 	}
 
 	[Fact]
-	public void VerifyJournalingStatementsPassesOnceAllFifteenAreSet()
+	public void VerifyJournalingStatementsPassesOnceAllFifteenRequiredAreSet()
+	{
+		using TempProject temp = TempProject.Create();
+		using FileSystemProjectStores stores = temp.Open();
+		using IProject project = CreateProject( stores );
+
+		Assert.Equal( 15, JournalingSlots.Required.Count );
+
+		foreach( JournalingSlot slot in JournalingSlots.Required )
+			project.SetJournalingStatement( slot, $"-- {slot}" );
+
+		project.VerifyJournalingStatements();
+		Assert.Null( project.GetJournalingStatement( JournalingSlot.JournalExists ) );
+	}
+
+	[Fact]
+	public void VerifyJournalingStatementsPassesWithTheOptionalSlotSetToo()
 	{
 		using TempProject temp = TempProject.Create();
 		using FileSystemProjectStores stores = temp.Open();
@@ -86,5 +102,6 @@ public class JournalingProjectTests
 			project.SetJournalingStatement( slot, $"-- {slot}" );
 
 		project.VerifyJournalingStatements();
+		Assert.Equal( "-- JournalExists", project.GetJournalingStatement( JournalingSlot.JournalExists )?.TrimEnd() );
 	}
 }

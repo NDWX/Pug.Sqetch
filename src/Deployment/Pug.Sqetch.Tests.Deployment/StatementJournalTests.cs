@@ -544,6 +544,127 @@ public class StatementJournalTests
 		Assert.Contains( "unrecognized value", error.Message );
 	}
 
+	// ------------------------------------------------------------------ JournalExists
+
+	[Fact]
+	public void JournalExistsIsNullWhenTheSlotIsUnsetAndRunsNothing()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.JournalExists );
+
+		( FakeTransaction transaction, StatementJournal journal ) = Setup( text );
+
+		Assert.Null( journal.JournalExists( transaction ) );
+		Assert.Empty( transaction.JournalingCalls );
+	}
+
+	[Fact]
+	public void JournalExistsIsCalledWithTheProjectAlone()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedJournalExists( transaction.Driver, true );
+
+		journal.JournalExists( transaction );
+
+		AssertCall( transaction, 0, "-- JournalExists", ( "project", Project ) );
+		Assert.All( transaction.QueryReaders, reader => Assert.True( reader.IsClosed ) );
+	}
+
+	[Fact]
+	public void JournalExistsWithNoRowIsFalse()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		DataTable table = new();
+
+		table.Columns.Add( "exists", typeof(bool) );
+		transaction.Driver.QueryResults["-- JournalExists"] = table;
+
+		Assert.False( journal.JournalExists( transaction ) );
+	}
+
+	[Theory]
+	[InlineData( true, true )]
+	[InlineData( false, false )]
+	[InlineData( 1, true )]
+	[InlineData( 0, false )]
+	[InlineData( 1L, true )]
+	[InlineData( 0L, false )]
+	[InlineData( "1", true )]
+	[InlineData( "0", false )]
+	[InlineData( "t", true )]
+	[InlineData( "false", false )]
+	[InlineData( "YES", true )]
+	[InlineData( 'n', false )]
+	public void JournalExistsCoercesLikeCompleted( object stored, bool expected )
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedJournalExists( transaction.Driver, stored );
+
+		Assert.Equal( expected, journal.JournalExists( transaction ) );
+	}
+
+	[Fact]
+	public void JournalExistsOnlyReadsTheFirstRowsFirstColumn()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		DataTable table = new();
+
+		table.Columns.Add( "exists", typeof(object) );
+		table.Columns.Add( "extra", typeof(object) );
+		table.Rows.Add( 1, "ignored" );
+		table.Rows.Add( 0, "ignored" );
+		transaction.Driver.QueryResults["-- JournalExists"] = table;
+
+		Assert.True( journal.JournalExists( transaction ) );
+	}
+
+	[Fact]
+	public void JournalExistsNullThrowsNamingTheSlot()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedJournalExists( transaction.Driver, DBNull.Value );
+
+		JournalingStatementException error =
+			Assert.Throws<JournalingStatementException>( () => journal.JournalExists( transaction ) );
+
+		Assert.Contains( "JournalExists", error.Message );
+		Assert.Contains( "NULL", error.Message );
+	}
+
+	[Fact]
+	public void JournalExistsUnrecognizedTextThrows()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		SeedJournalExists( transaction.Driver, "maybe" );
+
+		Assert.Contains(
+			"unrecognized value",
+			Assert.Throws<JournalingStatementException>( () => journal.JournalExists( transaction ) ).Message );
+	}
+
+	[Fact]
+	public void AFailingJournalExistsQueryIsAJournalingStatementException()
+	{
+		( FakeTransaction transaction, StatementJournal journal ) = Setup();
+		transaction.Driver.FailingJournalingQueries.Add( "-- JournalExists" );
+
+		JournalingStatementException error =
+			Assert.Throws<JournalingStatementException>( () => journal.JournalExists( transaction ) );
+
+		Assert.Contains( "JournalExists", error.Message );
+	}
+
+	private static void SeedJournalExists( FakeDatabaseDriver driver, object value )
+	{
+		DataTable table = new();
+
+		table.Columns.Add( "exists", typeof(object) );
+		table.Rows.Add( value );
+
+		driver.QueryResults["-- JournalExists"] = table;
+	}
+
 	// ------------------------------------------------------------------ helpers
 
 	private static (FakeTransaction Transaction, StatementJournal Journal) Setup(

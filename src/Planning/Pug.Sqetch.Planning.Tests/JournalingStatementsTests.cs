@@ -137,8 +137,9 @@ public class JournalingStatementsTests
 	{
 		List<string> names = JournalingSlots.All.Select( JournalingSlots.FileName ).ToList();
 
-		Assert.Equal( 15, names.Count );
+		Assert.Equal( 16, names.Count );
 		Assert.Equal( names.Count, names.Distinct( StringComparer.OrdinalIgnoreCase ).Count() );
+		Assert.Equal( "JournalExists.sql", JournalingSlots.FileName( JournalingSlot.JournalExists ) );
 	}
 
 	// ------------------------------------------------------------------ parameters
@@ -197,6 +198,7 @@ public class JournalingStatementsTests
 	{
 		Assert.False( JournalingSlots.Writes( JournalingSlot.GetLatestRelease ) );
 		Assert.False( JournalingSlots.Writes( JournalingSlot.GetDeployedPlans ) );
+		Assert.False( JournalingSlots.Writes( JournalingSlot.JournalExists ) );
 		Assert.False( JournalingSlots.Writes( JournalingSlot.PrepareJournal ) );
 
 		Assert.All(
@@ -288,6 +290,84 @@ public class JournalingStatementsTests
 		Assert.Equal( "create table a\n;;\ncreate table b", statements.Text( JournalingSlot.PrepareJournal ) );
 		Assert.Equal( [ "create table a", "create table b" ], statements.Statements( JournalingSlot.PrepareJournal ) );
 		Assert.Equal( [ "-- DeployingStep" ], statements.Statements( JournalingSlot.DeployingStep ) );
+	}
+
+	// ------------------------------------------------------------------ the optional slot
+
+	[Fact]
+	public void OnlyJournalExistsIsOptionalAndRequiredHoldsTheFifteenOthers()
+	{
+		Assert.True( JournalingSlots.IsOptional( JournalingSlot.JournalExists ) );
+		Assert.All( JournalingSlots.Required, slot => Assert.False( JournalingSlots.IsOptional( slot ) ) );
+		Assert.Equal( 15, JournalingSlots.Required.Count );
+		Assert.DoesNotContain( JournalingSlot.JournalExists, JournalingSlots.Required );
+		Assert.Equal( 16, JournalingSlots.All.Count );
+	}
+
+	[Fact]
+	public void JournalExistsIsAQueryTakingOnlyTheProject()
+	{
+		Assert.True( JournalingSlots.IsQuery( JournalingSlot.JournalExists ) );
+		Assert.Equal( [ "project" ], JournalingSlots.ParameterNames( JournalingSlot.JournalExists ) );
+
+		ArgumentException error = Assert.Throws<ArgumentException>( () =>
+			JournalingStatements.Parse( JournalingSlot.JournalExists, "select 1\n;;\nselect 2" )
+		);
+
+		Assert.Contains( "JournalExists is a query", error.Message );
+	}
+
+	[Fact]
+	public void TheOptionalSlotMayBeUnsetAndIsNeverReportedMissing()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.JournalExists );
+
+		Assert.Empty( JournalingStatements.Missing( text ) );
+
+		text[JournalingSlot.JournalExists] = "  ";
+
+		Assert.Empty( JournalingStatements.Missing( text ) );
+
+		JournalingStatements statements = new( text );
+
+		Assert.False( statements.IsSet( JournalingSlot.JournalExists ) );
+		Assert.True( statements.IsSet( JournalingSlot.PrepareJournal ) );
+	}
+
+	[Fact]
+	public void ARequiredSlotIsStillReportedMissingWhenTheOptionalOneIsSet()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.PrepareJournal );
+
+		Assert.Equal( [ JournalingSlot.PrepareJournal ], JournalingStatements.Missing( text ) );
+		Assert.Throws<ArgumentException>( () => new JournalingStatements( text ) );
+	}
+
+	[Fact]
+	public void TextAndStatementsOfAnUnsetOptionalSlotThrow()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.JournalExists );
+
+		JournalingStatements statements = new( text );
+
+		Assert.Throws<InvalidOperationException>( () => statements.Text( JournalingSlot.JournalExists ) );
+		Assert.Throws<InvalidOperationException>( () => statements.Statements( JournalingSlot.JournalExists ) );
+	}
+
+	[Fact]
+	public void ASetOptionalSlotIsReadLikeAnyOther()
+	{
+		JournalingStatements statements = new( Complete() );
+
+		Assert.True( statements.IsSet( JournalingSlot.JournalExists ) );
+		Assert.Equal( "-- JournalExists", statements.Text( JournalingSlot.JournalExists ) );
+		Assert.Equal( [ "-- JournalExists" ], statements.Statements( JournalingSlot.JournalExists ) );
 	}
 
 	private static Dictionary<JournalingSlot, string?> Complete()

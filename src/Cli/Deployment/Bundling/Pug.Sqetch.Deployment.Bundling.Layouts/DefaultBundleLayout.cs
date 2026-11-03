@@ -41,7 +41,9 @@ public sealed class DefaultBundleLayout : IBundleLayout
 		using( MemoryStream manifest = new( JsonSerializer.SerializeToUtf8Bytes( Manifest( bundle ), JsonOptions ) ) )
 			writer.Add( ManifestEntry, manifest );
 
-		foreach( JournalingSlot slot in JournalingSlots.All )
+		// an unset optional slot is simply absent, as it is from the project; older readers never look
+		// for a slot they do not know, so adding one changes nothing for them
+		foreach( JournalingSlot slot in JournalingSlots.All.Where( bundle.Journaling.IsSet ) )
 			using( MemoryStream statement = new( Encoding.UTF8.GetBytes( bundle.Journaling.Text( slot ) ) ) )
 				writer.Add( JournalingPath( slot ), statement );
 
@@ -85,7 +87,9 @@ public sealed class DefaultBundleLayout : IBundleLayout
 
 			if( !reader.Contains( path ) )
 			{
-				missing.Add( path );
+				// a bundle written before an optional slot existed, or by a project leaving it unset
+				if( !JournalingSlots.IsOptional( slot ) )
+					missing.Add( path );
 
 				continue;
 			}

@@ -220,7 +220,8 @@ public sealed class JournalingTemplateSources( IDatabaseDriverRegistry drivers, 
 			else
 				unknown.Add( Path.GetFileName( file ) );
 
-		List<string> missing = JournalingSlots.All
+		// an optional slot's file may be absent: templates written before it existed stay valid
+		List<string> missing = JournalingSlots.Required
 			.Where( slot => !statements.ContainsKey( slot ) )
 			.Select( JournalingSlots.FileName )
 			.ToList();
@@ -247,10 +248,10 @@ public sealed class JournalingTemplateSources( IDatabaseDriverRegistry drivers, 
 			else
 				throw new JournalingTemplateException( $"driver '{driver}' ships a template for unknown slot '{name}'" );
 
-		if( statements.Count != JournalingSlots.All.Count )
+		if( JournalingSlots.Required.Any( x => !statements.ContainsKey( x ) ) )
 			throw new JournalingTemplateException(
 				$"driver '{driver}' ships an incomplete template; missing: " +
-				string.Join( ", ", JournalingSlots.All.Where( x => !statements.ContainsKey( x ) ) ) );
+				string.Join( ", ", JournalingSlots.Required.Where( x => !statements.ContainsKey( x ) ) ) );
 
 		return statements;
 	}

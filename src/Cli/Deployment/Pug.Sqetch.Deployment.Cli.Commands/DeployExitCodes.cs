@@ -52,6 +52,13 @@ public static class DeployExitCodes
 	/// </summary>
 	public const int UnsupportedBundle = 24;
 
+	/// <summary>
+	/// The bundle's journaling SQL lacks optional statements the command needs — 'status' needs
+	/// JournalExists — so the command refused before connecting. Every command needing an optional
+	/// slot uses this one code; the remedy is always setting the slots and rebuilding the bundle.
+	/// </summary>
+	public const int IncompleteJournaling = 25;
+
 	public const int DriverError = 30;
 	public const int UnknownDriver = 31;
 	public const int DriverCreationFailed = 32;
@@ -91,6 +98,18 @@ public static class DeployExitCodes
 	/// <summary>The bundle was assembled but its output could not be written: the target exists, or the write failed.</summary>
 	public const int BundleOutputFailed = 73;
 
+	/// <summary>
+	/// What 'status' found, reported as a code only when asked ('--exit-code'). Not a failure: the
+	/// decade exists so a pipeline can branch on a forecast without parsing output.
+	/// </summary>
+	public const int StatusOutcome = 80;
+
+	/// <summary>
+	/// 'status --exit-code': the database is reachable, the bundle fits, and deploying it would
+	/// deploy something. Opt-in, so a plain 'status' under 'set -e' never stops on it.
+	/// </summary>
+	public const int DeploymentPending = 81;
+
 	public const int NotSupported = 91;
 
 	/// <summary>
@@ -126,6 +145,7 @@ public static class DeployExitCodes
 
 			MissingBundleException => BundleNotFound,
 			IncompatibleBundleException => IncompatibleBundle,
+			JournalingStatementsNotSetException => IncompleteJournaling,
 
 			// before the general BundlingException arm below, which would call it a damaged bundle
 			UnsupportedBundleFormatException => UnsupportedBundle,

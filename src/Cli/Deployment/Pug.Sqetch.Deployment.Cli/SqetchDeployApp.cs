@@ -94,6 +94,12 @@ public static class SqetchDeployApp
 				"Run 'drivers parameters <driver>' to see which a driver takes"
 			);
 
+		config.AddCommand<StatusCommand>( "status" )
+			.WithDescription(
+				"Show what 'deploy' would do with a bundle against a database, changing nothing: where the " +
+				"journal is and which plans would deploy. Needs the bundle's JournalExists journaling statement"
+			);
+
 		// the driver switches cannot appear in 'deploy --help': they are the selected driver's, and
 		// no driver is selected while help is being printed
 		config.AddBranch(

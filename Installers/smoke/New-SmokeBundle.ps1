@@ -142,6 +142,11 @@ select plan from $table
 where project = @project and release = @release and slot = 'PlanDeployed'
 "@
 
+# optional, but 'status' needs it; it reads the catalog, since the journal table may not exist yet
+$journaling['JournalExists'] = @"
+select count( * ) from sqlite_master where type = 'table' and name = '$table'
+"@
+
 foreach( $slot in $eventSlots.Keys )
 {
 	$columns = @( 'project', 'slot' ) + @( $eventSlots[$slot] | ForEach-Object { $_ -eq 'utcTimestamp' ? 'at_utc' : $_ } )
