@@ -69,4 +69,28 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 	[DockerFact]
 	public void AFailingVerifyFailsTheStep()
 		=> _deployment.Value.AFailingVerifyFailsTheStep( "select 1 / count(*) from v_s1" );
+
+	[DockerFact]
+	public void StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal()
+		=> _deployment.Value.StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal();
+
+	[DockerFact]
+	public void StatusOfAnEmptyJournalDeploysEverything()
+		=> _deployment.Value.StatusOfAnEmptyJournalDeploysEverything();
+
+	[DockerFact]
+	public void StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat()
+		=> _deployment.Value.StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat();
+
+	[DockerFact]
+	public void StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom()
+		=> _deployment.Value.StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom();
+
+	[DockerFact]
+	public void StatusOfAnUpToDateDatabaseHasNothingToDeploy()
+		=> _deployment.Value.StatusOfAnUpToDateDatabaseHasNothingToDeploy();
+
+	[DockerFact]
+	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
+		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
 }

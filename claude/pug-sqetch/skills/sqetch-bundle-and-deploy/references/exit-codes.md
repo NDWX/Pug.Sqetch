@@ -6,13 +6,14 @@ the category alone. The message printed with the code names the cause.
 
 | Code | Meaning | What to do |
 |---|---|---|
-| `0` | Deployed, nothing to deploy, or deployed and then undone on request | Nothing. The output tells the three apart |
+| `0` | Deployed, nothing to deploy, or deployed and then undone on request; for `status`, it ran (without `--exit-code`, whatever it found) | Nothing. The output tells them apart |
 | `1` | Unclassified failure | Read the message |
 | `10` | Command-line mistake: unknown command or option, bad value, a switch the driver does not take, an unknown `--bundle-type` | Fix the command; check `--help` for the installed version |
 | `21` | Bundle not found | Check the path |
 | `22` | Bundle invalid or damaged | Rebuild it |
 | `23` | Bundle incompatible with this database's journal: another lineage, a gap before a continuation bundle, a database left at unreleased plans | Deploy the right bundle; never retry as is |
 | `24` | Bundle needs a newer `sqetch-deploy` (unknown layout or newer format) | Upgrade the deploying `sqetch-deploy` to at least the bundling one |
+| `25` | Since 0.2: the bundle's journaling SQL lacks optional statements the command needs (`status` needs `JournalExists`) | Set them with `sqetch journaling set` and rebuild the bundle |
 | `31` | Unknown driver | `sqetch-deploy drivers list` |
 | `32` | The driver could not be created: bad or missing connection switches | `sqetch-deploy drivers parameters <driver>` |
 | `33` | Database unreachable | Check host, network and credentials; retrying later is safe |
@@ -25,6 +26,7 @@ the category alone. The message printed with the code names the cause.
 | `71` | `bundle`: the project could not be read (not a project folder, damaged, or written by a newer `sqetch`) | Check `--project`; upgrade `sqetch-deploy` if the project is newer |
 | `72` | `bundle`: the project cannot be bundled: unset journaling statements, a missing step script, `--since` naming an unknown release, or nothing to bundle | Follow the message |
 | `73` | `bundle`: the output could not be written; it may already exist | Choose another `-o`, or remove the old file |
+| `81` | Since 0.2, `status --exit-code` only: the bundle fits and deploying it would deploy something. Not a failure | Deploy, or review first |
 | `91` | Not implemented (the `rollback` command) | Use `deploy --rollback` |
 
 Precedence: a failed rollback (`61`) outranks the failure that triggered it, and a database left

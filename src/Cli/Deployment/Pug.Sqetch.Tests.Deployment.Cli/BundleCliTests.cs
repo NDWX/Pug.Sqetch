@@ -98,7 +98,12 @@ public class BundleCliTests : IDisposable
 		);
 
 		// the project's journaling SQL travels with the bundle, between the manifest and the plans
-		Assert.Equal( 15, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
+		Assert.Equal( 16, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
+
+		Assert.Equal(
+			"select 'JournalExists'",
+			new StreamReader( archive.GetEntry( "journaling/JournalExists.sql" )!.Open() ).ReadToEnd().Trim()
+		);
 
 		Assert.Equal(
 			"select 'PrepareJournal'",
@@ -307,6 +312,32 @@ public class BundleCliTests : IDisposable
 		Assert.Equal( DeployExitCodes.ProjectNotBundleable, result.ExitCode );
 		Assert.Contains( "missing script(s): verify", result.Output );
 		Assert.False( File.Exists( Out( "broken.zip" ) ) );
+	}
+
+	/// <summary>
+	/// JournalExists is optional: bundling needs the fifteen others only, and writes no entry for it.
+	/// </summary>
+	[Fact]
+	public void BundlingSucceedsWithoutTheOptionalJournalExistsSlot()
+	{
+		BundleTestProjects.Populate(
+			_temp,
+			project => {
+				BundleTestProjects.AddFinalizedRelease( _temp, project );
+				BundleTestProjects.SetJournaling( project, includeOptional: false );
+			}
+		);
+
+		string path = Out( "optional.zip" );
+
+		CommandAppResult result = Bundle( "--bundle-output-path", path );
+
+		Assert.Equal( DeployExitCodes.Success, result.ExitCode );
+
+		using ZipArchive archive = ZipFile.OpenRead( path );
+
+		Assert.Equal( 15, archive.Entries.Count( x => x.FullName.StartsWith( "journaling/" ) ) );
+		Assert.Null( archive.GetEntry( "journaling/JournalExists.sql" ) );
 	}
 
 	[Fact]

@@ -68,6 +68,7 @@ public class DefaultBundleLayoutTests
 				"journaling/PrepareJournal.sql",
 				"journaling/GetLatestRelease.sql",
 				"journaling/GetDeployedPlans.sql",
+				"journaling/JournalExists.sql",
 				"plans/table/steps/create/deploy.sql",
 				"plans/table/steps/create/verify.sql",
 				"plans/table/steps/create/rollback.sql",
@@ -78,8 +79,8 @@ public class DefaultBundleLayoutTests
 			writer.Entries.Select( x => x.Path ).ToArray()
 		);
 
-		// entry 0 is the manifest and 1..15 the journaling slots, so the first script is 16
-		Assert.Equal( "-- deploy", writer.Entries[16].Content );
+		// entry 0 is the manifest and 1..16 the journaling slots, so the first script is 17
+		Assert.Equal( "-- deploy", writer.Entries[17].Content );
 
 		// each step's scripts are disposed right after they are written
 		Assert.True( deploy.Disposed );
@@ -248,7 +249,7 @@ public class DefaultBundleLayoutTests
 
 		List<string> paths = writer.Entries.Select( x => x.Path ).ToList();
 
-		Assert.Equal( 15, paths.Count( x => x.StartsWith( "journaling/" ) ) );
+		Assert.Equal( 16, paths.Count( x => x.StartsWith( "journaling/" ) ) );
 		Assert.Equal( 0, paths.IndexOf( "manifest.json" ) );
 
 		Assert.True(
@@ -259,6 +260,63 @@ public class DefaultBundleLayoutTests
 
 		Assert.Equal( "-- PrepareJournal", read.Text( JournalingSlot.PrepareJournal ) );
 		Assert.Equal( [ "-- GetDeployedPlans" ], read.Statements( JournalingSlot.GetDeployedPlans ) );
+		Assert.True( read.IsSet( JournalingSlot.JournalExists ) );
+		Assert.Equal( "-- JournalExists", read.Text( JournalingSlot.JournalExists ) );
+	}
+
+	[Fact]
+	public void AnUnsetOptionalSlotIsNotWrittenAndAReadBackBundleLacksIt()
+	{
+		Dictionary<JournalingSlot, string?> text = JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)$"-- {slot}" );
+
+		text.Remove( JournalingSlot.JournalExists );
+
+		Bundle bundle = new(
+			new ProjectDefinition( "demo", "", "" ), BundleSelection.Finalized, new JournalingStatements( text ), [ ], [ ] );
+
+		RecordingWriter writer = new();
+		DefaultBundleLayout layout = new();
+
+		layout.Write( bundle, writer );
+
+		List<string> paths = writer.Entries.Select( x => x.Path ).ToList();
+
+		Assert.Equal( 15, paths.Count( x => x.StartsWith( "journaling/" ) ) );
+		Assert.DoesNotContain( "journaling/JournalExists.sql", paths );
+
+		JournalingStatements read = layout.ReadJournalingStatements( new FakeReader( writer ) );
+
+		Assert.False( read.IsSet( JournalingSlot.JournalExists ) );
+		Assert.Equal( "-- PrepareJournal", read.Text( JournalingSlot.PrepareJournal ) );
+	}
+
+	[Fact]
+	public void ABundleWithoutTheOptionalEntryReadsButOneLackingARequiredEntryDoesNot()
+	{
+		RecordingWriter writer = new();
+		DefaultBundleLayout layout = new();
+
+		layout.Write(
+			new Bundle( new ProjectDefinition( "demo", "", "" ), BundleSelection.Finalized, Journaling(), [ ], [ ] ),
+			writer );
+
+		RecordingWriter without = new();
+
+		foreach( ( string path, string content ) in writer.Entries.Where( x => x.Path != "journaling/JournalExists.sql" ) )
+			without.Add( path, new MemoryStream( Encoding.UTF8.GetBytes( content ) ) );
+
+		Assert.False( layout.ReadJournalingStatements( new FakeReader( without ) ).IsSet( JournalingSlot.JournalExists ) );
+
+		RecordingWriter broken = new();
+
+		foreach( ( string path, string content ) in writer.Entries.Where( x => x.Path != "journaling/PrepareJournal.sql" ) )
+			broken.Add( path, new MemoryStream( Encoding.UTF8.GetBytes( content ) ) );
+
+		BundlingException error = Assert.Throws<BundlingException>( () =>
+			layout.ReadJournalingStatements( new FakeReader( broken ) ) );
+
+		Assert.Contains( "journaling/PrepareJournal.sql", error.Message );
+		Assert.DoesNotContain( "JournalExists", error.Message );
 	}
 
 	[Fact]

@@ -39,6 +39,12 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 	/// <summary>Scripts whose execution should fail.</summary>
 	public HashSet<string> FailingScripts { get; } = [ ];
 
+	/// <summary>
+	/// Makes every rollback throw after taking effect, as a provider does for a transaction the server
+	/// already ended or over a broken connection.
+	/// </summary>
+	public bool FailingRollback { get; set; }
+
 	/// <summary>Journaling statements whose execution should fail, by exact statement text.</summary>
 	public HashSet<string> FailingJournalingStatements { get; } = [ ];
 
@@ -179,6 +185,9 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 		_onCommit.Clear();
 
 		driver.Events.Add( $"rollback #{Number}" );
+
+		if( driver.FailingRollback )
+			throw new InvalidOperationException( "rollback failed" );
 	}
 
 	public void Commit()
@@ -248,6 +257,9 @@ public sealed class FakeJournal
 
 	public JournaledRelease? Latest { get; set; }
 
+	/// <summary>What the optional JournalExists query answers; false poses as a database never deployed to.</summary>
+	public bool JournalExists { get; set; } = true;
+
 	public Dictionary<string, List<string>> DeployedPlans { get; } = [ ];
 
 	/// <summary>
@@ -262,6 +274,10 @@ public sealed class FakeJournal
 	public static JournalingStatements Statements()
 		=> new( JournalingSlots.All.ToDictionary( slot => slot, slot => (string?)Marker( slot ) ) );
 
+	/// <summary>Marker SQL for the required slots alone — a bundle made without the optional JournalExists.</summary>
+	public static JournalingStatements RequiredStatements()
+		=> new( JournalingSlots.Required.ToDictionary( slot => slot, slot => (string?)Marker( slot ) ) );
+
 	/// <summary>
 	/// Answers the two query slots from the seeded state and starts interpreting the statements the
 	/// deployment runs. Call once, before deploying.
@@ -269,6 +285,13 @@ public sealed class FakeJournal
 	public void Attach( FakeDatabaseDriver driver )
 	{
 		driver.Journal = this;
+
+		DataTable exists = new();
+
+		exists.Columns.Add( "exists", typeof(bool) );
+		exists.Rows.Add( JournalExists );
+
+		driver.QueryResults[Marker( JournalingSlot.JournalExists )] = exists;
 
 		DataTable latest = new();
 

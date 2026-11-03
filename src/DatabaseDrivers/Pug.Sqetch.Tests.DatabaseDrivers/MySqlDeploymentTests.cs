@@ -65,6 +65,30 @@ public abstract class MySqlFamilyDeploymentTests
 	[DockerFact]
 	public void AFailingVerifyFailsTheStep()
 		=> _deployment.Value.AFailingVerifyFailsTheStep( "select ( select 1 union all select 2 )" );
+
+	[DockerFact]
+	public void StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal()
+		=> _deployment.Value.StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal();
+
+	[DockerFact]
+	public void StatusOfAnEmptyJournalDeploysEverything()
+		=> _deployment.Value.StatusOfAnEmptyJournalDeploysEverything();
+
+	[DockerFact]
+	public void StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat()
+		=> _deployment.Value.StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat();
+
+	[DockerFact]
+	public void StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom()
+		=> _deployment.Value.StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom();
+
+	[DockerFact]
+	public void StatusOfAnUpToDateDatabaseHasNothingToDeploy()
+		=> _deployment.Value.StatusOfAnUpToDateDatabaseHasNothingToDeploy();
+
+	[DockerFact]
+	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
+		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
 }
 
 public sealed class MySqlDeploymentTests( MySqlServer server )

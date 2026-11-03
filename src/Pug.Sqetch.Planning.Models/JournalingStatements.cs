@@ -1,9 +1,10 @@
 namespace Pug.Sqetch.Planning.Models;
 
 /// <summary>
-/// A project's complete journaling SQL: every <see cref="JournalingSlot"/>, with the statements each
-/// one holds. An instance cannot exist unless all slots are set, so anything holding one — a bundle,
-/// a deployment — is known to be complete.
+/// A project's complete journaling SQL: every required <see cref="JournalingSlot"/>, with the
+/// statements each one holds, and whichever optional slots are set (<see cref="IsSet"/>). An instance
+/// cannot exist unless all required slots are set, so anything holding one — a bundle, a deployment —
+/// is known to be complete for deploying; a command needing an optional slot checks for it.
 ///
 /// A slot may hold several statements, separated by a line whose trimmed content is exactly
 /// <see cref="StatementSeparator"/>. That is the only parsing Sqetch performs on the maintainer's
@@ -21,8 +22,9 @@ public sealed class JournalingStatements
 	private readonly Dictionary<JournalingSlot, IReadOnlyList<string>> _statements = new();
 
 	/// <summary>
-	/// Throws <see cref="ArgumentException"/> unless every slot is set — callers facing a user
-	/// check with <see cref="Missing"/> first, so they can name every unset slot at once.
+	/// Throws <see cref="ArgumentException"/> unless every required slot is set — callers facing a
+	/// user check with <see cref="Missing"/> first, so they can name every unset slot at once. An
+	/// optional slot that is absent, null or blank is simply unset.
 	/// </summary>
 	public JournalingStatements( IReadOnlyDictionary<JournalingSlot, string?> text )
 	{
@@ -38,29 +40,46 @@ public sealed class JournalingStatements
 
 		foreach( JournalingSlot slot in JournalingSlots.All )
 		{
-			_text[slot] = text[slot]!;
-			_statements[slot] = Parse( slot, text[slot]! );
+			if( !text.TryGetValue( slot, out string? sql ) || string.IsNullOrWhiteSpace( sql ) )
+				continue;
+
+			_text[slot] = sql;
+			_statements[slot] = Parse( slot, sql );
 		}
 	}
 
-	/// <summary>The slot's SQL exactly as the maintainer wrote it, separators included.</summary>
-	public string Text( JournalingSlot slot ) => _text[slot];
-
-	/// <summary>The slot's statements, in the order they must execute.</summary>
-	public IReadOnlyList<string> Statements( JournalingSlot slot ) => _statements[slot];
+	/// <summary>Whether the slot holds SQL; always true for a required slot.</summary>
+	public bool IsSet( JournalingSlot slot ) => _text.ContainsKey( slot );
 
 	/// <summary>
-	/// The slots that are absent, null or blank, in declaration order. Text that is present but
-	/// malformed is not reported here — <see cref="Parse"/> reports that, per slot.
+	/// The slot's SQL exactly as the maintainer wrote it, separators included. Throws
+	/// <see cref="InvalidOperationException"/> for an unset optional slot (<see cref="IsSet"/>).
+	/// </summary>
+	public string Text( JournalingSlot slot ) => _text.TryGetValue( slot, out string? text ) ? text : throw Unset( slot );
+
+	/// <summary>
+	/// The slot's statements, in the order they must execute. Throws
+	/// <see cref="InvalidOperationException"/> for an unset optional slot (<see cref="IsSet"/>).
+	/// </summary>
+	public IReadOnlyList<string> Statements( JournalingSlot slot )
+		=> _statements.TryGetValue( slot, out IReadOnlyList<string>? statements ) ? statements : throw Unset( slot );
+
+	/// <summary>
+	/// The required slots that are absent, null or blank, in declaration order. Optional slots are
+	/// never missing. Text that is present but malformed is not reported here — <see cref="Parse"/>
+	/// reports that, per slot.
 	/// </summary>
 	public static IReadOnlyList<JournalingSlot> Missing( IReadOnlyDictionary<JournalingSlot, string?> text )
 	{
 		ArgumentNullException.ThrowIfNull( text );
 
-		return JournalingSlots.All
+		return JournalingSlots.Required
 			.Where( slot => !text.TryGetValue( slot, out string? sql ) || string.IsNullOrWhiteSpace( sql ) )
 			.ToList();
 	}
+
+	private static InvalidOperationException Unset( JournalingSlot slot )
+		=> new( $"The optional journaling slot {slot} is not set." );
 
 	/// <summary>
 	/// Splits a slot's text and applies the rules that depend on which slot it is: there must be at

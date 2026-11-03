@@ -51,4 +51,28 @@ public class SqliteDeploymentTests : IDisposable
 	[Fact]
 	public void AFailingVerifyFailsTheStep()
 		=> _deployment.AFailingVerifyFailsTheStep( "select json('x')" );
+
+	[Fact]
+	public void StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal()
+		=> _deployment.StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal();
+
+	[Fact]
+	public void StatusOfAnEmptyJournalDeploysEverything()
+		=> _deployment.StatusOfAnEmptyJournalDeploysEverything();
+
+	[Fact]
+	public void StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat()
+		=> _deployment.StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat();
+
+	[Fact]
+	public void StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom()
+		=> _deployment.StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom();
+
+	[Fact]
+	public void StatusOfAnUpToDateDatabaseHasNothingToDeploy()
+		=> _deployment.StatusOfAnUpToDateDatabaseHasNothingToDeploy();
+
+	[Fact]
+	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
+		=> _deployment.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
 }

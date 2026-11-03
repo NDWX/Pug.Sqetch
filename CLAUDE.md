@@ -19,6 +19,7 @@ dotnet run --project src/Cli/Planning/Pug.Sqetch.Planning.Cli -- <args>   # run 
 dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- <args>   # run the 'sqetch-deploy' CLI
 dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- bundle --project <dir> -o <bundle>
 dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- deploy <bundle> --driver sqlite --sqlite-file db
+dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- status <bundle> --driver sqlite --sqlite-file db   # what deploy would do
 dotnet run --project src/Cli/Deployment/Pug.Sqetch.Deployment.Cli -- drivers parameters sqlite   # a driver's switches
 pwsh Installers/build/build.ps1 -Stage <stage> ...   # release build; see RELEASING.md
 ```
@@ -53,8 +54,8 @@ root.
 | `Pug.Sqetch.Deployment.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations; the one bundling project that also references the planning contracts |
 | `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`: each step's deploy, verify and rollback script), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses, `StepVerificationFailedException` deriving from `StepScriptFailedException`). References nothing |
-| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
-| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
+| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `DeploymentPlanner` (the pure resume decision, `DeploymentForecast`), `DeploymentForecaster` (the read-only forecast `status` prints), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
+| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `status`, `rollback`, `drivers`) and their helpers: `DeploymentTarget` (bundle type and driver creation, shared by `deploy` and `status`), `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
 | **Database drivers** | |
 | `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, `IDatabaseDriver.CommitsDdlImplicitly` (a default member, false), the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
@@ -139,8 +140,9 @@ root.
   since array order is already the contract. `bundle --since <release>` emits a *continuation
   bundle* holding only the releases after the named one.
 - **Journaling is project-authored SQL** (`JournalingSlot`, `JournalingStatements` in
-  `Pug.Sqetch.Planning.Models`): fifteen slots — twelve deployment events, the two queries
-  `GetLatestRelease`/`GetDeployedPlans`, and `PrepareJournal` — set per project via
+  `Pug.Sqetch.Planning.Models`): fifteen required slots — twelve deployment events, the two queries
+  `GetLatestRelease`/`GetDeployedPlans`, and `PrepareJournal` — and the **optional** query
+  `JournalExists` (`JournalingSlots.IsOptional`/`Required`), set per project via
   `IProject.SetJournalingStatement`, stored as `journaling/<slot>.sql`, and carried in the bundle.
   A slot may hold several statements, separated by a line whose trimmed content is exactly `;;`;
   that is the **only** parsing Sqetch does to the SQL, so a `$$ … $$` body containing a bare `;;`
@@ -154,9 +156,21 @@ root.
   per statement. It exists for the engine that cannot supply the instant itself; a maintainer whose
   engine can is better served by `now()`, which no skewed host clock can disorder. Deliberately
   absent: an actor (`current_user`). Queries and `PrepareJournal` get no timestamp — one filters on
-  identity, the other is DDL that records no event. `bundle` refuses until all fifteen are set, naming every missing one;
-  rollback slots are required even though rollback deployment is not implemented.
-  CLI: `sqetch journaling list [--statements] [-o <FORMAT>]`, `parameters [<slot>] [-o <FORMAT>]`
+  identity, the other is DDL that records no event. `bundle` refuses until all fifteen required slots
+  are set, naming every missing one; rollback slots are required even though rollback deployment is
+  not implemented. **An optional slot** is one bundling and deploying never need, so projects,
+  templates and bundles written before it existed stay complete: `JournalingStatements.Missing`
+  ignores it, `IsSet` says whether it is there, `Text`/`Statements` throw for it unset, the layout
+  writes it only when set and reads its absence as unset, and older tools never look for its file,
+  so adding one needs no format bump. A command needing one refuses statements lacking it with
+  `JournalingStatementsNotSetException` (general: slots and purpose), exit `25`, before connecting —
+  it never guesses without it. `JournalExists` answers whether the journal exists yet (one row,
+  column 0 coerced like `completed`; no row is false), from the catalog rather than the table, so
+  `status` can tell a database never deployed to from a failing query without running
+  `PrepareJournal`.
+  CLI: `sqetch journaling list [--statements] [-o <FORMAT>]` (columns are only ever appended: `Optional`
+  follows `Set` without `--statements`, and is left out of the tabular formats with it, since the
+  multi-line `Statement` must stay last; JSON always carries it), `parameters [<slot>] [-o <FORMAT>]`
   (answers from the contract alone, so it needs no project), `print <slot>` (verbatim, no markup,
   so `> file.sql` round-trips) and `set <slot>` taking exactly one of an SQL argument, `--file` or
   `--stdin`. SQL beginning with `--` cannot be passed as the argument — a leading-dash positional
@@ -171,8 +185,10 @@ root.
   `.config/sqetch/` from the project folder up to the git work-tree root; only the project folder
   outside git), the user level (`ApplicationData/sqetch`: `~/.config/sqetch`, `%APPDATA%\sqetch`,
   `~/Library/Application Support/sqetch`) and the driver. Below either root a template is
-  `database-drivers/<driver>/journaling-templates/<name>/` with one file per slot named by
-  `JournalingSlots.FileName`, so a project's `journaling/` folder copies in as it is. Repository
+  `database-drivers/<driver>/journaling-templates/<name>/` with one file per required slot (and per
+  optional slot it sets) named by `JournalingSlots.FileName`, so a project's `journaling/` folder
+  copies in as it is, and templates written before an optional slot existed stay valid; the built-in
+  ones set every slot. Repository
   wins over user — the team's choice for that codebase over one person's — and a template is used
   whole, never mixed across levels, since two templates' SQL can disagree about tables. `init`
   refuses when any slot is set unless `--force`; the store is not transactional, so a failure
@@ -187,6 +203,26 @@ root.
   being coerced, because `""` already means the pseudo-release. `completed` coerces from bool,
   any numeric (`!= 0`), or `1/y/yes/t/true` case-insensitively. Failures are
   `JournalingStatementException` naming the slot and the 1-based statement within it.
+- **Forecasting** (`sqetch-deploy status`, `DeploymentForecaster`): the resume decision is
+  `DeploymentPlanner.Plan( groups, latest, deployedPlans )` — pure, returning a `DeploymentForecast`
+  (the notes — releases skipped, the release continued from — in order, and the `PlannedRelease`s
+  with their skipped plans and whether they resume) — which the engine replays to its listener and
+  deploys, and which the forecaster reports, so the decision itself is one implementation. What they
+  read can still differ: `status` skips `PrepareJournal`, so a `PrepareJournal` that migrates the
+  journal, or a `JournalExists` looking somewhere the queries do not, can make them disagree.
+  `EnsureLineage` and `EnsureResumable` (a partly deployed release the groups lack, refused before
+  its plans are queried) are the planner's too. The forecaster refuses statements without
+  `JournalExists` before opening a transaction, asks it, and on "no" plans a fresh database without
+  another query; otherwise it runs both journal queries. Everything runs in one transaction that is
+  **always rolled back**, and a rollback failing after a failure never replaces it. On SQLite the
+  provider begins with `BEGIN IMMEDIATE`, so even this read holds the write lock briefly.
+  `status` prints the state (`fresh`/`empty`/`partial`/`complete`), the releases that would deploy
+  (resumed or not, plans left — a release with none left still journals its completion, which is
+  why it is listed apart from the plans) and the plans through `WriteSections` (`database`,
+  `releases`, `plans`), leaves failures to the
+  central handler (it can have changed nothing), and exits `0` — or, with `--exit-code`, `81` when
+  something would deploy, the 80s being "status outcomes", not failures. It checks `JournalExists`
+  before creating a driver, so a refused bundle never connects.
 - **Deploy semantics** (`DeploymentEngine`): the journal alone decides where deployment starts,
   in four branches — nothing journaled deploys the bundle whole; an **incompletely** deployed
   release must be *contained* in the bundle and resumes inside it; a **completely** deployed
@@ -376,12 +412,14 @@ root.
   codes would mean parsing Spectre's message text or re-implementing its parser, and
   `CommandParseException` carries no reason of its own. Then `21`/`22`/`23`/`24` missing / invalid /
   incompatible / unsupported bundle (`24`: an unknown layout or a newer layout format — the remedy
-  is upgrading the tool, not fixing the bundle), `31`/`32`/`33` unknown driver / driver creation / database unreachable, `41`/`42`/`43` journal
+  is upgrading the tool, not fixing the bundle), `25` the bundle's journaling SQL lacks optional
+  statements the command needs (one code for every such command: set them, rebuild), `31`/`32`/`33` unknown driver / driver creation / database unreachable, `41`/`42`/`43` journal
   prepare / query / write, `51`/`52` deployment failed with the database unchanged / left partway,
   `61` rollback failed, `71`/`72`/`73` for `bundle`: project unreadable (missing, damaged, newer
   format) / not bundleable (unset journaling, missing scripts, a `--since` with nothing after it,
   an unknown release) / output not writable (`BundleOutputException`, wrapped by the command so
-  no `IOException` elsewhere lands on it), `91` not implemented. Two precedence rules carry the operational meaning:
+  no `IOException` elsewhere lands on it), `81` `status --exit-code` found something to deploy (a
+  forecast, not a failure; opt-in so `set -e` never trips on a plain `status`), `91` not implemented. Two precedence rules carry the operational meaning:
   a half-compensated database (`61`) outranks the failure that started the rollback, and a database
   left partway (`52`) outranks the cause of it — the cause stays in the message for whoever fixes
   it, the code tells a pipeline whether it may retry. `52` therefore needs to know whether anything
@@ -427,7 +465,9 @@ root.
   installed into. `sqetch-deploy`'s smoke deploys the committed `Installers/smoke/bundle` to SQLite,
   which is what proves the native `e_sqlite3` beside the single file loads, then bundles the
   committed `Installers/smoke/project` (mounted read-only in the containers, and without a
-  `.sqetch-user`) and deploys that too; regenerate both with `New-SmokeBundle.ps1` whenever the
+  `.sqetch-user`) and deploys that too, then runs `status --exit-code` on that bundle against a fresh
+  database (`81`) and again after deploying it (`0`) — the committed bundle predates `JournalExists`
+  (built by 0.1.0, which also proves an older bundle still deploys), so `status` uses the fresh one; regenerate both with `New-SmokeBundle.ps1` whenever the
   project format, the bundle format or the journaling contract changes. The two CLIs release
   independently (`sqetch-v*`, `sqetch_deploy-v*`); the tag's `X.Y.Z` must equal the host project's
   `<Version>`. A `-pre-` tag builds `X.Y.Z-pre.<UTC stamp>` unsigned; a plain tag is signed when all

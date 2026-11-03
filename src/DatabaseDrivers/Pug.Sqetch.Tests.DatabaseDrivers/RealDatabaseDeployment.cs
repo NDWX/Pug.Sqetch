@@ -362,6 +362,179 @@ public sealed class RealDatabaseDeployment(
 		Assert.DoesNotContain( "StepDeployed|r1|v|s1", Journal() );
 	}
 
+	// ------------------------------------------------------------------ status (read-only forecast)
+
+	/// <summary>
+	/// A database nothing was ever deployed to has no journal table. Status must say so through the
+	/// template's own JournalExists query — and, being read-only, must not create the table by asking.
+	/// </summary>
+	public void StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal()
+	{
+		Assert.False( JournalTableExists() );
+
+		DeploymentStatus status = Status( TwoReleases() );
+
+		Assert.False( status.JournalExists );
+		Assert.Null( status.Forecast.Journaled );
+		Assert.Empty( status.Forecast.Notes );
+		Assert.Equal( [ "r1/a", "r1/b", "r2/c" ], Planned( status ) );
+
+		Assert.False( JournalTableExists() );
+		Assert.Empty( StepTables() );
+	}
+
+	/// <summary>
+	/// After 'PrepareJournal' alone the journal exists and holds nothing: the database is empty
+	/// rather than fresh, and everything would still deploy.
+	/// </summary>
+	public void StatusOfAnEmptyJournalDeploysEverything()
+	{
+		PrepareJournalOnly();
+
+		Assert.True( JournalTableExists() );
+
+		DeploymentStatus status = Status( TwoReleases() );
+
+		Assert.True( status.JournalExists );
+		Assert.Null( status.Forecast.Journaled );
+		Assert.Equal( [ "r1/a", "r1/b", "r2/c" ], Planned( status ) );
+		Assert.Equal( [ "0" ], query( "select count(*) from sqetch_journal" ) );
+		Assert.Empty( StepTables() );
+	}
+
+	/// <summary>
+	/// The resume branch, read out of a journal a failed run wrote: the deployed plan is skipped, the
+	/// rest listed — and a deploy that then runs does exactly what status said it would.
+	/// </summary>
+	public void StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		InMemoryScripts broken = Scripts();
+
+		broken.Deploy( "b", "s1", "insert into nowhere ( id ) values ( 1 )" );
+
+		Assert.Throws<StepScriptFailedException>( () => Deploy( releases, broken, DeploymentCommitLevel.Plan ) );
+
+		List<string> journalBefore = Journal();
+
+		DeploymentStatus status = Status( releases );
+
+		Assert.True( status.JournalExists );
+		Assert.Equal( new JournaledRelease( "r1", Completed: false ), status.Forecast.Journaled );
+		Assert.Equal( [ "a" ], status.Forecast.Releases[0].SkippedPlans );
+		Assert.True( status.Forecast.Releases[0].Resumed );
+		Assert.Equal( [ "r1/b", "r2/c" ], Planned( status ) );
+
+		// read-only: the journal and the schema are as the failed run left them
+		Assert.Equal( journalBefore, Journal() );
+		Assert.Equal( [ "a_s1" ], StepTables() );
+
+		RecordingListener listener = new();
+
+		Deploy( releases, Scripts(), DeploymentCommitLevel.Plan, listener );
+
+		Assert.Equal(
+			Planned( status ).Select( plan => $"plan {plan}" ),
+			listener.Events.Where( e => e.StartsWith( "plan " ) ) );
+	}
+
+	/// <summary>
+	/// The hand-over branch: a database whose release completed carries on with the bundle's next one,
+	/// and a bundle that holds only the releases after it is a continuation from where the journal is.
+	/// </summary>
+	public void StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom()
+	{
+		Deploy( TwoReleases(), Scripts() );
+
+		IReadOnlyList<ReleaseGroup> three = Lineage(
+			[ Release( "r1" ), Release( "r2", "r1" ), Release( "r3", "r2" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r1", "s1" ), Plan( "c", "r2", "s1" ), Plan( "d", "r3", "s1" ) ] );
+
+		List<string> journalBefore = Journal();
+
+		DeploymentStatus whole = Status( three );
+
+		Assert.Equal( new JournaledRelease( "r2", Completed: true ), whole.Forecast.Journaled );
+		Assert.Null( whole.Forecast.ContinuingFrom );
+		Assert.Equal( [ "r3/d" ], Planned( whole ) );
+
+		DeploymentStatus continuation = Status( three.Skip( 2 ).ToList() );
+
+		Assert.Equal( "r2", continuation.Forecast.ContinuingFrom );
+		Assert.Equal( [ "r3/d" ], Planned( continuation ) );
+
+		Assert.Equal( journalBefore, Journal() );
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+
+		RecordingListener listener = new();
+
+		Deploy( three.Skip( 2 ).ToList(), Scripts(), listener: listener );
+
+		Assert.Contains( "continuing r2", listener.Events );
+		Assert.Contains( "plan r3/d", listener.Events );
+	}
+
+	/// <summary>The last branch: the journal is at the bundle's last release, so nothing would deploy.</summary>
+	public void StatusOfAnUpToDateDatabaseHasNothingToDeploy()
+	{
+		Deploy( TwoReleases(), Scripts() );
+
+		List<string> journalBefore = Journal();
+
+		DeploymentStatus status = Status( TwoReleases() );
+
+		Assert.True( status.Forecast.NothingToDeploy );
+		Assert.Equal( new JournaledRelease( "r2", Completed: true ), status.Forecast.Journaled );
+		Assert.Empty( Planned( status ) );
+		Assert.Equal( journalBefore, Journal() );
+	}
+
+	/// <summary>
+	/// A bundle that does not fit is refused as deploying it would be, and the refusal writes nothing
+	/// either.
+	/// </summary>
+	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
+	{
+		IReadOnlyList<ReleaseGroup> continuation = TwoReleases().Skip( 1 ).ToList();
+
+		Assert.Throws<IncompatibleBundleException>( () => Status( continuation ) );
+
+		Assert.False( JournalTableExists() );
+	}
+
+	private DeploymentStatus Status( IReadOnlyList<ReleaseGroup> releases )
+	{
+		using IDatabaseDriver owned = driver();
+
+		return new DeploymentForecaster( owned, journaling ).Forecast( Project, releases );
+	}
+
+	private static List<string> Planned( DeploymentStatus status )
+		=> status.Forecast.Releases
+			.SelectMany( release => release.PlansToDeploy.Select( plan => $"{release.Group.Name}/{plan.Name}" ) )
+			.ToList();
+
+	/// <summary>Creates the journal and journals nothing, as 'PrepareJournal' alone does.</summary>
+	private void PrepareJournalOnly()
+	{
+		using IDatabaseDriver owned = driver();
+
+		IDatabaseTransaction transaction = owned.BeginTransaction();
+
+		new StatementJournal( journaling, Project ).PrepareJournal( transaction );
+
+		transaction.Commit();
+	}
+
+	/// <summary>
+	/// Whether the journal table exists, asked of the template's own JournalExists query so that the
+	/// query itself is what the scenarios prove right on this provider.
+	/// </summary>
+	private bool JournalTableExists()
+		=> query( journaling.Text( JournalingSlot.JournalExists ) ).FirstOrDefault()?.Split( '|' )[0].ToLowerInvariant()
+			is "1" or "true";
+
 	// ------------------------------------------------------------------ helpers
 
 	private void Deploy(

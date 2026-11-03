@@ -1,6 +1,6 @@
 ---
 name: sqetch-new-project
-description: Use when adding Sqetch to a repository or starting a new Sqetch project, i.e. choosing the project folder, setting the user identity (sqetch project user), running sqetch project init, setting the fifteen journaling statements (sqetch journaling init, repository and user templates, and ready SQLite, PostgreSQL, SQL Server and MySQL SQL for older versions), creating the first plan and step, and proving the project bundles and deploys. Also for a project whose bundle fails because journaling statements are missing.
+description: Use when adding Sqetch to a repository or starting a new Sqetch project, i.e. choosing the project folder, setting the user identity (sqetch project user), running sqetch project init, setting the journaling statements (sqetch journaling init, repository and user templates, and ready SQLite, PostgreSQL, SQL Server and MySQL SQL for older versions), creating the first plan and step, and proving the project bundles and deploys. Also for a project whose bundle fails because journaling statements are missing.
 ---
 
 # Starting a Sqetch project
@@ -52,13 +52,16 @@ with the first journaling statement set.
 
 ## 4. Set the journaling statements
 
-`sqetch-deploy` records every deployment through SQL the project supplies, in fifteen slots, and
-reads it back to decide where a database stands. `bundle` refuses until all fifteen are set
-(exit code `72`, naming the missing ones).
+`sqetch-deploy` records every deployment through SQL the project supplies, in fifteen required
+slots, and reads it back to decide where a database stands. `bundle` refuses until all fifteen are
+set (exit code `72`, naming the missing ones). A sixteenth, `JournalExists` (since 0.2), is optional:
+`sqetch-deploy status` needs it, to tell a database never deployed to from a broken query, and
+refuses a bundle without it (exit `25`).
 
 Start from a template, adapted only if the user asks.
 
-**Since `sqetch` 0.2**, one command sets all fifteen from the driver's template:
+**Since `sqetch` 0.2**, one command sets every slot from the driver's template, `JournalExists`
+included:
 
 ```sh
 sqetch journaling init                # the driver named by the project's --engine
@@ -74,7 +77,8 @@ sqetch journaling templates           # what is available, and where from
     `%APPDATA%\sqetch\` on Windows.
 
   Below either, a template is the folder
-  `database-drivers/<driver>/journaling-templates/<name>/` holding all fifteen files, named as in
+  `database-drivers/<driver>/journaling-templates/<name>/` holding the fifteen required files (and
+  `JournalExists.sql`, optionally), named as in
   a project's `journaling/` folder; copying a tuned project's `journaling/` folder there makes one.
   `default` is used unless `--template <name>` picks another.
 
@@ -93,9 +97,14 @@ The contract the templates implement, for writing or changing one, is
 `references/journaling-contract.md`. Then check:
 
 ```sh
-sqetch journaling list                # all fifteen should be set
+sqetch journaling list                # the fifteen required slots, and JournalExists, should be set
 sqetch journaling print GetLatestRelease
 ```
+
+**A project set up before 0.2** lacks `JournalExists`. To use `status`, set it from the driver's
+template (the `JournalExists` section of the reference for its engine), with
+`sqetch journaling set JournalExists --file <file>`, then rebuild the bundle. `journaling init
+--force` would also set it, but replaces every slot, discarding any tuning.
 
 `sqetch` keeps its own copy of the statements in the project's `journaling/` folder, which is what
 gets committed. Never write into `journaling/` by hand; change a statement with `journaling set`.

@@ -1,12 +1,12 @@
 # Journaling template: SQL Server
 
-A complete set of the fifteen journaling statements for a SQL Server or Azure SQL database. They
+The fifteen required journaling statements, and the optional `JournalExists`, for a SQL Server or Azure SQL database. They
 keep one table, `sqetch_journal`, with one row per event. Rename the table or add columns if the
 project needs to, but keep the two queries' logic: they are what tell `sqetch-deploy` where a
 database stands, including after a rollback.
 
 This is the `sqlserver` driver's built-in template. The driver arrives in `sqetch-deploy` 0.2,
-and `sqetch journaling init sqlserver` (`sqetch` 0.2) sets all fifteen at once; use what follows
+and `sqetch journaling init sqlserver` (`sqetch` 0.2) sets them all at once; use what follows
 only with an older `sqetch`, or to read the SQL.
 
 `plan` is a reserved word in T-SQL, so the template writes the column as `[plan]`; keep the brackets
@@ -98,6 +98,14 @@ where p.project = @project and p.release = @release and p.slot = 'PlanDeployed'
 	and not exists ( select 1 from sqetch_journal r
 		where r.project = @project and r.release = p.release and r.[plan] = p.[plan]
 			and r.slot = 'RolledBackPlan' and r.id > p.id )
+```
+
+### JournalExists
+
+Optional, since 0.2: whether the journal table exists, so that `sqetch-deploy status` can tell a fresh database from one that has a journal.
+
+```sql
+select case when object_id( N'sqetch_journal', N'U' ) is null then 0 else 1 end
 ```
 
 ## Deployment events

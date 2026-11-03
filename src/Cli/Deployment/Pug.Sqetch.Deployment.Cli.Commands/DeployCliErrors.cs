@@ -41,6 +41,12 @@ public static class DeployCliErrors
 			StepScriptFailedException failed =>
 				$"step '{failed.Step}' of plan '{failed.Plan}' in release '{failed.Release}' failed: " +
 				$"{failed.InnerException?.Message}",
+			JournalingStatementsNotSetException unset =>
+				$"this bundle's journaling SQL does not set {string.Join( ", ", unset.Slots )}, which {unset.Purpose}; " +
+				( unset.Slots.Count == 1 ?
+					$"set it with 'sqetch journaling set {unset.Slots[0]}'" :
+					"set each with 'sqetch journaling set <SLOT>'" ) +
+				" and rebuild the bundle",
 			UnknownReleaseException unknownRelease => $"release '{unknownRelease.ReleaseName}' does not exist",
 			MissingStepScriptsException missingScripts =>
 				$"step '{missingScripts.Step}' of plan '{missingScripts.Plan}' is missing script(s): " +

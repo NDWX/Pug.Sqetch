@@ -34,7 +34,7 @@ public sealed class JournalingListCommand( IAnsiConsole console ) : Command<Jour
 		public bool Statements { get; init; }
 	}
 
-	private readonly record struct Row( JournalingSlot Slot, bool Set, string? Statement );
+	private readonly record struct Row( JournalingSlot Slot, bool Set, bool Optional, string? Statement );
 
 	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
 	{
@@ -44,20 +44,23 @@ public sealed class JournalingListCommand( IAnsiConsole console ) : Command<Jour
 			.Select( slot => {
 					string? statement = session.Project.GetJournalingStatement( slot );
 
-					return new Row( slot, statement is not null, statement );
+					return new Row( slot, statement is not null, JournalingSlots.IsOptional( slot ), statement );
 				}
 			)
 			.ToList();
 
-		string[] headers = settings.Statements ? [ "Slot", "Set", "Statement" ] : [ "Slot", "Set" ];
+		// 'Optional' is appended, never inserted, so columns scripts already read keep their places; with
+		// --statements it is left out of the tabular formats, since Statement must stay last — its SQL may
+		// span lines, which would push any later column onto a line of its own. JSON carries it always
+		string[] headers = settings.Statements ? [ "Slot", "Set", "Statement" ] : [ "Slot", "Set", "Optional" ];
 
 		Func<Row, string[]> row = settings.Statements ?
 			x => [ x.Slot.ToString(), x.Set ? "yes" : "no", x.Statement ?? "" ] :
-			x => [ x.Slot.ToString(), x.Set ? "yes" : "no" ];
+			x => [ x.Slot.ToString(), x.Set ? "yes" : "no", x.Optional ? "yes" : "no" ];
 
 		Func<Row, object> json = settings.Statements ?
-			x => new { slot = x.Slot.ToString(), set = x.Set, statement = x.Statement } :
-			x => new { slot = x.Slot.ToString(), set = x.Set };
+			x => new { slot = x.Slot.ToString(), set = x.Set, optional = x.Optional, statement = x.Statement } :
+			x => new { slot = x.Slot.ToString(), set = x.Set, optional = x.Optional };
 
 		ResultWriter.WriteRows( console, settings.Format, headers, rows, row, json );
 
@@ -259,11 +262,31 @@ public sealed class JournalingInitCommand(
 					$"journaling statements are already set: {string.Join( ", ", set )}; pass --force to replace them all" );
 		}
 
+		// a template may lack an optional slot's file; it is copied when present
+		List<JournalingSlot> slots = JournalingSlots.All.Where( template.Statements.ContainsKey ).ToList();
+
+		// an optional slot the template lacks is either left unset — which a command needing it will
+		// refuse later, so say so now — or, there being no unsetting a slot, keeps its old SQL, which may
+		// have been written for other tables; neither is left unannounced
+		List<JournalingSlot> lacking = JournalingSlots.All.Where( slot => !template.Statements.ContainsKey( slot ) ).ToList();
+		List<JournalingSlot> kept = lacking.Where( slot => session.Project.GetJournalingStatement( slot ) is not null ).ToList();
+		List<JournalingSlot> unset = lacking.Except( kept ).ToList();
+
+		if( kept.Count > 0 )
+			warnings.Write(
+				$"the template does not set {string.Join( ", ", kept )}, so the project keeps its earlier SQL " +
+				"for it; check it suits this template's journal, and change it with 'sqetch journaling set'" );
+
+		if( unset.Count > 0 )
+			warnings.Write(
+				$"the template does not set the optional {string.Join( ", ", unset )}, so it stays unset; " +
+				"'sqetch-deploy status' needs JournalExists: set it with 'sqetch journaling set'" );
+
 		int written = 0;
 
 		try
 		{
-			foreach( JournalingSlot slot in JournalingSlots.All )
+			foreach( JournalingSlot slot in slots )
 			{
 				session.Project.SetJournalingStatement( slot, template.Statements[slot] );
 				written++;
@@ -273,7 +296,7 @@ public sealed class JournalingInitCommand(
 		{
 			// the project store is not transactional, so the first slots are already replaced
 			throw new JournalingTemplateException(
-				$"stopped after setting {written} of {JournalingSlots.All.Count} journaling statements " +
+				$"stopped after setting {written} of {slots.Count} journaling statements " +
 				$"({exception.Message}); fix the cause and rerun with --force" );
 		}
 
@@ -286,14 +309,14 @@ public sealed class JournalingInitCommand(
 				template = template.Name,
 				level = JournalingTemplateLevels.Describe( template.Level ),
 				location = template.Location,
-				slots = JournalingSlots.Names
+				slots = slots.Select( slot => slot.ToString() ).ToList()
 			},
 			[
 				( "Driver", template.Driver ),
 				( "Template", template.Name ),
 				( "Level", JournalingTemplateLevels.Describe( template.Level ) ),
 				( "Location", template.Location ?? "(built in)" ),
-				( "Slots set", JournalingSlots.All.Count.ToString() )
+				( "Slots set", written.ToString() )
 			]
 		);
 

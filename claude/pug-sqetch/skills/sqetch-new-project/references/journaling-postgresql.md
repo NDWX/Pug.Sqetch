@@ -1,12 +1,12 @@
 # Journaling template: PostgreSQL
 
-A complete set of the fifteen journaling statements for a PostgreSQL database. They keep one table,
+The fifteen required journaling statements, and the optional `JournalExists`, for a PostgreSQL database. They keep one table,
 `sqetch_journal`, with one row per event. Rename the table or add columns if the project needs to,
 but keep the two queries' logic: they are what tell `sqetch-deploy` where a database stands,
 including after a rollback.
 
 Since `sqetch` 0.2 this is the `postgres` driver's built-in template, and
-`sqetch journaling init postgres` sets all fifteen at once; use what follows only with an older
+`sqetch journaling init postgres` sets them all at once; use what follows only with an older
 `sqetch`, or to read the SQL.
 
 Write each block below to a file named after its slot, in a temporary folder outside the project
@@ -90,6 +90,14 @@ where p.project = @project and p.release = @release and p.slot = 'PlanDeployed'
 	and not exists ( select 1 from sqetch_journal r
 		where r.project = @project and r.release = p.release and r.plan = p.plan
 			and r.slot = 'RolledBackPlan' and r.id > p.id )
+```
+
+### JournalExists
+
+Optional, since 0.2: whether the journal table exists, so that `sqetch-deploy status` can tell a fresh database from one that has a journal.
+
+```sql
+select to_regclass( 'sqetch_journal' ) is not null
 ```
 
 ## Deployment events

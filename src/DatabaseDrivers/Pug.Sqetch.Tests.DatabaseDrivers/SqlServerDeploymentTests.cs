@@ -60,4 +60,28 @@ public class SqlServerDeploymentTests : IClassFixture<SqlServerDatabase>
 	[DockerAmd64Fact]
 	public void AFailingVerifyFailsTheStep()
 		=> _deployment.Value.AFailingVerifyFailsTheStep( "select 1 / count(*) from v_s1" );
+
+	[DockerAmd64Fact]
+	public void StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal()
+		=> _deployment.Value.StatusOfAFreshDatabaseSaysSoAndDoesNotCreateTheJournal();
+
+	[DockerAmd64Fact]
+	public void StatusOfAnEmptyJournalDeploysEverything()
+		=> _deployment.Value.StatusOfAnEmptyJournalDeploysEverything();
+
+	[DockerAmd64Fact]
+	public void StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat()
+		=> _deployment.Value.StatusOfAPartlyDeployedReleaseListsTheRemainingPlansAndDeployThenDoesExactlyThat();
+
+	[DockerAmd64Fact]
+	public void StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom()
+		=> _deployment.Value.StatusOfACompletedReleaseHandsOverAndAContinuationBundleSaysWhereItContinuesFrom();
+
+	[DockerAmd64Fact]
+	public void StatusOfAnUpToDateDatabaseHasNothingToDeploy()
+		=> _deployment.Value.StatusOfAnUpToDateDatabaseHasNothingToDeploy();
+
+	[DockerAmd64Fact]
+	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
+		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
 }

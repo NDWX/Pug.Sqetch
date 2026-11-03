@@ -653,6 +653,16 @@ function Test-ProductCommands
 			$bundled = "smoke-bundle-$([Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 ))"
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'bundle', '--project', $ProjectPath, '-t', 'directory', '-o', $bundled )
 			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'deploy', $bundled, '--driver', 'sqlite', '--sqlite-file', 'bundled.db' ) -Expect 'bundle built by sqetch-deploy'
+
+			# status only reads, and needs the JournalExists statement the project sets: on a fresh
+			# database the release would deploy (81 with --exit-code, and the piped 'plans' rows name it);
+			# once deployed, the 'database' row says complete and the code is 0. A fresh database name,
+			# since a working directory can outlive one run
+			$statusDb = "status-$([Guid]::NewGuid().ToString( 'N' ).Substring( 0, 8 )).db"
+			$status = @( 'status', $bundled, '--driver', 'sqlite', '--sqlite-file', $statusDb, '--exit-code' )
+			$null = Assert-Invocation -Invoke $Invoke -Arguments $status -ExitCode 81 -Expect 'plans\s+smoke-1\s+create-greetings'
+			$null = Assert-Invocation -Invoke $Invoke -Arguments @( 'deploy', $bundled, '--driver', 'sqlite', '--sqlite-file', $statusDb )
+			$null = Assert-Invocation -Invoke $Invoke -Arguments $status -Expect 'database\s+complete\s+smoke-1'
 		}
 	}
 

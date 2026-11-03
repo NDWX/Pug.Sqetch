@@ -76,6 +76,12 @@ the project; `sqetch-deploy bundle` refuses until they are all set.
    again does nothing. `bundle --since 1.4` makes a bundle holding only the releases after 1.4,
    for databases that already have it.
 
+   To see what a deploy would do first, without changing anything, run `sqetch-deploy status` with
+   the same bundle, `--driver` and driver switches (since 0.2). It lists the releases and plans that
+   would deploy, and with `--exit-code` exits `81` when deploying would do anything. It needs the
+   project's optional `JournalExists` journaling statement, which the drivers' built-in templates
+   for `sqetch journaling init` set.
+
 Each step's `verify.sql` runs right after its `deploy.sql`, in the same transaction, and an error
 from it fails the step (since `sqetch-deploy` 0.2; earlier versions bundle it without running it).
 On MySQL and MariaDB the deploy's schema changes have already committed by then, so deploy there with
