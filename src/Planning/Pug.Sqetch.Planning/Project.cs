@@ -50,7 +50,10 @@ public class Project : IProject
 	}
 
 	// set once by initialization and never changed afterwards, so no semaphore or transaction
-	public ProjectDefinition GetDefinition() => _infoStore.GetDefinition();
+	public ProjectDefinition GetDefinition()
+	{
+		return _infoStore.GetDefinition();
+	}
 
 	private void EnsurePlanNotFinalized( ProjectPlan plan, SemaphoreSlim? semaphore )
 	{
@@ -71,7 +74,7 @@ public class Project : IProject
 	{
 		ArgumentNullException.ThrowIfNull( plan );
 
-		ArgumentException.ThrowIfNullOrWhiteSpace( plan.Name, nameof(plan.Name) );
+		ArgumentException.ThrowIfNullOrWhiteSpace( plan.Name, nameof(ObjectDefinition.Name) );
 
 		plan.Validate();
 
@@ -123,7 +126,7 @@ public class Project : IProject
 		}
 	}
 
-	public async Task AddAsync( PlanDefinition plan, string? release = null)
+	public async Task AddAsync( PlanDefinition plan, string? release = null )
 	{
 		throw new NotImplementedException();
 	}
@@ -471,9 +474,11 @@ public class Project : IProject
 	/// release that comes after it.
 	/// </summary>
 	private bool IsMissingFrom( string release, ProjectPlan dependency )
-		=> string.IsNullOrEmpty( dependency.Release ) ||
-			_releaseDependencyDeterminator.DetermineDependencyRelationship( dependency.Release, release ) ==
-			DependencyRelationship.Dependant;
+	{
+		return string.IsNullOrEmpty( dependency.Release ) ||
+				( _releaseDependencyDeterminator.DetermineDependencyRelationship( dependency.Release, release ) ==
+				DependencyRelationship.Dependant );
+	}
 
 	private void EnsureNoMissingDependencies( IEnumerable<string> includedPlans, string release )
 	{
@@ -496,7 +501,7 @@ public class Project : IProject
 		HashSet<string> set = new( includedPlans.Select( x => x.Definition.Name ), null );
 
 		foreach( string dependant in dependants )
-		{
+
 			// if dependant is in current release
 			if( set.Remove( dependant ) )
 			{
@@ -509,7 +514,6 @@ public class Project : IProject
 				if( !string.IsNullOrEmpty( dependantPlan.Release ) )
 					onDependantFound( dependant, dependantPlan.Release );
 			}
-		}
 	}
 
 	private void EnsureNoAbandonedDependants( string plan, string release, IEnumerable<ProjectElement> includedPlans )
@@ -567,9 +571,7 @@ public class Project : IProject
 		_infoStore.AddRelease( definition, actionContext );
 
 		foreach( ProjectPlan plan in plans )
-		{
 			_infoStore.AddReleasePlan( definition.Name, plan.Definition.Name, actionContext );
-		}
 
 		tx.Complete();
 	}
@@ -669,7 +671,7 @@ public class Project : IProject
 
 	public void AddPlanToRelease( string release, string plan, bool includeDependencies )
 	{
-		ValidateReleaseParameter( release );
+		Project.ValidateReleaseParameter( release );
 
 		if( string.IsNullOrWhiteSpace( plan ) )
 			throw new ArgumentException( "Value cannot be null or whitespace.", nameof(plan) );
@@ -749,7 +751,7 @@ public class Project : IProject
 			// order; ordering the plans within each group is this layer's responsibility
 			List<ProjectPlan> plans = [ ];
 
-			foreach( List<ProjectPlan> releaseGroup in GroupByRelease( _infoStore.ListPlans( criteria ) ) )
+			foreach( List<ProjectPlan> releaseGroup in Project.GroupByRelease( _infoStore.ListPlans( criteria ) ) )
 				plans.AddRange(
 					DependencyOrdering.Sort(
 						releaseGroup,
@@ -778,7 +780,7 @@ public class Project : IProject
 
 		foreach( ProjectPlan plan in plans )
 		{
-			if( group.Count > 0 &&
+			if( ( group.Count > 0 ) &&
 				!string.Equals( group[^1].Release, plan.Release, StringComparison.OrdinalIgnoreCase ) )
 			{
 				yield return group;
@@ -795,7 +797,7 @@ public class Project : IProject
 
 	public void RemovePlanFromRelease( string release, string plan, bool includeDependants = false )
 	{
-		ValidateReleaseParameter( release );
+		Project.ValidateReleaseParameter( release );
 
 		if( string.IsNullOrWhiteSpace( plan ) )
 			throw new ArgumentException( "Value cannot be null or whitespace.", nameof(plan) );
@@ -852,7 +854,7 @@ public class Project : IProject
 
 	public void DeleteRelease( string release )
 	{
-		ValidateReleaseParameter( release );
+		Project.ValidateReleaseParameter( release );
 
 		bool releasesLocked = false;
 		ActionContext actionContext = GetActionContext();
@@ -882,9 +884,7 @@ public class Project : IProject
 			IEnumerable<ProjectElement> existingPlans = _infoStore.GetReleasePlans( release );
 
 			foreach( ProjectElement plan in existingPlans )
-			{
 				_infoStore.DeleteReleasePlan( release, plan.Definition.Name, actionContext );
-			}
 
 			_infoStore.DeleteRelease( release );
 
@@ -908,11 +908,11 @@ public class Project : IProject
 		IEnumerable<ProjectRelease> releaseDependencies =
 			from openRelease in openReleases
 			where !openRelease.Definition.Name.Equals( release, StringComparison.InvariantCulture ) &&
-				_releaseDependencyDeterminator.DetermineDependencyRelationship(
+				( _releaseDependencyDeterminator.DetermineDependencyRelationship(
 					release,
 					openRelease.Definition.Name
 				) ==
-				DependencyRelationship.Dependant
+				DependencyRelationship.Dependant )
 			select openRelease;
 
 		if( releaseDependencies.Any() )
@@ -921,7 +921,7 @@ public class Project : IProject
 
 	public void FinalizeRelease( string release )
 	{
-		ValidateReleaseParameter( release );
+		Project.ValidateReleaseParameter( release );
 
 		bool releasesLocked = false;
 
