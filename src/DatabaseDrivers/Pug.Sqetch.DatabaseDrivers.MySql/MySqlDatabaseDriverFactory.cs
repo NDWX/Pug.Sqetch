@@ -11,9 +11,12 @@ namespace Pug.Sqetch.DatabaseDrivers.MySql;
 /// **Both commit DDL implicitly**: a CREATE, ALTER or DROP ends the open transaction, committing
 /// everything before it — the journal rows included — and the statements after it run in a new one.
 /// A release deployed at release commit level is therefore not all-or-nothing here, and a failing
-/// step can leave the schema changes before it in place. The engine's compensating rollback
-/// (<c>deploy --rollback</c>) is what undoes them; it is itself not atomic either, so a failing
-/// rollback script can leave compensation half done, which the transactional engines cannot.
+/// step can leave the schema changes before it in place. The driver says so
+/// (<see cref="IDatabaseDriver.CommitsDdlImplicitly"/>), so the engine counts a failed run as having
+/// changed the database and its compensating rollback (<c>deploy --rollback on-error</c>) undoes the
+/// failed plan's steps too, the failing one included — which is why rollback scripts here must
+/// tolerate a deploy that applied only partly (<c>drop table if exists</c>). Compensation is itself
+/// not atomic either, so a failing rollback script can leave it half done.
 ///
 /// Connection strings the driver builds allow user variables, so a step script may use
 /// <c>@variable</c> without MySqlConnector taking it for a missing parameter. Journaled instants are
@@ -60,8 +63,10 @@ public sealed class MySqlDatabaseDriverFactory : IDatabaseDriverFactory, IJourna
 
 		// MySqlConnector matches a prefixless parameter against '@name' and '?name' and ignores one the
 		// statement never mentions, so the plain ADO.NET binding serves it as it stands
-		return new AdoDatabaseDriver( () => new MySqlConnection( connectionString ), stepScriptTimeout );
+		return new AdoDatabaseDriver( () => new MySqlConnection( connectionString ), stepScriptTimeout, Options );
 	}
+
+	private static readonly AdoDriverOptions Options = new() { CommitsDdlImplicitly = true };
 
 	private static string ConnectionString( IDictionary<string, string> parameters )
 	{

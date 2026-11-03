@@ -57,7 +57,7 @@ root.
 | `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `rollback`, `drivers`) and their helpers: `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
 | **Database drivers** | |
-| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
+| `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, `IDatabaseDriver.CommitsDdlImplicitly` (a default member, false), the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
 | `Pug.Sqetch.DatabaseDrivers.Ado` (net8.0) | `AdoDatabaseDriver`/`AdoDatabaseTransaction`: the ADO.NET half every provider driver inherits, with `AdoDriverOptions` (a provider's step-script splitter and parameter adjustment) and `StepScriptBatchFailedException`; `ServerConnectionParameters`, the host/port/database/username/password(-env)/connection-string rules every server driver shares; and `EmbeddedJournalingTemplate`, which reads a driver's `journaling/<slot>.sql` resources; references only the driver contract |
 | `Pug.Sqetch.DatabaseDrivers.Sqlite` | `SqliteDatabaseDriverFactory` (Microsoft.Data.Sqlite) + `RegisterSqliteDriver()`; `Journaling/*.sql`, its built-in journaling template |
 | `Pug.Sqetch.DatabaseDrivers.PostgreSql` | `PostgreSqlDatabaseDriverFactory` (Npgsql) + `RegisterPostgreSqlDriver()`; `Journaling/*.sql`, its built-in journaling template |
@@ -227,7 +227,14 @@ root.
   `DeploymentCommitLevel`**, which is the whole point: at plan level the earlier plans are already
   durable and no database transaction could take them back. The engine therefore records committed
   units — a plan moves from pending to committed only when its transaction commits, so a plan the
-  open transaction took back is never compensated for a change that never reached the database. A
+  open transaction took back is never compensated for a change that never reached the database.
+  **Except where the driver says its engine commits DDL implicitly**
+  (`IDatabaseDriver.CommitsDdlImplicitly`, MySQL and MariaDB): there a failed transaction's rollback
+  may have taken nothing back, so the engine treats what it held as committed — its whole plans,
+  and the failed plan cut down to the steps whose deploy script started (`inProgress`), **the failing
+  step included**, since it may have half applied — and reports `Committed` to the listener, so the
+  CLI exits `52` unless on-error compensation then completes (`51`). Rollback scripts on those
+  engines must therefore tolerate a deploy that applied only partly or not at all. A
   failing rollback script throws `RollbackFailedException` and replaces the failure that triggered
   it: a half-compensated database is worse than either end state, and the reason was already
   reported to the listener. The standalone `sqetch-deploy rollback` command is still a stub;
@@ -301,9 +308,11 @@ root.
 - **SQLite, PostgreSQL and SQL Server run DDL inside a transaction**, so a release deployed at
   release commit level really is all-or-nothing on them. **MySQL and MariaDB commit DDL
   implicitly** — a CREATE, ALTER or DROP commits the open transaction, journal rows included — so a
-  failing step can leave earlier schema changes in place, and the compensating rollback is what
-  undoes them; that rollback is itself not atomic there, so a failing rollback script can leave
-  compensation half done. Those engines are what make the compensating rollback necessary.
+  failing plan leaves earlier steps' changes in place whatever its transaction does. The `mysql`
+  driver sets `CommitsDdlImplicitly`, so on-error compensation undoes the failed plan as far as it got
+  (see the rollback bullet) and the release then reads as rolled back; without it a rerun restarts
+  the failed plan from its first step. Compensation is itself not atomic there, so a failing rollback
+  script can leave it half done. Those engines are what make the compensating rollback necessary.
 - **Driver tests run against real databases**: SQLite in temp files (never `:memory:`, whose
   contents die with the connection), PostgreSQL, SQL Server, MySQL and MariaDB in Testcontainers
   containers gated by `[DockerFact]`/`[DockerTheory]`, which *skip* where the daemon socket cannot be
@@ -311,8 +320,10 @@ root.
   `RealDatabaseDeployment` holds the end-to-end scenarios so every provider runs the same ones, on
   the driver's own built-in template, quoting reserved journal columns through the provider's
   `identifier` function; the `mysql` driver's tests run against MySQL and MariaDB alike through
-  `MySqlFamilyServer`, and skip only the half-finished-compensation scenario, which implicit DDL
-  commits make impossible to hold there — the only place the engine's resume decision is read back out of SQL the deployment
+  `MySqlFamilyServer`, skip only the half-finished-compensation scenario, which implicit DDL
+  commits make impossible to hold there, and alone run `OnErrorUndoesAPlanTheServerCommittedPartway`.
+  The scenarios' rollback scripts use `drop table if exists`, as compensation on those engines also
+  runs for a step that never applied — the only place the engine's resume decision is read back out of SQL the deployment
   itself wrote, and the only check that a journal's `completed` column works as both a count
   (SQLite) and a boolean (PostgreSQL). Compensating rollback is among them: that a committed plan is
   undone by its own `rollback.sql`, that `on-success` undoes releases and their plans in reverse,

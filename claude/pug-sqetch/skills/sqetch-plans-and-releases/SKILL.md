@@ -33,7 +33,9 @@ sqetch plan add-step -p add-orders -n orders-customer-index --requires orders-ta
 
 - **`deploy.sql`** makes the change. It may hold several statements. It runs in a transaction with
   the journal entry recording it, so on SQLite, PostgreSQL and SQL Server a failing step leaves nothing behind. MySQL and
-  MariaDB commit DDL implicitly, so there keep each step to one schema change.
+  MariaDB commit DDL implicitly: there write `rollback.sql` to tolerate a partly applied deploy
+  (`drop table if exists`) and deploy with `--rollback on-error` (skill `sqetch-bundle-and-deploy`,
+  drivers).
   Do not add `begin`/`commit`.
 - **`rollback.sql`** undoes exactly what `deploy.sql` did, in reverse order (drop what was created,
   restore what was changed). `sqetch-deploy deploy --rollback` runs it, so it must work against

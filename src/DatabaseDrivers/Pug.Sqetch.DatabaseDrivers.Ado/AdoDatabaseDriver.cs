@@ -44,6 +44,8 @@ public class AdoDatabaseDriver : IDatabaseDriver
 		_options = options ?? AdoDriverOptions.Default;
 	}
 
+	public bool CommitsDdlImplicitly => _options.CommitsDdlImplicitly;
+
 	public IDatabaseTransaction BeginTransaction()
 	{
 		ObjectDisposedException.ThrowIf( _disposed, this );

@@ -170,7 +170,9 @@ jobs:
   ```
 
   For MariaDB, use `MARIADB_ROOT_PASSWORD`/`MARIADB_DATABASE` and
-  `healthcheck.sh --connect --innodb_initialized` as the health command.
+  `healthcheck.sh --connect --innodb_initialized` as the health command. In the deploy jobs of a
+  MySQL or MariaDB project, add `--rollback on-error`: these engines commit schema changes as they
+  run, and only that cleans up after a failed plan.
 - **The action's `@ref`** pins the action's code and `version` the tool. Bump both together when
   asked to upgrade.
 

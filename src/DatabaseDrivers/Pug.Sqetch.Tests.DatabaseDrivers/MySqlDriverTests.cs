@@ -304,6 +304,15 @@ public class MySqlDriverFactoryTests
 		);
 	}
 
+	/// <summary>The flag the engine's failure handling turns on: MySQL and MariaDB commit DDL by themselves.</summary>
+	[Fact]
+	public void TheDriverSaysItsEngineCommitsDdlImplicitly()
+	{
+		using IDatabaseDriver driver = Create( [ "host", "a" ], [ "database", "b" ] );
+
+		Assert.True( driver.CommitsDdlImplicitly );
+	}
+
 	[Fact]
 	public void TheRegistryExtensionRegistersTheDriverUnderItsName()
 	{

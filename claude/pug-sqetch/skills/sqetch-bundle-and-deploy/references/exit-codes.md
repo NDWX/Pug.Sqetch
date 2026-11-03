@@ -32,3 +32,8 @@ partway (`52`) outranks its cause. The cause is still in the message.
 
 Retrying is safe in the sense that a deployment resumes from the journal and never repeats what is
 in place. A retry without fixing the cause fails the same way.
+
+The exception is MySQL and MariaDB (driver `mysql`, since 0.2), where schema changes commit as they
+run. A failed step there is always `52` unless `--rollback on-error` undid it, and a retry restarts
+the failed plan from its first step, which may then fail on what is already there. See the `mysql`
+driver in `drivers.md`.

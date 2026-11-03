@@ -669,6 +669,25 @@ public class DeployCliTests : IDisposable
 		Assert.Equal( [ "create table t ()", "-- r" ], _driver.AppliedScripts );
 	}
 
+	/// <summary>
+	/// On an engine whose DDL commits itself, the failed transaction's rollback cannot be trusted, so
+	/// a failure once a step ran is 'left partway' even at release commit level — until a
+	/// compensation that undoes the failed step too puts the database back.
+	/// </summary>
+	[Fact]
+	public void WhereDdlCommitsItselfAFailedStepIsPartwayUnlessCompensated()
+	{
+		_driver.CommitsDdlImplicitly = true;
+		_driver.FailingScripts.Add( "create table t ()" );
+
+		Assert.Equal( DeployExitCodes.DeploymentFailedPartway, Deploy( "implicit.zip" ).ExitCode );
+
+		CommandAppResult compensated = Deploy( "implicit-compensated.zip", "--rollback", "on-error" );
+
+		Assert.Equal( DeployExitCodes.DeploymentFailed, compensated.ExitCode );
+		Assert.Equal( [ "-- r" ], _driver.AppliedScripts );
+	}
+
 	[Fact]
 	public void AFailedRollbackOutranksTheFailureThatStartedIt()
 	{

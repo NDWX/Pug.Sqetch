@@ -82,10 +82,21 @@ For MySQL and MariaDB.
 
 Required sets: `--mysql-host` with `--mysql-database`, or `--mysql-connection-string`.
 
-- **DDL commits implicitly.** A CREATE, ALTER or DROP ends the open transaction, journal rows
-  included. A failing step can therefore leave earlier schema changes in place, a release is not
-  all-or-nothing, and a failing rollback script can leave compensation half done. Keep each step to
-  one schema change where possible, and use `--rollback on-error` in pipelines.
+- **DDL commits implicitly.** A CREATE, ALTER or DROP ends the open transaction, committing what
+  came before it, journal rows included. A plan that fails partway therefore leaves its earlier
+  steps' changes in place, and the failing step's own if it got that far; a release is not
+  all-or-nothing. What follows from that:
+  - **Deploy with `--rollback on-error`.** On this driver it undoes the failed plan as far as it got,
+    the failing step included, and then everything else the run committed. The release then reads as
+    rolled back, so the next run, with the script fixed, starts clean.
+  - **Write rollback scripts that tolerate a partly applied deploy**, such as `drop table if exists`:
+    on-error may run the rollback of a step that failed before changing anything, and a rollback
+    script that fails is exit `61`.
+  - **Without `--rollback on-error`**, a failed run is exit `52` (the database may have changed)
+    and the next run restarts the failed plan from its first step, which then fails on what is
+    already there. Either make deploy scripts safe to run twice (`create table if not exists`), or
+    run the failed plan's rollback scripts by hand before retrying.
+  - Compensation is not atomic either, so a failing rollback script can leave it half done.
 - Step scripts may use user variables (`set @n = 1;`) when the driver builds the connection; with
   `--mysql-connection-string`, add `AllowUserVariables=true` yourself.
 - A connection string replaces the other switches.
@@ -95,4 +106,5 @@ Required sets: `--mysql-host` with `--mysql-database`, or `--mysql-connection-st
 - A server that cannot be reached is exit code `33`. The driver connects only when the deployment
   begins, so wrong switches that still form a valid configuration surface then, not earlier.
 - SQLite, PostgreSQL and SQL Server run DDL inside transactions, so a failing release at the
-  default commit level leaves nothing behind. MySQL and MariaDB do not; see `mysql` above.
+  default commit level leaves nothing behind. MySQL and MariaDB do not; see `mysql` above, since
+  0.2.

@@ -24,4 +24,7 @@ public sealed record AdoDriverOptions
 	/// default type for a value loses part of it.
 	/// </summary>
 	public Action<DbParameter, JournalingParameter>? ConfigureParameter { get; init; }
+
+	/// <summary>See <see cref="IDatabaseDriver.CommitsDdlImplicitly"/>.</summary>
+	public bool CommitsDdlImplicitly { get; init; }
 }

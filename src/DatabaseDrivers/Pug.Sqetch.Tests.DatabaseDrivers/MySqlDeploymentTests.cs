@@ -57,6 +57,10 @@ public abstract class MySqlFamilyDeploymentTests
 	[DockerFact]
 	public void OnSuccessUndoesTheWholeDeploymentInReverse()
 		=> _deployment.Value.OnSuccessUndoesTheWholeDeploymentInReverse();
+
+	[DockerFact]
+	public void OnErrorUndoesAPlanTheServerCommittedPartway()
+		=> _deployment.Value.OnErrorUndoesAPlanTheServerCommittedPartway();
 }
 
 public sealed class MySqlDeploymentTests( MySqlServer server )
