@@ -23,6 +23,17 @@ public interface IProject
 
 	void AddPlanToRelease( string release, string plan, bool includeDependencies );
 
+	/// <summary>
+	/// Puts <paramref name="plan"/> in <paramref name="release"/>, from another release or from
+	/// unreleased, checking everything before changing anything: a refused move leaves the plan
+	/// where it was. Refuses with <see cref="MissingPlanDependenciesException"/> when a dependency
+	/// would not be in the release or an earlier one (unreleased ones come along with
+	/// <paramref name="includeDependencies"/>), and with <see cref="StrandedPlanDependantsException"/>
+	/// when a dependant would be left in an earlier release. Does nothing when the plan is already
+	/// there.
+	/// </summary>
+	void MovePlanToRelease( string plan, string release, bool includeDependencies );
+
 	void RemovePlanFromRelease( string release, string plan, bool includeDependants = false );
 
 	void DeleteRelease( string release );

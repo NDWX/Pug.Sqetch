@@ -26,6 +26,10 @@ internal static class CliErrors
 			AbandonedPlanDependantsException =>
 				"other plans in the release depend on this plan (use --with-dependants to remove them too)",
 			MissingPlanDependenciesException missing => DescribeMissingDependencies( missing ),
+			StrandedPlanDependantsException stranded =>
+				$"plans in releases before '{stranded.Release}' depend on '{stranded.Plan}': " +
+				string.Join( ", ", stranded.Dependants.Select( x => $"'{x.Plan}' ({x.Release})" ) ) +
+				$"; move them to '{stranded.Release}' or a later release first",
 			IncompleteDefinitionException => "the definition is missing a name",
 			ProjectStoreException store => store.Message,
 			_ => exception.Message

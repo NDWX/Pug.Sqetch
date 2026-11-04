@@ -193,6 +193,71 @@ public class CliTests : IDisposable
 	}
 
 	[Fact]
+	public void ARefusedSetReleaseLeavesThePlanInItsRelease()
+	{
+		InitializeProject();
+
+		Run( "release", "create", "--name", "2026.07" );
+		Run( "release", "create", "--name", "2026.08", "--depends-on", "2026.07" );
+		Run( "plan", "create", "--name", "table", "--release", "2026.08" );
+		Run( "plan", "create", "--name", "index", "--require-plans", "table", "--release", "2026.08" );
+
+		CommandAppResult refused = Run( "plan", "set-release", "--plan", "index", "--release", "2026.07" );
+
+		Assert.Equal( 1, refused.ExitCode );
+		Assert.Contains( "'table' (in later release '2026.08'; required by 'index')", refused.Output );
+		Assert.Contains( "2026.08", Run( "plan", "--name", "index" ).Output );
+	}
+
+	[Fact]
+	public void SetReleaseRefusesToLeaveADependantInAnEarlierRelease()
+	{
+		InitializeProject();
+
+		Run( "release", "create", "--name", "2026.07" );
+		Run( "release", "create", "--name", "2026.08", "--depends-on", "2026.07" );
+		Run( "plan", "create", "--name", "table", "--release", "2026.07" );
+		Run( "plan", "create", "--name", "index", "--require-plans", "table", "--release", "2026.07" );
+
+		CommandAppResult refused = Run( "plan", "set-release", "--plan", "table", "--release", "2026.08" );
+
+		Assert.Equal( 1, refused.ExitCode );
+		Assert.Contains( "plans in releases before '2026.08' depend on 'table': 'index' (2026.07)", refused.Output );
+		Assert.Contains( "2026.07", Run( "plan", "--name", "table" ).Output );
+
+		// moving the dependant first frees the plan to follow it
+		Assert.Equal( 0, Run( "plan", "set-release", "--plan", "index", "--release", "2026.08" ).ExitCode );
+		Assert.Equal( 0, Run( "plan", "set-release", "--plan", "table", "--release", "2026.08" ).ExitCode );
+		Assert.Contains( "2026.08", Run( "plan", "--name", "table" ).Output );
+	}
+
+	[Theory]
+	[InlineData( "--with-dependants", "--release", "2026.07", "--with-dependants applies only with --unreleased" )]
+	[InlineData( "--with-dependencies", "--unreleased", null, "--with-dependencies applies only with --release" )]
+	public void SetReleaseRejectsAFlagForTheOtherDirection(
+		string flag,
+		string direction,
+		string? release,
+		string message
+	)
+	{
+		InitializeProject();
+
+		Run( "plan", "create", "--name", "movable" );
+		Run( "release", "create", "--name", "2026.07", "--plans", "movable" );
+
+		string[] arguments = release is null ?
+			[ "plan", "set-release", "--plan", "movable", direction, flag ] :
+			[ "plan", "set-release", "--plan", "movable", direction, release, flag ];
+
+		CommandAppResult result = Run( arguments );
+
+		Assert.NotEqual( 0, result.ExitCode );
+		Assert.Contains( message, result.Output );
+		Assert.Contains( "2026.07", Run( "plan", "--name", "movable" ).Output );
+	}
+
+	[Fact]
 	public void PlanCreateInAReleaseAcceptsADependencyInAnEarlierRelease()
 	{
 		InitializeProject();

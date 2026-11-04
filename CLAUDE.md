@@ -465,7 +465,12 @@ root.
   `MissingPlanDependenciesException`, which names each missing plan and its dependants. Checking
   direct dependencies is enough, since a dependency already in a release was checked when it joined.
   `Register` checks before storing the plan, because the file store does not take part in
-  `TransactionScope` and would keep a refused plan. `includeDependencies` (`--with-dependencies`)
+  `TransactionScope` and would keep a refused plan. `MovePlanToRelease` (what `plan set-release -r`
+  calls, for a released plan or an unreleased one) does the same for a move: it checks the plan's
+  dependencies against the target and refuses with `StrandedPlanDependantsException` when a
+  dependant sits in a release before the target, all before its first write, so a refused move
+  leaves the plan in its release; `--with-dependants` is a removal option only. An I/O failure
+  between its two folder moves can still leave the plan unreleased. `includeDependencies` (`--with-dependencies`)
   brings along every unreleased plan the added one needs, transitively through unreleased plans
   only; a dependency in a later release is refused, never moved, since moving it could strand
   that release's own plans. `CreateRelease( definition, includeUnreleasedPlans )` needs no check: a

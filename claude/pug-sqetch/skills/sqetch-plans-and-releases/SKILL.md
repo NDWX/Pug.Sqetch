@@ -83,6 +83,15 @@ Keep verify scripts read-only: they run in the deployment's transaction.
   brings every unreleased plan it needs, directly or indirectly, into the same release. A
   dependency in a later release is refused, not moved: move it with `plan set-release` first.
   `--all-unreleased` cannot leave one behind.
+- **Moving a plan between releases** (`plan set-release -p <plan> -r <release>` on a released plan):
+  since 0.2 it checks first and moves in one step, so a refused move leaves the plan where it was.
+  Besides its dependencies, it refuses when a plan depending on this one is in a release *before* the
+  target, naming it: move that dependant first, then this plan. Dependants already in the target or
+  a later release are fine. `--with-dependants` is for `--unreleased` only, and `--with-dependencies`
+  for `-r` only; either one in the wrong direction is refused.
+- **With `sqetch` 0.1.x**, a refused move has already taken the plan out of its old release and
+  leaves it unreleased, without saying so. After a refused `set-release` there, check
+  `sqetch plan --name <plan>` and add it back to its release.
 - **With `sqetch` 0.1.0**, none of this is enforced and `--with-dependencies` does not bring the
   plan's own dependencies along. There, add each dependency yourself, and before finalizing check
   `sqetch plan list -r <release> -o json` (the `dependencies` field): each dependency must be in this
@@ -102,7 +111,7 @@ sqetch release finalize -n 1.5
   `--depends-on`, and a release can have only one successor. Name releases after the software
   versions they ship with.
 - `--all-unreleased` takes every unreleased plan; `--plans` names them. A plan belongs to one release
-  at a time; `set-release` moves it.
+  at a time; `set-release` moves it (see Dependencies for what a move checks).
 - Create the release when the version is being assembled, deploy it to test environments while it
   is open, and **finalize it when the version ships**, not before: after finalizing, its plans
   and scripts cannot change. Ask the user before finalizing.
