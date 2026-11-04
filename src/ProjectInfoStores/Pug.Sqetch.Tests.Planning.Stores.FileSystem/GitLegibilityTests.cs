@@ -78,6 +78,32 @@ public class GitLegibilityTests
 	}
 
 	[Fact]
+	public void MovingAPlanBetweenReleasesIsOneRename()
+	{
+		using TempProject project = TempProject.Create();
+		using FileSystemProjectStores stores = project.Open();
+
+		Git.Run( project.Root, "init" );
+
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
+		stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), TestData.Context() );
+		stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() );
+		Git.Commit( project.Root, "prepare releases" );
+
+		stores.InfoStore.SetPlanRelease( "customer-email", "2026.08", TestData.Context() );
+
+		string diff = Git.StagedChanges( project.Root );
+
+		Assert.Matches(
+			@"R\d+\treleases/2026\.07/plans/customer-email/plan\.json\treleases/2026\.08/plans/customer-email/plan\.json",
+			diff
+		);
+
+		Assert.DoesNotContain( "\tplans/customer-email", diff );
+	}
+
+	[Fact]
 	public void JournalingStatementsAppearAsPlainFileEdits()
 	{
 		using TempProject project = TempProject.Create();

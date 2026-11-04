@@ -83,6 +83,14 @@ public interface IProjectInfoStore : IDisposable
 	void DeleteReleasePlan( string release, string name, ActionContext context );
 
 	/// <summary>
+	/// Puts plan <paramref name="name"/> in <paramref name="release"/> in a single step, from
+	/// whichever release it is in now or from unreleased; the store looks up where it is. Neither
+	/// release may be finalized. Does nothing when the plan is already there. Taking a plan out of
+	/// its release stays <see cref="DeleteReleasePlan"/>.
+	/// </summary>
+	void SetPlanRelease( string name, string release, ActionContext context );
+
+	/// <summary>
 	/// Project-level journaling SQL, one statement set per <see cref="JournalingSlot"/>. Not on
 	/// <see cref="IScriptsStore"/>: that store is step-keyed with three fixed slots and hands out
 	/// caller-disposed streams, whereas these are project-level and must be split into individual

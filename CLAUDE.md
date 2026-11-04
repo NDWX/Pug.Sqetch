@@ -95,7 +95,9 @@ root.
   bundle keeps the SQL it was built with. `ProjectPaths` owns the paths and
   `JournalingSlots.FileName` the names, so the store and the bundle layout cannot drift apart.
 - **`plan-index` is derived data**: plan.json files and folder locations are the source of
-  truth; the index is rebuildable (`sqetch project reindex`).
+  truth; the index is rebuildable (`sqetch project reindex`). For release membership the folder
+  wins: reindex also rewrites a plan.json whose `release` field disagrees with the folder it is in
+  (clearing its assignment when that is unreleased), and writes nothing when they agree.
 - **Pluggable families** (sharding strategies, bundle types, bundle layouts, database
   drivers): contracts in the area's `*.Abstractions` project (`Pug.Sqetch.Deployment.Bundling.Abstractions`,
   `Pug.Sqetch.DatabaseDriver.Abstractions`; sharding lives inside the file-system store), implementations
@@ -465,7 +467,15 @@ root.
   `MissingPlanDependenciesException`, which names each missing plan and its dependants. Checking
   direct dependencies is enough, since a dependency already in a release was checked when it joined.
   `Register` checks before storing the plan, because the file store does not take part in
-  `TransactionScope` and would keep a refused plan. `includeDependencies` (`--with-dependencies`)
+  `TransactionScope` and would keep a refused plan. `MovePlanToRelease` (what `plan set-release -r`
+  calls, for a released plan or an unreleased one) does the same for a move: it checks the plan's
+  dependencies against the target and refuses with `StrandedPlanDependantsException` when a
+  dependant sits in a release before the target, all before its first write, so a refused move
+  leaves the plan in its release; `--with-dependants` is a removal option only. It writes through
+  `IProjectInfoStore.SetPlanRelease`, which finds the plan's current release itself and moves its
+  folder in **one rename**, straight from release to release, never through unreleased: a move
+  failing or cut short leaves the folder in one release or the other, and at worst a stale
+  `plan.json` and index, which `project reindex` realigns. `includeDependencies` (`--with-dependencies`)
   brings along every unreleased plan the added one needs, transitively through unreleased plans
   only; a dependency in a later release is refused, never moved, since moving it could strand
   that release's own plans. `CreateRelease( definition, includeUnreleasedPlans )` needs no check: a

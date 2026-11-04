@@ -7,7 +7,8 @@ internal sealed record PlanIndexEntry( string Name, string Release, string[] Dep
 /// (name, release membership, declared dependencies). Purely derived data — plan.json
 /// files and folder locations remain the source of truth — kept so that locating any
 /// historical plan, duplicate-name checks and reverse dependency lookups never have to
-/// scan release folders. <see cref="Rebuild"/> regenerates it from the tree.
+/// scan release folders. <see cref="Rebuild"/> regenerates it from the tree, and realigns a
+/// plan.json whose 'release' field disagrees with the folder the plan is in.
 /// </summary>
 internal sealed class PlanIndex
 {
@@ -92,14 +93,26 @@ internal sealed class PlanIndex
 
 		foreach( string planDirectory in Directory.EnumerateDirectories( plansDirectory ) )
 		{
-			PlanDocument? document =
-				JsonFiles.TryRead<PlanDocument>( Path.Combine( planDirectory, FileNames.PlanFile ) );
+			string planFile = Path.Combine( planDirectory, FileNames.PlanFile );
+
+			PlanDocument? document = JsonFiles.TryRead<PlanDocument>( planFile );
 
 			if( document is null )
 				continue;
 
 			// the folder location, not the plan.json 'release' field, is the source of
-			// truth for release membership
+			// truth for release membership; a command cut short after moving the folder leaves
+			// the field behind, so it is realigned here, and left untouched when it agrees
+			if( !string.Equals( document.Release, release, StringComparison.Ordinal ) )
+				JsonFiles.Write(
+					planFile,
+					document with
+					{
+						Release = release,
+						ReleaseAssignment = release.Length == 0 ? null : document.ReleaseAssignment
+					}
+				);
+
 			_entries[document.Name] = new PlanIndexEntry( document.Name, release, document.Dependencies );
 		}
 	}

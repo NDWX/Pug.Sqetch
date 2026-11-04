@@ -726,6 +726,96 @@ public class Project : IProject
 		}
 	}
 
+	public void MovePlanToRelease( string plan, string release, bool includeDependencies )
+	{
+		Project.ValidateReleaseParameter( release );
+
+		if( string.IsNullOrWhiteSpace( plan ) )
+			throw new ArgumentException( "Value cannot be null or whitespace.", nameof(plan) );
+
+		bool releasesLocked = false;
+		ActionContext actionContext = GetActionContext();
+
+		_plansSemaphore.Wait();
+
+		using TransactionScope tx = new();
+
+		try
+		{
+			ProjectPlan projectPlan = _infoStore.GetPlan( plan ) ?? throw new UnknownPlanException( plan );
+
+			_releasesSemaphore.Wait();
+			releasesLocked = true;
+
+			ProjectRelease target = _infoStore.GetRelease( release ) ?? throw new UnknownReleaseException( release );
+
+			if( target.Finalized is not null )
+				throw new ReleaseFinalizedException();
+
+			string source = projectPlan.Release;
+
+			if( string.Equals( source, release, StringComparison.OrdinalIgnoreCase ) )
+				return;
+
+			if( source.Length > 0 && _infoStore.GetRelease( source )?.Finalized is not null )
+				throw new ReleaseFinalizedException();
+
+			// the file store takes no part in the transaction, so everything is checked before the
+			// first write: a refused move must leave the plan in its release, not unreleased
+			List<string> unreleasedDependencies =
+				includeDependencies ? CollectUnreleasedDependencies( projectPlan ) : [ ];
+
+			EnsureNoMissingDependencies(
+				_infoStore.GetReleasePlans( release )
+					.Select( x => x.Definition.Name )
+					.Concat( unreleasedDependencies )
+					.Append( plan ),
+				release
+			);
+
+			EnsureNoStrandedDependants( projectPlan.Definition.Name, release );
+
+			foreach( string dependency in unreleasedDependencies )
+				_infoStore.AddReleasePlan( release, dependency, actionContext );
+
+			_infoStore.SetPlanRelease( projectPlan.Definition.Name, release, actionContext );
+
+			tx.Complete();
+		}
+		finally
+		{
+			if( releasesLocked )
+				_releasesSemaphore.Release();
+
+			_plansSemaphore.Release();
+		}
+	}
+
+	/// <summary>
+	/// Refuses moving <paramref name="plan"/> to <paramref name="release"/> when a plan depending on
+	/// it sits in an earlier release, where it would deploy before the plan it needs. Unreleased
+	/// dependants and those in the release or a later one are unaffected.
+	/// </summary>
+	private void EnsureNoStrandedDependants( string plan, string release )
+	{
+		List<PlanDependant> stranded = [ ];
+
+		foreach( string dependantName in _infoStore.GetPlanDependants( plan ) )
+		{
+			ProjectPlan dependant = _infoStore.GetPlan( dependantName ) ?? throw new UnknownPlanException( dependantName );
+
+			if( string.IsNullOrEmpty( dependant.Release ) )
+				continue;
+
+			if( _releaseDependencyDeterminator.DetermineDependencyRelationship( release, dependant.Release ) ==
+				DependencyRelationship.Dependant )
+				stranded.Add( new PlanDependant( dependant.Definition.Name, dependant.Release ) );
+		}
+
+		if( stranded.Count > 0 )
+			throw new StrandedPlanDependantsException( plan, release, stranded );
+	}
+
 	private static void ValidateReleaseParameter( string release )
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace( release );

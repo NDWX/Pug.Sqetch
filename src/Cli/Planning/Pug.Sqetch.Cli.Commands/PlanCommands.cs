@@ -217,6 +217,12 @@ public sealed class PlanSetReleaseCommand( IAnsiConsole console ) : Command<Plan
 			if( Unreleased == ( Release is not null ) )
 				return ValidationResult.Error( "specify either --release <release> or --unreleased" );
 
+			if( WithDependants && !Unreleased )
+				return ValidationResult.Error( "--with-dependants applies only with --unreleased" );
+
+			if( WithDependencies && Unreleased )
+				return ValidationResult.Error( "--with-dependencies applies only with --release" );
+
 			return ValidationResult.Success();
 		}
 	}
@@ -249,12 +255,9 @@ public sealed class PlanSetReleaseCommand( IAnsiConsole console ) : Command<Plan
 			return 0;
 		}
 
-		// moving between releases = remove from the current one, then add to the target,
-		// so every business validation applies on both sides
-		if( plan.Release.Length > 0 )
-			session.Project.RemovePlanFromRelease( plan.Release, plan.Definition.Name, settings.WithDependants );
-
-		session.Project.AddPlanToRelease( settings.Release!, plan.Definition.Name, settings.WithDependencies );
+		// one engine call checks both releases before changing either, so a refused move leaves
+		// the plan where it was
+		session.Project.MovePlanToRelease( plan.Definition.Name, settings.Release!, settings.WithDependencies );
 
 		return 0;
 	}
