@@ -775,13 +775,10 @@ public class Project : IProject
 
 			EnsureNoStrandedDependants( projectPlan.Definition.Name, release );
 
-			if( source.Length > 0 )
-				_infoStore.DeleteReleasePlan( source, projectPlan.Definition.Name, actionContext );
-
 			foreach( string dependency in unreleasedDependencies )
 				_infoStore.AddReleasePlan( release, dependency, actionContext );
 
-			_infoStore.AddReleasePlan( release, projectPlan.Definition.Name, actionContext );
+			_infoStore.SetPlanRelease( projectPlan.Definition.Name, release, actionContext );
 
 			tx.Complete();
 		}

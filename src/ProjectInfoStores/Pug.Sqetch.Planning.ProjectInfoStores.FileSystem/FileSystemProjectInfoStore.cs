@@ -400,6 +400,27 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		MovePlan( entry, entry.Release, string.Empty, null );
 	}
 
+	public void SetPlanRelease( string name, string release, ActionContext context )
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace( release );
+
+		PlanIndexEntry entry = _session.RequirePlan( name );
+
+		ReleaseDocument releaseDocument = _session.RequireRelease( release );
+
+		if( releaseDocument.Finalized is not null )
+			throw new ReleaseFinalizedException();
+
+		if( string.Equals( entry.Release, releaseDocument.Name, StringComparison.OrdinalIgnoreCase ) )
+			return;
+
+		_session.EnsureReleaseNotFinalized( entry.Release );
+
+		// one rename straight from where the plan is, never through unreleased: a move cut short
+		// leaves the folder in one release or the other, and 'reindex' realigns the rest with it
+		MovePlan( entry, entry.Release, releaseDocument.Name, ActionDocument.From( context ) );
+	}
+
 	public string? GetJournalingStatement( JournalingSlot slot )
 	{
 		string path = _session.Paths.JournalingStatementFile( slot );

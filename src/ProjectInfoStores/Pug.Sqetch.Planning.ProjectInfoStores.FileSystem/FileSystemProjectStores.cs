@@ -89,7 +89,8 @@ public sealed class FileSystemProjectStores : IDisposable
 
 	/// <summary>
 	/// Rebuilds the derived 'plan-index' file from the plan folders — recovery path for a
-	/// mangled merge or manual edits.
+	/// mangled merge, manual edits or a command cut short — and realigns each plan.json's
+	/// 'release' field with the folder the plan is in.
 	/// </summary>
 	public void Reindex() => _session.Reindex();
 

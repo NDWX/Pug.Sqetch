@@ -156,3 +156,7 @@ git add plan-index
 ```
 
 Conflicts inside a plan's own files are ordinary SQL merges.
+
+Since 0.2, `reindex` also repairs a plan whose folder and `plan.json` disagree about its release
+(the folder wins), which a `sqetch` command interrupted mid-move can leave behind. Run it, then
+check `sqetch plan --name <plan>`.

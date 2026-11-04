@@ -125,3 +125,17 @@ public static class Git
 		return Run( workingDirectory, "diff", "--cached", "-M", "--name-status" );
 	}
 }
+/// <summary>
+/// A fact that needs Unix file permissions to be enforced: it skips on Windows, and as root,
+/// which ignores them.
+/// </summary>
+public sealed class UnixPermissionsFactAttribute : FactAttribute
+{
+	public UnixPermissionsFactAttribute()
+	{
+		if( OperatingSystem.IsWindows() )
+			Skip = "needs Unix file permissions";
+		else if( Environment.IsPrivilegedProcess )
+			Skip = "file permissions are not enforced for root";
+	}
+}

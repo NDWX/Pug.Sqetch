@@ -202,6 +202,43 @@ public sealed class MovePlanToReleaseTests : IDisposable
 		Assert.Equal( "1.1", ReleaseOf( "movable" ) );
 	}
 
+	/// <summary>
+	/// The move is one folder rename straight from release to release, so a write failing on the
+	/// way leaves the plan where it was; moving through unreleased would have stranded it there.
+	/// </summary>
+	[UnixPermissionsFact]
+	public void AMoveFailingToWriteLeavesThePlanInItsRelease()
+	{
+		Plan( "movable" );
+		TwoReleases( [ "movable" ] );
+
+		string target = Path.Combine( _temp.Root, "releases", "1.1" );
+		string[] locked = new[] { target, Path.Combine( target, "plans" ) }.Where( Directory.Exists ).ToArray();
+
+		foreach( string directory in locked )
+			File.SetUnixFileMode( directory, UnixFileMode.UserRead | UnixFileMode.UserExecute );
+
+		try
+		{
+			Exception exception = Assert.ThrowsAny<Exception>( () =>
+				_project.MovePlanToRelease( "movable", "1.1", includeDependencies: false )
+			);
+
+			Assert.True( exception is IOException or UnauthorizedAccessException, exception.ToString() );
+		}
+		finally
+		{
+			foreach( string directory in locked )
+				File.SetUnixFileMode(
+					directory,
+					UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+				);
+		}
+
+		Assert.Equal( "1.0", ReleaseOf( "movable" ) );
+		Assert.True( Directory.Exists( Path.Combine( _temp.Root, "releases", "1.0", "plans", "movable" ) ) );
+	}
+
 	[Fact]
 	public void AMoveToThePlansOwnReleaseChangesNothing()
 	{

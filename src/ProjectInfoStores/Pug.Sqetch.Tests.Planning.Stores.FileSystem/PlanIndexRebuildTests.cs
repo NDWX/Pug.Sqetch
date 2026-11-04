@@ -51,6 +51,75 @@ public class PlanIndexRebuildTests
 		Assert.Equal( expected, File.ReadAllText( indexFile ) );
 	}
 
+	/// <summary>
+	/// A command cut short after moving a plan's folder leaves its plan.json 'release' field and
+	/// the index behind; the folder is the truth, and reindex realigns both with it.
+	/// </summary>
+	[Theory]
+	[InlineData( "2026.08" )]
+	[InlineData( "" )]
+	public void ReindexRealignsAPlanJsonLeftBehindByAMovedFolder( string movedTo )
+	{
+		using TempProject project = TempProject.Create();
+
+		using( FileSystemProjectStores stores = project.Open() )
+		{
+			stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+			stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
+			stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.08", "", "2026.07" ), TestData.Context() );
+			stores.InfoStore.AddReleasePlan( "2026.07", "customer-email", TestData.Context() );
+		}
+
+		string destination = movedTo.Length == 0 ?
+			Path.Combine( project.Root, "plans", "customer-email" ) :
+			Path.Combine( project.Root, "releases", movedTo, "plans", "customer-email" );
+
+		Directory.CreateDirectory( Path.GetDirectoryName( destination )! );
+		Directory.Move( Path.Combine( project.Root, "releases", "2026.07", "plans", "customer-email" ), destination );
+
+		using( FileSystemProjectStores stores = project.Open() )
+		{
+			stores.Reindex();
+
+			Assert.Equal( movedTo, stores.InfoStore.GetPlan( "customer-email" )!.Release );
+		}
+
+		string planJson = File.ReadAllText( Path.Combine( destination, "plan.json" ) );
+
+		Assert.Contains( $"\"release\": \"{movedTo}\"", planJson );
+
+		if( movedTo.Length == 0 )
+			Assert.Contains( "\"releaseAssignment\": null", planJson );
+		else
+			Assert.DoesNotContain( "\"releaseAssignment\": null", planJson );
+	}
+
+	[Fact]
+	public void ReindexLeavesAConsistentPlanJsonUntouched()
+	{
+		using TempProject project = TempProject.Create();
+
+		using( FileSystemProjectStores stores = project.Open() )
+		{
+			stores.InfoStore.AddPlan( new ObjectDefinition( "unreleased", "" ), [ ], TestData.Context() );
+			stores.InfoStore.AddPlan( new ObjectDefinition( "released", "" ), [ ], TestData.Context() );
+			stores.InfoStore.AddRelease( new ReleaseDefinition( "2026.07", "", "" ), TestData.Context() );
+			stores.InfoStore.AddReleasePlan( "2026.07", "released", TestData.Context() );
+		}
+
+		string[] planFiles = Directory.GetFiles( project.Root, "plan.json", SearchOption.AllDirectories );
+		Dictionary<string, (string, DateTime)> before =
+			planFiles.ToDictionary( x => x, x => ( File.ReadAllText( x ), File.GetLastWriteTimeUtc( x ) ) );
+
+		using( FileSystemProjectStores stores = project.Open() )
+			stores.Reindex();
+
+		Assert.Equal( 2, planFiles.Length );
+
+		foreach( string planFile in planFiles )
+			Assert.Equal( before[planFile], ( File.ReadAllText( planFile ), File.GetLastWriteTimeUtc( planFile ) ) );
+	}
+
 	[Fact]
 	public void CorruptIndexFailsWithARecoverableError()
 	{
