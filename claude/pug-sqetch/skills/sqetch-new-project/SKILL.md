@@ -54,13 +54,15 @@ with the first journaling statement set.
 
 `sqetch-deploy` records every deployment through SQL the project supplies, in fifteen required
 slots, and reads it back to decide where a database stands. `bundle` refuses until all fifteen are
-set (exit code `72`, naming the missing ones). A sixteenth, `JournalExists` (since 0.2), is optional:
-`sqetch-deploy status` needs it, to tell a database never deployed to from a broken query, and
-refuses a bundle without it (exit `25`).
+set (exit code `72`, naming the missing ones). Three more are optional (since 0.2): `JournalExists`, which
+`sqetch-deploy status` needs to tell a database never deployed to from a broken query (it refuses a
+bundle without it, exit `25`), and `AcquireLock`/`ReleaseLock`, which stop a second deployment to the
+same database while one runs (exit `34`; see `references/journaling-contract.md`). The SQLite
+template sets no lock: SQLite has no session locks.
 
 Start from a template, adapted only if the user asks.
 
-**Since `sqetch` 0.2**, one command sets every slot from the driver's template, `JournalExists`
+**Since `sqetch` 0.2**, one command sets every slot from the driver's template, the optional ones
 included:
 
 ```sh
@@ -97,14 +99,16 @@ The contract the templates implement, for writing or changing one, is
 `references/journaling-contract.md`. Then check:
 
 ```sh
-sqetch journaling list                # the fifteen required slots, and JournalExists, should be set
+sqetch journaling list                # the fifteen required slots should be set, and the optional ones the template has
 sqetch journaling print GetLatestRelease
 ```
 
-**A project set up before 0.2** lacks `JournalExists`. To use `status`, set it from the driver's
-template (the `JournalExists` section of the reference for its engine), with
-`sqetch journaling set JournalExists --file <file>`, then rebuild the bundle. `journaling init
---force` would also set it, but replaces every slot, discarding any tuning.
+**A project set up before 0.2** lacks the optional slots. To use `status`, and to guard against
+concurrent deployments, set `JournalExists`, `AcquireLock` and `ReleaseLock` from the driver's
+template (their sections in the reference for its engine; SQLite's has no lock, so only
+`JournalExists` there), each with `sqetch journaling set <SLOT> --file <file>`, then rebuild the
+bundle. `journaling init --force` would also set them, but replaces every slot, discarding any
+tuning.
 
 `sqetch` keeps its own copy of the statements in the project's `journaling/` folder, which is what
 gets committed. Never write into `journaling/` by hand; change a statement with `journaling set`.

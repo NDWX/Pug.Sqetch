@@ -34,12 +34,19 @@ namespace Pug.Sqetch.Tests.DatabaseDrivers;
 /// some engines ('RELEASE' in MySQL, 'PLAN' in T-SQL), and their templates quote them too. Names
 /// are used as they are when omitted.
 /// </param>
+/// <param name="endPooledSessions">
+/// Closes the sessions a provider keeps pooled once a driver is disposed, so that a lock only a
+/// session end would free is really freed: a pool may hand a connection back with its session state
+/// intact until it is next used (Npgsql resets lazily). The 'holder disposed' step therefore proves
+/// the lock follows its session, not that a pool resets on close. Nothing when omitted.
+/// </param>
 public sealed class RealDatabaseDeployment(
 	Func<IDatabaseDriver> driver,
 	JournalingStatements journaling,
 	Func<string, List<string>> query,
 	Func<List<string>> stepTables,
-	Func<string, string>? identifier = null
+	Func<string, string>? identifier = null,
+	Action? endPooledSessions = null
 )
 {
 	private string Column( string name ) => identifier?.Invoke( name ) ?? name;
@@ -501,6 +508,168 @@ public sealed class RealDatabaseDeployment(
 		Assert.Throws<IncompatibleBundleException>( () => Status( continuation ) );
 
 		Assert.False( JournalTableExists() );
+	}
+
+	// ------------------------------------------------------------------ the deployment lock
+
+	/// <summary>
+	/// Another session already holds the lock, as a deployment running elsewhere would: the deployment
+	/// is refused before it provisions anything, and goes through once the holder's connection is gone.
+	/// </summary>
+	public void ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		using( IDatabaseDriver holder = driver() )
+		{
+			Assert.True( TakeLock( holder ), "the first session should have taken the lock" );
+
+			RecordingListener refused = new();
+
+			Assert.Throws<DeploymentLockedException>( () => Deploy( releases, Scripts(), listener: refused ) );
+
+			Assert.DoesNotContain( "lock-acquired", refused.Events );
+			Assert.Empty( StepTables() );
+
+			// refused before the journal's provisioning, which two deployments could otherwise race on
+			Assert.False( JournalTableExists() );
+		}
+
+		endPooledSessions?.Invoke();
+
+		Deploy( releases, Scripts() );
+
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+	}
+
+	/// <summary>
+	/// The deploying connection stays open, so it is the ReleaseLock statement and not the connection
+	/// closing that gives the lock back.
+	/// </summary>
+	public void TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+		RecordingListener listener = new();
+
+		using IDatabaseDriver deploying = driver();
+
+		new DeploymentEngine(
+				deploying,
+				journaling,
+				Scripts(),
+				DeploymentCommitLevel.Release,
+				listener,
+				RollbackTrigger.None
+			)
+			.Deploy( Project, releases );
+
+		Assert.Contains( "lock-acquired", listener.Events );
+		Assert.DoesNotContain( listener.Events, x => x.StartsWith( "lock-not-released" ) );
+
+		using IDatabaseDriver other = driver();
+
+		Assert.True( TakeLock( other ), "the deployment should have given the lock back" );
+	}
+
+	/// <summary>
+	/// The issue's 'done when', made deterministic: the first deployment's step blocks on a lock the test
+	/// holds, so it is running for exactly as long as the test wants. A second one started meanwhile is
+	/// refused, and once the first is let go and done the second has nothing left to do.
+	/// </summary>
+	/// <param name="takeBlocker">Takes the session lock the first deployment's step will wait on.</param>
+	/// <param name="releaseBlocker">Gives that lock back, letting the step finish.</param>
+	/// <param name="blockedStep">A deploy script for plan 'a', step 's1': creates its table, then waits on the blocker.</param>
+	/// <param name="lockHeldQuery">Selects one count, nonzero while some session holds the project's deployment lock.</param>
+	public void ASecondDeploymentIsRefusedWhileTheFirstIsRunning(
+		string takeBlocker,
+		string releaseBlocker,
+		string blockedStep,
+		string lockHeldQuery
+	)
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		using IDatabaseDriver blocker = driver();
+
+		Run( blocker, takeBlocker );
+
+		bool released = false;
+		Task? first = null;
+
+		try
+		{
+			first = Task.Run( () => Deploy( releases, Scripts().Deploy( "a", "s1", blockedStep ) ) );
+
+			DateTime giveUp = DateTime.UtcNow.AddSeconds( 30 );
+
+			while( query( lockHeldQuery )[0] == "0" )
+			{
+				Assert.False( first.IsCompleted, "the first deployment ended before its lock was seen held" );
+				Assert.True( DateTime.UtcNow < giveUp, "the first deployment never took the lock" );
+
+				Thread.Sleep( 25 );
+			}
+
+			Assert.False( first.IsCompleted, "the first deployment should still be running" );
+
+			Assert.Throws<DeploymentLockedException>( () => Deploy( releases, Scripts() ) );
+
+			Run( blocker, releaseBlocker );
+			released = true;
+		}
+		finally
+		{
+			if( !released )
+				Run( blocker, releaseBlocker );
+
+			// surfaces the first deployment's own failure, if it had one
+			if( first is not null )
+				Assert.True( first.Wait( TimeSpan.FromSeconds( 60 ) ), "the first deployment never finished" );
+		}
+
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+
+		RecordingListener retry = new();
+
+		Deploy( releases, Scripts(), listener: retry );
+
+		Assert.Contains( "nothing", retry.Events );
+	}
+
+	/// <summary>Runs one script in a committed transaction of its own on a driver the caller keeps open.</summary>
+	private static void Run( IDatabaseDriver on, string script )
+	{
+		IDatabaseTransaction transaction = on.BeginTransaction();
+
+		transaction.ExecuteStepScript( script );
+		transaction.Commit();
+	}
+
+	/// <summary>
+	/// A refusal has to be a clear 'no' from the template's AcquireLock — false, never NULL — since a
+	/// NULL is a journaling failure (exit 42) rather than the busy database (exit 34).
+	/// </summary>
+	public void AcquireLockAnswersFalseWhileTheLockIsHeldElsewhere()
+	{
+		using IDatabaseDriver holder = driver();
+		using IDatabaseDriver other = driver();
+
+		Assert.True( TakeLock( holder ) );
+		Assert.False( TakeLock( other ) );
+	}
+
+	/// <summary>Takes the lock as a deployment does — AcquireLock, committed — and keeps the connection.</summary>
+	private bool TakeLock( IDatabaseDriver holder )
+	{
+		IDatabaseTransaction transaction = holder.BeginTransaction();
+
+		bool? acquired = new StatementJournal( journaling, Project ).AcquireLock( transaction );
+
+		transaction.Commit();
+
+		Assert.NotNull( acquired );
+
+		return acquired.Value;
 	}
 
 	private DeploymentStatus Status( IReadOnlyList<ReleaseGroup> releases )

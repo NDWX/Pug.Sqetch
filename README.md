@@ -82,6 +82,13 @@ the project; `sqetch-deploy bundle` refuses until they are all set.
    project's optional `JournalExists` journaling statement, which the drivers' built-in templates
    for `sqetch journaling init` set.
 
+   Two deployments to one database must not run at once. Since 0.2, the PostgreSQL, SQL Server and
+   MySQL journaling templates take a lock on the database for each deployment, so a second one is
+   refused with exit `34` and nothing changed, to retry later. SQLite has no such lock: run its
+   deployments one at a time. A project set up before 0.2 sets the lock with
+   `sqetch journaling set AcquireLock` and `ReleaseLock` (the SQL is in the agent skills'
+   journaling references), and only `sqetch-deploy` 0.2 or later takes it.
+
 Each step's `verify.sql` runs right after its `deploy.sql`, in the same transaction, and an error
 from it fails the step (since `sqetch-deploy` 0.2; earlier versions bundle it without running it).
 On MySQL and MariaDB the deploy's schema changes have already committed by then, so deploy there with

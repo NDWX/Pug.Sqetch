@@ -141,6 +141,38 @@ public sealed class StatementJournal
 		return reader.Read() && Truth( slot, "column 0 (exists)", reader.GetValue( 0 ) );
 	}
 
+	/// <summary>
+	/// Takes the database's deployment lock through the optional <see cref="JournalingSlot.AcquireLock"/>
+	/// query: true when it was taken, false when its first row's column 0 is false or there is no row —
+	/// another deployment holds it. Column 0 coerces like <see cref="GetLatestRelease"/>'s completed
+	/// column. Null when the slot is not set: the deployment then runs unguarded, as it always did.
+	/// </summary>
+	public bool? AcquireLock( IDatabaseTransaction transaction )
+	{
+		if( !_statements.IsSet( JournalingSlot.AcquireLock ) )
+			return null;
+
+		const string slot = nameof(JournalingSlot.AcquireLock);
+
+		using IDataReader reader = ExecuteQuery( JournalingSlot.AcquireLock, transaction );
+
+		if( reader.FieldCount < 1 )
+			throw new JournalingStatementException( slot, 1, "must select at least one column (acquired)." );
+
+		return reader.Read() && Truth( slot, "column 0 (acquired)", reader.GetValue( 0 ) );
+	}
+
+	/// <summary>
+	/// Gives back the lock <see cref="AcquireLock"/> took, through the optional
+	/// <see cref="JournalingSlot.ReleaseLock"/> statements; does nothing when they are not set, leaving
+	/// a session lock to end with the connection.
+	/// </summary>
+	public void ReleaseLock( IDatabaseTransaction transaction )
+	{
+		if( _statements.IsSet( JournalingSlot.ReleaseLock ) )
+			Execute( JournalingSlot.ReleaseLock, Parameters( JournalingSlot.ReleaseLock ), transaction );
+	}
+
 	public void DeployingRelease( string release, string description, IDatabaseTransaction transaction )
 		=> Execute(
 			JournalingSlot.DeployingRelease,

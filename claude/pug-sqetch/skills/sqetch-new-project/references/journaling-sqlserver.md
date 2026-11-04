@@ -108,6 +108,26 @@ Optional, since 0.2: whether the journal table exists, so that `sqetch-deploy st
 select case when object_id( N'sqetch_journal', N'U' ) is null then 0 else 1 end
 ```
 
+### AcquireLock
+
+Optional, since 0.2: a query that takes the project's deployment lock, so a second concurrent deployment is refused (exit `34`). It returns one row whose first column is true when the lock was taken. The lock is released when the deployment ends, or at the latest when `sqetch-deploy` exits.
+
+```sql
+declare @resource nvarchar(255) = N'sqetch:' + @project;
+declare @result int;
+exec @result = sp_getapplock @Resource = @resource, @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0;
+select case when @result >= 0 then 1 when @result = -1 then 0 end;
+```
+
+### ReleaseLock
+
+Optional, since 0.2: releases the deployment lock when the deployment ends; if it is unset or fails, the lock is released when `sqetch-deploy` exits and its database session ends.
+
+```sql
+declare @resource nvarchar(255) = N'sqetch:' + @project;
+exec sp_releaseapplock @Resource = @resource, @LockOwner = 'Session';
+```
+
 ## Deployment events
 
 ### DeployingRelease

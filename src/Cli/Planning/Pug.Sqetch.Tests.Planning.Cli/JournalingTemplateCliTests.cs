@@ -66,7 +66,7 @@ public sealed class JournalingTemplateCliTests : IDisposable
 	private string Print( JournalingSlot slot ) => Run( "journaling", "print", slot.ToString() ).Output;
 
 	[Fact]
-	public void InitSetsEverySlotFromTheEnginesBuiltInTemplate()
+	public void InitSetsEverySlotTheEnginesBuiltInTemplateHasAndLeavesSqlitesLockUnsetWithoutWarning()
 	{
 		InitializeProject( "--engine", "SQLite" );
 
@@ -76,10 +76,33 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		Assert.Contains( "Driver\tsqlite", result.Output );
 		Assert.Contains( "Level\tbuilt-in", result.Output );
 
+		// SQLite has no session locks, so its template leaves the lock pair unset
 		Assert.Contains( "Slots set\t16", result.Output );
-		Assert.All( Run( "journaling", "list" ).Output.Split( '\n' ), line => Assert.Equal( "yes", line.Split( '\t' )[1] ) );
+
+		string[] lines = Run( "journaling", "list" ).Output.Split( '\n' );
+
+		Assert.Contains( "AcquireLock\tno\tyes", lines );
+		Assert.Contains( "ReleaseLock\tno\tyes", lines );
+		Assert.Equal( 16, lines.Count( line => line.Split( '\t' )[1] == "yes" ) );
 		Assert.Contains( "sqetch_journal", Print( JournalingSlot.JournalExists ) );
 		Assert.Contains( "create table if not exists sqetch_journal", Print( JournalingSlot.PrepareJournal ) );
+
+		// the built-in SQLite template leaves the lock out by design: SQLite has no session lock
+		Assert.Equal( "", _warnings.Output );
+	}
+
+	[Fact]
+	public void InitFromThePostgresTemplateSetsEverySlotIncludingTheLockPair()
+	{
+		InitializeProject( "--engine", "postgres" );
+
+		CommandAppResult result = Run( "journaling", "init", "postgres" );
+
+		Assert.Equal( 0, result.ExitCode );
+		Assert.Contains( "Slots set\t18", result.Output );
+		Assert.All( Run( "journaling", "list" ).Output.Split( '\n' ), line => Assert.Equal( "yes", line.Split( '\t' )[1] ) );
+		Assert.Contains( "pg_try_advisory_lock", Print( JournalingSlot.AcquireLock ) );
+		Assert.Contains( "pg_advisory_unlock", Print( JournalingSlot.ReleaseLock ) );
 		Assert.Equal( "", _warnings.Output );
 	}
 
@@ -98,11 +121,14 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		string[] lines = Run( "journaling", "list" ).Output.Split( '\n' );
 
 		Assert.Contains( "JournalExists\tno\tyes", lines );
+		Assert.Contains( "AcquireLock\tno\tyes", lines );
 		Assert.Equal( 15, lines.Count( line => line.Contains( "\tyes\tno" ) ) );
 		Assert.Equal( "-- team GetDeployedPlans", Print( JournalingSlot.GetDeployedPlans ) );
 
 		// said now, rather than discovered later as status's exit 25
-		Assert.Contains( "does not set the optional JournalExists, so it stays unset", _warnings.Output );
+		Assert.Contains( "does not set the optional JournalExists, AcquireLock, ReleaseLock, so they stay unset", _warnings.Output );
+		Assert.Contains( "'sqetch-deploy status' refuses a bundle without JournalExists", _warnings.Output );
+		Assert.Contains( "nothing stops two deployments to one database running at once", _warnings.Output );
 	}
 
 	[Fact]
@@ -117,6 +143,9 @@ public sealed class JournalingTemplateCliTests : IDisposable
 		Assert.Equal( 0, result.ExitCode );
 		Assert.Contains( "Slots set\t15", result.Output );
 		Assert.Contains( "the template does not set JournalExists", _warnings.Output );
+
+		// the built-in template the project started from set no lock either, so it is unset, not kept
+		Assert.Contains( "does not set the optional AcquireLock, ReleaseLock, so they stay unset", _warnings.Output );
 		Assert.Contains( "sqlite_master", Print( JournalingSlot.JournalExists ) );
 		Assert.Equal( "-- team GetDeployedPlans", Print( JournalingSlot.GetDeployedPlans ) );
 	}

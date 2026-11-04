@@ -67,7 +67,12 @@ it at least as new as the `sqetch` the team uses.
 
    Each database's journal decides what is new, so redeploying is safe, and a failed run resumes.
    Never let two deployments to the same database run at once: serialize the jobs per
-   environment.
+   environment. Since 0.2, a project whose journaling SQL sets the optional lock (the PostgreSQL,
+   SQL Server and MySQL templates do) also refuses a second deployment while one runs, with exit
+   `34` and nothing changed; retry it after the first finishes. That guard is a backstop, not a
+   queue, and SQLite has none, so keep the jobs serialized. It needs a session of its own: through a
+   transaction-mode pooler (PgBouncer and the like) it guards nothing, so deploy over a direct
+   connection. A pipeline still running `sqetch-deploy` 0.1 ignores the lock slots.
 
 ## Secrets
 

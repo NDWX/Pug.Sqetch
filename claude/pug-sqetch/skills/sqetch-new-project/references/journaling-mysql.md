@@ -107,6 +107,22 @@ Optional, since 0.2: whether the journal table exists, so that `sqetch-deploy st
 select count(*) from information_schema.tables where table_schema = database() and table_name = 'sqetch_journal'
 ```
 
+### AcquireLock
+
+Optional, since 0.2: a query that takes the project's deployment lock, so a second concurrent deployment is refused (exit `34`). It returns one row whose first column is true when the lock was taken. The lock is released when the deployment ends, or at the latest when `sqetch-deploy` exits.
+
+```sql
+select get_lock( concat( 'sqetch:', sha1( concat( database(), ':', @project ) ) ), 0 )
+```
+
+### ReleaseLock
+
+Optional, since 0.2: releases the deployment lock when the deployment ends; if it is unset or fails, the lock is released when `sqetch-deploy` exits and its database session ends.
+
+```sql
+select release_lock( concat( 'sqetch:', sha1( concat( database(), ':', @project ) ) ) )
+```
+
 ## Deployment events
 
 ### DeployingRelease

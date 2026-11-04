@@ -74,6 +74,14 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 	public void DeployingStep( string release, string plan, string step ) =>
 		Report( $"deploying step '{step}' of plan '{plan}'" );
 
+	public void LockAcquired() => Report( "acquired the deployment lock" );
+
+	public void LockNotReleased( Exception exception )
+		=> Report(
+			$"warning: the deployment lock could not be released ({exception.Message}); it ends with this " +
+			"database session, when sqetch-deploy exits"
+		);
+
 	public void VerifyingStep( string release, string plan, string step ) =>
 		Report( $"verifying step '{step}' of plan '{plan}'" );
 

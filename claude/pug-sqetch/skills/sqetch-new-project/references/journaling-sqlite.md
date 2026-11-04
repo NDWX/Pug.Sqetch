@@ -9,6 +9,8 @@ Since `sqetch` 0.2 this is the `sqlite` driver's built-in template, and
 `sqetch journaling init sqlite` sets them all at once; use what follows only with an older
 `sqetch`, or to read the SQL.
 
+SQLite has no session locks, so this template sets neither of the optional `AcquireLock` and `ReleaseLock` slots; serialize SQLite deployments in the pipeline.
+
 Write each block below to a file named after its slot, in a temporary folder outside the project
 (here `/tmp/journaling-sql`), then set them all from inside the project folder:
 

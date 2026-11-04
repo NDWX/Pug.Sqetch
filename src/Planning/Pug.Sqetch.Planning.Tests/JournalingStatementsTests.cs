@@ -137,10 +137,57 @@ public class JournalingStatementsTests
 	{
 		List<string> names = JournalingSlots.All.Select( JournalingSlots.FileName ).ToList();
 
-		Assert.Equal( 16, names.Count );
+		Assert.Equal( 18, names.Count );
 		Assert.Equal( names.Count, names.Distinct( StringComparer.OrdinalIgnoreCase ).Count() );
 		Assert.Equal( "JournalExists.sql", JournalingSlots.FileName( JournalingSlot.JournalExists ) );
 	}
+
+	[Fact]
+	public void TheLockSlotsAreNotEventsAndTakeNoPrefix()
+	{
+		Assert.Equal( "AcquireLock.sql", JournalingSlots.FileName( JournalingSlot.AcquireLock ) );
+		Assert.Equal( "ReleaseLock.sql", JournalingSlots.FileName( JournalingSlot.ReleaseLock ) );
+	}
+
+	/// <summary>The names bundles and projects written before the lock slots exist on disk under.</summary>
+	[Fact]
+	public void TheSixteenEarlierFileNamesAreUnchanged()
+		=> Assert.Equal(
+			new[]
+			{
+				"OnDeployingRelease.sql", "OnDeployingPlan.sql", "OnDeployingStep.sql", "OnStepDeployed.sql",
+				"OnPlanDeployed.sql", "OnReleaseDeployed.sql", "OnRollingBackStep.sql", "OnRollingBackPlan.sql",
+				"OnRollingBackRelease.sql", "OnRolledBackStep.sql", "OnRolledBackPlan.sql", "OnRolledBackRelease.sql",
+				"GetLatestRelease.sql", "GetDeployedPlans.sql", "PrepareJournal.sql", "JournalExists.sql"
+			}.Order(),
+			JournalingSlots.All
+				.Where( slot => slot is not (JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock) )
+				.Select( JournalingSlots.FileName )
+				.Order()
+		);
+
+	[Fact]
+	public void IsEventCoversExactlyTheTwelveDeploymentEvents()
+	{
+		JournalingSlot[] events = JournalingSlots.All.Where( JournalingSlots.IsEvent ).ToArray();
+
+		Assert.Equal( 12, events.Length );
+		Assert.All( events, slot => Assert.StartsWith( "On", JournalingSlots.FileName( slot ) ) );
+		Assert.All( events, slot => Assert.False( JournalingSlots.IsQuery( slot ) ) );
+
+		Assert.All(
+			new[]
+			{
+				JournalingSlot.PrepareJournal, JournalingSlot.GetLatestRelease, JournalingSlot.GetDeployedPlans,
+				JournalingSlot.JournalExists, JournalingSlot.AcquireLock, JournalingSlot.ReleaseLock
+			},
+			slot => Assert.False( JournalingSlots.IsEvent( slot ) )
+		);
+	}
+
+	[Fact]
+	public void WritesIsExactlyIsEvent()
+		=> Assert.All( JournalingSlots.All, slot => Assert.Equal( JournalingSlots.IsEvent( slot ), JournalingSlots.Writes( slot ) ) );
 
 	// ------------------------------------------------------------------ parameters
 
@@ -200,10 +247,12 @@ public class JournalingStatementsTests
 		Assert.False( JournalingSlots.Writes( JournalingSlot.GetDeployedPlans ) );
 		Assert.False( JournalingSlots.Writes( JournalingSlot.JournalExists ) );
 		Assert.False( JournalingSlots.Writes( JournalingSlot.PrepareJournal ) );
+		Assert.False( JournalingSlots.Writes( JournalingSlot.AcquireLock ) );
+		Assert.False( JournalingSlots.Writes( JournalingSlot.ReleaseLock ) );
 
 		Assert.All(
-			JournalingSlots.All.Where( slot => !JournalingSlots.IsQuery( slot ) && slot != JournalingSlot.PrepareJournal
-			),
+			JournalingSlots.All.Where( slot => !JournalingSlots.IsQuery( slot )
+				&& slot is not (JournalingSlot.PrepareJournal or JournalingSlot.ReleaseLock) ),
 			slot => Assert.True( JournalingSlots.Writes( slot ) )
 		);
 	}
@@ -295,13 +344,57 @@ public class JournalingStatementsTests
 	// ------------------------------------------------------------------ the optional slot
 
 	[Fact]
-	public void OnlyJournalExistsIsOptionalAndRequiredHoldsTheFifteenOthers()
+	public void OnlyJournalExistsAndTheLockPairAreOptionalAndRequiredHoldsTheFifteenOthers()
 	{
 		Assert.True( JournalingSlots.IsOptional( JournalingSlot.JournalExists ) );
+		Assert.True( JournalingSlots.IsOptional( JournalingSlot.AcquireLock ) );
+		Assert.True( JournalingSlots.IsOptional( JournalingSlot.ReleaseLock ) );
 		Assert.All( JournalingSlots.Required, slot => Assert.False( JournalingSlots.IsOptional( slot ) ) );
 		Assert.Equal( 15, JournalingSlots.Required.Count );
 		Assert.DoesNotContain( JournalingSlot.JournalExists, JournalingSlots.Required );
-		Assert.Equal( 16, JournalingSlots.All.Count );
+		Assert.DoesNotContain( JournalingSlot.AcquireLock, JournalingSlots.Required );
+		Assert.DoesNotContain( JournalingSlot.ReleaseLock, JournalingSlots.Required );
+		Assert.Equal( 18, JournalingSlots.All.Count );
+	}
+
+	[Fact]
+	public void AcquireLockIsAQueryTakingOnlyTheProject()
+	{
+		Assert.True( JournalingSlots.IsQuery( JournalingSlot.AcquireLock ) );
+		Assert.Equal( [ "project" ], JournalingSlots.ParameterNames( JournalingSlot.AcquireLock ) );
+
+		ArgumentException error = Assert.Throws<ArgumentException>( () =>
+			JournalingStatements.Parse( JournalingSlot.AcquireLock, "select 1\n;;\nselect 2" )
+		);
+
+		Assert.Contains( "AcquireLock is a query", error.Message );
+	}
+
+	[Fact]
+	public void ReleaseLockIsAStatementSlotTakingOnlyTheProjectAndMayHoldSeveral()
+	{
+		Assert.False( JournalingSlots.IsQuery( JournalingSlot.ReleaseLock ) );
+		Assert.Equal( [ "project" ], JournalingSlots.ParameterNames( JournalingSlot.ReleaseLock ) );
+		Assert.Equal(
+			[ "select 1", "select 2" ],
+			JournalingStatements.Parse( JournalingSlot.ReleaseLock, "select 1\n;;\nselect 2" )
+		);
+	}
+
+	[Fact]
+	public void TheLockSlotsMayBeUnsetAndAreNeverReportedMissing()
+	{
+		Dictionary<JournalingSlot, string?> text = Complete();
+
+		text.Remove( JournalingSlot.AcquireLock );
+		text.Remove( JournalingSlot.ReleaseLock );
+
+		Assert.Empty( JournalingStatements.Missing( text ) );
+
+		JournalingStatements statements = new( text );
+
+		Assert.False( statements.IsSet( JournalingSlot.AcquireLock ) );
+		Assert.False( statements.IsSet( JournalingSlot.ReleaseLock ) );
 	}
 
 	[Fact]

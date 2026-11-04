@@ -33,17 +33,27 @@ public class BuiltInJournalTemplateTests
 
 	[Theory]
 	[MemberData( nameof(Drivers) )]
-	public void EveryTemplateHoldsTheFifteenRequiredSlotsAndTheOptionalJournalExists( string driver )
+	public void EveryTemplateHoldsTheFifteenRequiredSlotsAndTheOptionalJournalExistsAndTheLockPairWhereTheEngineHasSessionLocks(
+		string driver
+	)
 	{
 		IReadOnlyDictionary<string, string> template = Driver( driver ).GetJournalingTemplate();
 
+		// SQLite has no session locks, so its template leaves the lock pair unset
+		bool locks = driver != SqliteDatabaseDriverFactory.DriverName;
+
 		Assert.Equal(
-			JournalingSlots.All.Select( slot => slot.ToString() ).Order(),
+			JournalingSlots.All
+				.Where( slot => locks || slot is not (JournalingSlot.AcquireLock or JournalingSlot.ReleaseLock) )
+				.Select( slot => slot.ToString() )
+				.Order(),
 			template.Keys.Order() );
 
-		Assert.Equal( 16, template.Count );
+		Assert.Equal( locks ? 18 : 16, template.Count );
 		Assert.All( JournalingSlots.Required, slot => Assert.Contains( slot.ToString(), template.Keys ) );
 		Assert.Contains( nameof(JournalingSlot.JournalExists), template.Keys );
+		Assert.Equal( locks, template.ContainsKey( nameof(JournalingSlot.AcquireLock) ) );
+		Assert.Equal( locks, template.ContainsKey( nameof(JournalingSlot.ReleaseLock) ) );
 
 		Assert.All( template.Values, sql => Assert.False( string.IsNullOrWhiteSpace( sql ) ) );
 

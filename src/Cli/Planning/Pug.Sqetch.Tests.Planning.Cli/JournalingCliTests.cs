@@ -55,7 +55,7 @@ public class JournalingCliTests : IDisposable
 
 		string[] before = Run( "journaling", "list" ).Output.Split( '\n' );
 
-		Assert.Equal( 16, before.Length );
+		Assert.Equal( 18, before.Length );
 		Assert.All( before, line => Assert.Equal( "no", line.Split( '\t' )[1] ) );
 		Assert.Contains( before, line => line.StartsWith( "PrepareJournal\t" ) );
 
@@ -71,14 +71,16 @@ public class JournalingCliTests : IDisposable
 	}
 
 	[Fact]
-	public void ListMarksOnlyJournalExistsOptional()
+	public void ListMarksOnlyJournalExistsAndTheLockPairOptional()
 	{
 		InitializeProject();
 
 		string[] lines = Run( "journaling", "list" ).Output.Split( '\n' );
 
 		Assert.Contains( "JournalExists\tno\tyes", lines );
-		Assert.Single( lines, line => line.EndsWith( "\tyes" ) );
+		Assert.Contains( "AcquireLock\tno\tyes", lines );
+		Assert.Contains( "ReleaseLock\tno\tyes", lines );
+		Assert.Equal( 3, lines.Count( line => line.EndsWith( "\tyes" ) ) );
 		Assert.Equal( 15, lines.Count( line => line.EndsWith( "\tno\tno" ) ) );
 	}
 
@@ -90,7 +92,7 @@ public class JournalingCliTests : IDisposable
 		using JsonDocument document = JsonDocument.Parse( Run( "journaling", "list", "--output", "json" ).Output );
 
 		Assert.Equal(
-			[ "JournalExists" ],
+			[ "JournalExists", "AcquireLock", "ReleaseLock" ],
 			document.RootElement.EnumerateArray()
 				.Where( x => x.GetProperty( "optional" ).GetBoolean() )
 				.Select( x => x.GetProperty( "slot" ).GetString() ) );
@@ -252,9 +254,11 @@ public class JournalingCliTests : IDisposable
 
 		string[] lines = result.Output.Split( '\n', StringSplitOptions.RemoveEmptyEntries );
 
-		Assert.Equal( 16, lines.Length );
+		Assert.Equal( 18, lines.Length );
 		Assert.Contains( lines, line => line.StartsWith( "DeployingStep\t" ) );
 		Assert.Contains( "JournalExists\t@project", lines );
+		Assert.Contains( "AcquireLock\t@project", lines );
+		Assert.Contains( "ReleaseLock\t@project", lines );
 
 		// shown with the '@' a maintainer types, narrowing to the unit the slot names
 		Assert.Contains( "DeployingStep\t@project @release @plan @step @description", result.Output );

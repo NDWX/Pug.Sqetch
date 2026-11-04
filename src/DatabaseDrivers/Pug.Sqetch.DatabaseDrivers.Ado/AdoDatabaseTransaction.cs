@@ -105,24 +105,38 @@ public sealed class AdoDatabaseTransaction : IDatabaseTransaction, IDisposable
 		Finished = true;
 	}
 
+	/// <summary>
+	/// Rolls back; the transaction is finished even when that throws — a provider refusing to roll back
+	/// a transaction the server already ended — so the driver can begin the next one.
+	/// </summary>
 	public void Rollback()
 	{
-		CloseReaders();
+		try
+		{
+			CloseReaders();
 
-		_transaction.Rollback();
-
-		Finished = true;
+			_transaction.Rollback();
+		}
+		finally
+		{
+			Finished = true;
+		}
 	}
 
 	public void Dispose()
 	{
-		CloseReaders();
+		try
+		{
+			CloseReaders();
 
-		// DbTransaction.Dispose rolls back an uncommitted transaction, which is what an abandoned
-		// one deserves
-		_transaction.Dispose();
-
-		Finished = true;
+			// DbTransaction.Dispose rolls back an uncommitted transaction, which is what an abandoned
+			// one deserves
+			_transaction.Dispose();
+		}
+		finally
+		{
+			Finished = true;
+		}
 	}
 
 	private DbCommand Command( string text )

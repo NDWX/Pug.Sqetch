@@ -154,7 +154,8 @@ public sealed class JournalingTemplateSourcesTests : IDisposable
 
 		JournalingTemplate template = Sources( user ).Resolve( null, "withtemplate" );
 
-		Assert.Equal( JournalingSlots.Required.Count, template.Statements.Count );
+		// the lock pair is optional too, and WriteTemplate writes it
+		Assert.Equal( JournalingSlots.Required.Count + 2, template.Statements.Count );
 		Assert.False( template.Statements.ContainsKey( JournalingSlot.JournalExists ) );
 	}
 

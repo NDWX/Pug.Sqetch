@@ -1,3 +1,5 @@
+using Npgsql;
+
 using Pug.Sqetch.DatabaseDrivers.PostgreSql;
 
 namespace Pug.Sqetch.Tests.DatabaseDrivers;
@@ -34,7 +36,8 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 						where table_schema = 'public' and table_name like '%\_s1'
 						order by table_name
 						"""
-					)
+					),
+					endPooledSessions: NpgsqlConnection.ClearAllPools
 				);
 			}
 		);
@@ -93,4 +96,26 @@ public class PostgreSqlDeploymentTests : IClassFixture<PostgresDatabase>
 	[DockerFact]
 	public void StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing()
 		=> _deployment.Value.StatusRefusesAContinuationBundleOnAFreshDatabaseAndWritesNothing();
+
+	[DockerFact]
+	public void ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing()
+		=> _deployment.Value.ALockHeldElsewhereRefusesTheDeploymentAndCreatesNothing();
+
+	[DockerFact]
+	public void TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen()
+		=> _deployment.Value.TheLockIsReleasedWhileTheDeployingConnectionIsStillOpen();
+
+	[DockerFact]
+	public void ASecondDeploymentIsRefusedWhileTheFirstIsRunning()
+		=> _deployment.Value.ASecondDeploymentIsRefusedWhileTheFirstIsRunning(
+			"select pg_advisory_lock( 4242 )",
+			"select pg_advisory_unlock( 4242 )",
+			"create table a_s1 ( id integer primary key ); select pg_advisory_lock( 4242 ); select pg_advisory_unlock( 4242 )",
+			// the deployment lock is the two-key form (objsubid 2); the test's own blocker is the one-key form
+			"""
+			select count(*) from pg_locks
+			where locktype = 'advisory' and granted and objsubid = 2
+				and database = ( select oid from pg_database where datname = current_database() )
+			"""
+		);
 }

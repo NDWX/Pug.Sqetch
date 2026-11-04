@@ -142,7 +142,9 @@ root.
 - **Journaling is project-authored SQL** (`JournalingSlot`, `JournalingStatements` in
   `Pug.Sqetch.Planning.Models`): fifteen required slots — twelve deployment events, the two queries
   `GetLatestRelease`/`GetDeployedPlans`, and `PrepareJournal` — and the **optional** query
-  `JournalExists` (`JournalingSlots.IsOptional`/`Required`), set per project via
+  `JournalExists` and lock slots `AcquireLock` (a query) and `ReleaseLock`
+  (`JournalingSlots.IsOptional`/`Required`; `IsEvent` names the twelve events, which alone take the
+  `On` file prefix and `@utcTimestamp`), set per project via
   `IProject.SetJournalingStatement`, stored as `journaling/<slot>.sql`, and carried in the bundle.
   A slot may hold several statements, separated by a line whose trimmed content is exactly `;;`;
   that is the **only** parsing Sqetch does to the SQL, so a `$$ … $$` body containing a bare `;;`
@@ -246,7 +248,26 @@ root.
   database's state); `InvalidBundleException` stays for malformed manifests, which the CLI's
   grouping now raises, not the engine. "Bundle" here reads as "the groups the engine was handed":
   the exception names and messages predate the engine taking groups from any source.
-- **Transaction order** (`DeploymentEngine`): every deployment opens `PrepareJournal` in a
+- **The deployment lock** (`AcquireLock`/`ReleaseLock`, optional): when `AcquireLock` is set, it
+  runs before anything else — even `PrepareJournal`, whose DDL two deployments must not race on — in
+  a transaction committed alone and not reported; a false or empty answer is
+  `DeploymentLockedException`, exit `34`, with nothing else run and no release. The lock counts as
+  held the moment the query says so, before that commit and the listener, so either failing still
+  releases it. Everything after it,
+  compensation included, runs in a `try` whose `finally` runs `ReleaseLock` in its own transaction;
+  a failing release never replaces the outcome and is only `IDeploymentListener.LockNotReleased`
+  (a warning), since the lock is a session's and ends with the database session. That is when the
+  CLI process exits, not necessarily when the driver is disposed: a pooled connection keeps its
+  session (Npgsql resets it only on reuse), so a long-lived host embedding the engine relies on
+  `ReleaseLock` — the PostgreSQL scenarios clear the pool to stand in for the process ending. Unset, no lock transaction runs at all. The templates take session locks without waiting
+  (PostgreSQL `pg_try_advisory_lock` with the two-key form, `hashtext( 'sqetch' )` and
+  `hashtext( @project )`, keeping off other tools' single-key space; SQL Server `sp_getapplock`
+  session-owned with timeout 0, answering 0 only for `-1` "held" and NULL — a journal error, `42` —
+  for its other failures; MySQL `get_lock(…, 0)` named with `database()` since its locks are
+  server-wide); SQLite has none and sets neither. Session locks need a session: behind a
+  transaction-mode pooler (PgBouncer) they guard nothing, which the skills say. `status` takes no lock. The lock is a guard, not a queue: a refused deployment is the
+  caller's to retry.
+- **Transaction order** (`DeploymentEngine`): every deployment (after the lock, when set) opens `PrepareJournal` in a
   transaction committed **alone** (the journal's schema must exist before it can be read, and DDL
   auto-commits on some engines), then **both** journal queries in one transaction (so the resume
   decision comes from one consistent view), then the deployment itself — committed at plan or
@@ -373,6 +394,11 @@ root.
   Every scenario step has a passing verify script, and `AFailingVerifyFailsTheStep` takes each provider's
   own run-time failing check (SQLite has `1 / 0` as NULL, MySQL and MariaDB too), proving each provider
   surfaces an error raised while a `select` runs through `ExecuteNonQuery`.
+  The lock scenarios run on every engine whose template sets one (not SQLite): a lock held by another
+  driver refuses the deployment, which creates nothing; `ReleaseLock` frees it while the deploying
+  connection is still open; and on PostgreSQL a second deployment is refused while the first is
+  deterministically held mid-step on an advisory key the test owns. They clear the provider's pool to
+  stand in for a process ending, since a pooled session keeps its locks.
   The scenarios' rollback scripts use `drop table if exists`, as compensation on those engines also
   runs for a step that never applied — the only place the engine's resume decision is read back out of SQL the deployment
   itself wrote, and the only check that a journal's `completed` column works as both a count
@@ -413,7 +439,8 @@ root.
   `CommandParseException` carries no reason of its own. Then `21`/`22`/`23`/`24` missing / invalid /
   incompatible / unsupported bundle (`24`: an unknown layout or a newer layout format — the remedy
   is upgrading the tool, not fixing the bundle), `25` the bundle's journaling SQL lacks optional
-  statements the command needs (one code for every such command: set them, rebuild), `31`/`32`/`33` unknown driver / driver creation / database unreachable, `41`/`42`/`43` journal
+  statements the command needs (one code for every such command: set them, rebuild), `31`/`32`/`33`/`34` unknown driver / driver creation / database unreachable / database busy (another
+  deployment holds the lock; like `33`, retrying later is safe), `41`/`42`/`43` journal
   prepare / query / write, `51`/`52` deployment failed with the database unchanged / left partway,
   `61` rollback failed, `71`/`72`/`73` for `bundle`: project unreadable (missing, damaged, newer
   format) / not bundleable (unset journaling, missing scripts, a `--since` with nothing after it,
