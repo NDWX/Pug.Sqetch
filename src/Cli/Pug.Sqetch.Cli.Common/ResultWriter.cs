@@ -165,6 +165,13 @@ public static class ResultWriter
 		}
 	}
 
+	/// <summary>
+	/// Writes <paramref name="lines"/> verbatim and unwrapped, for text another program reads
+	/// (a Mermaid or DOT graph): a line wrapped at the console's width would break its syntax.
+	/// </summary>
+	public static void WriteText( IAnsiConsole console, IReadOnlyList<string> lines )
+		=> WriteLines( console, lines );
+
 	private static void WriteJson( IAnsiConsole console, object value )
 		=> WriteLines( console, JsonSerializer.Serialize( value, JsonOptions ).Split( '\n' ) );
 

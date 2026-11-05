@@ -46,7 +46,7 @@ root.
 | `Pug.Sqetch.Planning.Abstractions` (net8.0) | The authoring contracts: `IProject`/`IReadOnlyProject`, `IScriptsStore`, `IReleaseDependencyDeterminator`, domain exceptions; `ProjectInfoStore/` — `IProjectInfoStore` |
 | `Pug.Sqetch.Planning` | The engine (`Project`): business rules, dependency ordering, semaphores |
 | `Pug.Sqetch.Planning.ProjectInfoStores.FileSystem` | Git-friendly file store: `ProjectPaths`, sharding, plan index, `NameRules` |
-| `Pug.Sqetch.Cli.Commands` (net10.0) | The 'sqetch' commands (project, plan, step, release, journaling), `OptionParsing`, `Output/Rows`. References the driver contract, not the drivers |
+| `Pug.Sqetch.Cli.Commands` (net10.0) | The 'sqetch' commands (project, plan, step, release, journaling), `OptionParsing`, `Output/Rows`, `Output/PlanGraph` (`plan graph`'s text, Mermaid and DOT, written unwrapped through `ResultWriter.WriteText`). References the driver contract, not the drivers |
 | `Pug.Sqetch.Planning.Cli` | The 'sqetch' host: `Program`, the command tree (`SqetchApp.Configure`), the default composition (`SqetchApp.CreateDefaultRegistrar`: the drivers, for their journaling templates, the template sources and the warning writer) and `CliErrors`. Its tool package keeps the id `Pug.Sqetch.Cli` |
 | **Deployment** | |
 | `Pug.Sqetch.Deployment.Bundling.Abstractions` (net8.0) | The bundling contracts: `Bundle`/`BundleManifest` models, `BundleMetadata` (the `META-DATA` entry), `IBundleType`/`IBundleWriter`/`IBundleReader`/`IBundleLayout`, registry interfaces, bundling exceptions. References only `Planning.Models` |
