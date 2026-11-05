@@ -66,6 +66,16 @@ public class ResultWriterTests
 		Assert.Equal( [ "Name,Note", $"first,{Long}", "second,short" ], Lines() );
 	}
 
+	/// <summary>Text another program parses, such as a Mermaid graph, breaks when a line wraps.</summary>
+	[Fact]
+	public void TextKeepsEveryLineWhole()
+	{
+		ResultWriter.WriteText( _console, [ "flowchart TD", $"    p1[\"{Long}\"]" ] );
+
+		Assert.Equal( [ "flowchart TD", $"    p1[\"{Long}\"]" ], Lines() );
+		Assert.Equal( ConsoleWidth, _console.Profile.Width );
+	}
+
 	[Fact]
 	public void DetailsKeepOneRecordPerLine()
 	{

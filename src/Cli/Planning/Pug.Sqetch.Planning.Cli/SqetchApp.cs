@@ -87,6 +87,9 @@ public static class SqetchApp
 				plan.AddCommand<PlanListCommand>( "list" )
 					.WithDescription( "List plans; unreleased ones by default" );
 
+				plan.AddCommand<PlanGraphCommand>( "graph" )
+					.WithDescription( "Print the plan dependency graph as text, Mermaid or DOT" );
+
 				plan.AddCommand<PlanCreateCommand>( "create" )
 					.WithDescription( "Create a plan; prints the plan's path" );
 

@@ -96,6 +96,8 @@ Keep verify scripts read-only: they run in the deployment's transaction.
   plan's own dependencies along. There, add each dependency yourself, and before finalizing check
   `sqetch plan list -r <release> -o json` (the `dependencies` field): each dependency must be in this
   release or an earlier one.
+- **Reviewing them** (since 0.2): `sqetch plan graph -r <release>` lists the release's plans with
+  every dependency's release, so one outside it stands out (see Inspecting).
 
 ## Releases
 
@@ -129,9 +131,19 @@ sqetch plan list -r 1.5
 sqetch plan list-steps -p add-orders      # steps in deployment order
 sqetch release list                       # open releases
 sqetch release list --finalized
+sqetch plan graph                         # dependency graph, plans grouped by release (since 0.2)
+sqetch plan graph -r 1.5                  # one release; dependencies elsewhere show their release
+sqetch plan graph --from-release 1.5      # 1.5, every later release, and the unreleased plans
+sqetch plan graph --unreleased --format mermaid
 ```
 
 Lists come back in deployment order. `-o json` or `-o csv` give data to parse.
+
+`plan graph` prints text by default (`orders: requires base (1.0)`), or `--format mermaid` or
+`--format dot` (Graphviz), with arrows from a dependency to the plan needing it and a dependency
+outside the selection drawn dashed. `-r` and `--unreleased` combine; `--from-release` stands alone.
+To show the graph in a pull request or issue, paste the Mermaid output inside a ```` ```mermaid ````
+fenced block, which GitHub renders.
 
 ## Deleting
 

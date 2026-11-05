@@ -6,6 +6,7 @@ using Pug.Sqetch.Planning.Models;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
+using PlanGraph = Pug.Sqetch.Cli.Commands.Authoring.Output.PlanGraph;
 using Rows = Pug.Sqetch.Cli.Commands.Authoring.Output.Rows;
 
 namespace Pug.Sqetch.Cli.Commands.Authoring;
@@ -109,6 +110,154 @@ public sealed class PlanListCommand( IAnsiConsole console ) : Command<PlanListCo
 		ResultWriter.WriteRows( console, settings.Format, Rows.PlanHeaders, plans, Rows.Plan, Rows.PlanJson );
 
 		return 0;
+	}
+}
+
+/// <summary>
+/// Prints the plan dependency graph, plans grouped by release in lineage order, as text, Mermaid
+/// or DOT. A dependency outside the selection is shown with its release, so a reviewer sees what
+/// the selected plans rely on.
+/// </summary>
+public sealed class PlanGraphCommand( IAnsiConsole console ) : Command<PlanGraphCommand.Settings>
+{
+	public sealed class Settings : CommandSettings
+	{
+		[CommandOption( "--format <FORMAT>" )]
+		[Description( "text (default), mermaid or dot" )]
+		public string? Format { get; init; }
+
+		[CommandOption( "-r|--release <RELEASE>" )]
+		[Description( "Only plans of this release" )]
+		public string? Release { get; init; }
+
+		[CommandOption( "--unreleased" )]
+		[Description( "Only unreleased plans; with --release, those too" )]
+		public bool Unreleased { get; init; }
+
+		[CommandOption( "--from-release <RELEASE>" )]
+		[Description( "Plans of this release and every later one, and the unreleased plans" )]
+		public string? FromRelease { get; init; }
+
+		internal Func<PlanGraph, IReadOnlyList<string>> Render { get; private set; } = x => x.Text();
+
+		public override ValidationResult Validate()
+		{
+			switch( Format?.ToLowerInvariant() )
+			{
+				case null or "text":
+					Render = x => x.Text();
+
+					break;
+
+				case "mermaid":
+					Render = x => x.Mermaid();
+
+					break;
+
+				case "dot":
+					Render = x => x.Dot();
+
+					break;
+
+				default:
+					return ValidationResult.Error( "--format must be 'text', 'mermaid' or 'dot'" );
+			}
+
+			if( Release is not null && !NameValidation.IsValid( Release ) )
+				return ValidationResult.Error( NameValidation.Error( "--release" ) );
+
+			if( FromRelease is not null )
+			{
+				if( Release is not null || Unreleased )
+					return ValidationResult.Error( "--from-release cannot be combined with --release or --unreleased" );
+
+				if( !NameValidation.IsValid( FromRelease ) )
+					return ValidationResult.Error( NameValidation.Error( "--from-release" ) );
+			}
+
+			return ValidationResult.Success();
+		}
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		PlanGraph graph = PlanGraph.Build(
+			SelectGroups( session, settings ),
+			x => session.Project.GetDependencies( x )
+		);
+
+		ResultWriter.WriteText( console, settings.Render( graph ) );
+
+		return 0;
+	}
+
+	/// <summary>
+	/// The selected plans, a group per release in the engine's order. A release or the unreleased
+	/// plans asked for by name are shown even when empty; otherwise only groups holding plans are.
+	/// </summary>
+	private static IEnumerable<(string Release, IReadOnlyList<ProjectPlan> Plans)> SelectGroups(
+		ProjectSession session,
+		Settings settings
+	)
+	{
+		List<(string Release, List<ProjectPlan> Plans)> groups = [ ];
+
+		if( settings.Release is not null || settings.Unreleased )
+		{
+			if( settings.Release is not null )
+				groups.Add(
+					(
+						RequireRelease( session, settings.Release ).Definition.Name,
+						session.Project.GetPlans( new PlanSearchCriteria( Release: settings.Release ) ).ToList()
+					)
+				);
+
+			if( settings.Unreleased )
+				groups.Add( ( "", session.Project.GetPlans( new PlanSearchCriteria() ).ToList() ) );
+		}
+		else
+		{
+			HashSet<string>? releases =
+				settings.FromRelease is null ? null : LineageFrom( session, settings.FromRelease );
+
+			// released plans arrive grouped by release in lineage order: split them into those runs
+			foreach( ProjectPlan plan in session.Project.GetPlans( new PlanSearchCriteria( Released: true ) ) )
+			{
+				if( releases is not null && !releases.Contains( plan.Release ) )
+					continue;
+
+				if( groups.Count == 0 ||
+					!string.Equals( groups[^1].Release, plan.Release, StringComparison.OrdinalIgnoreCase ) )
+					groups.Add( ( plan.Release, [ ] ) );
+
+				groups[^1].Plans.Add( plan );
+			}
+
+			List<ProjectPlan> unreleased = session.Project.GetPlans( new PlanSearchCriteria() ).ToList();
+
+			if( unreleased.Count > 0 )
+				groups.Add( ( "", unreleased ) );
+		}
+
+		return groups.Select( x => ( x.Release, (IReadOnlyList<ProjectPlan>)x.Plans ) );
+	}
+
+	private static ProjectRelease RequireRelease( ProjectSession session, string release )
+		=> session.Stores.InfoStore.GetRelease( release ) ?? throw new UnknownReleaseException( release );
+
+	/// <summary><paramref name="release"/> and every release after it, following each release's one dependant.</summary>
+	private static HashSet<string> LineageFrom( ProjectSession session, string release )
+	{
+		HashSet<string> lineage = new( StringComparer.OrdinalIgnoreCase );
+
+		string? current = RequireRelease( session, release ).Definition.Name;
+
+		while( current is not null && lineage.Add( current ) )
+			current = session.Project.GetReleaseDependants( current ).FirstOrDefault()?.Definition.Name;
+
+		return lineage;
 	}
 }
 
