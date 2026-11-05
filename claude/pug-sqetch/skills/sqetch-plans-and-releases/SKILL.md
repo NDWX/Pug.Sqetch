@@ -153,9 +153,10 @@ Since 0.2, plans, steps and releases can be changed in place, keeping their hist
 details (with 0.1.x, delete and recreate instead):
 
 ```sh
-sqetch plan update -n add-orders -d "Orders, their lines and index"
-sqetch plan update -n add-orders --require-plans add-customers      # replace the dependencies ("" for none)
-sqetch plan update -n add-orders --add-dependency a --remove-dependency b
+sqetch plan update -n add-orders -d "Orders, their lines and index"   # the description
+sqetch plan set-dependencies -n add-orders --plans add-customers       # replace them ("" for none)
+sqetch plan add-dependency -n add-orders --plans add-products
+sqetch plan remove-dependency -n add-orders --plans add-customers     # refused if not a dependency
 sqetch release update -n 1.5 -d "Ordering"
 sqetch plan update-step -p add-orders -n orders-table -d "Creates the table"
 sqetch plan rename-step -p add-orders -n orders-table --new-name create-orders   # prints the new path
@@ -163,9 +164,9 @@ sqetch plan move-step -p add-orders -n orders-customer-index --after orders-line
 sqetch plan move-step -p add-orders -n orders-customer-index --before orders-lines
 ```
 
-- **`plan update`** checks a new dependency as `plan create` does: it must exist, must not lead
-  back to the plan (refused, naming the loop), and for a released plan must be in its release or an
-  earlier one.
+- **`set-dependencies`, `add-dependency` and `remove-dependency`** check a new dependency as
+  `plan create` does: it must exist, must not lead back to the plan (refused, naming the loop), and
+  for a released plan must be in its release or an earlier one.
 - **`move-step`** reorders through dependencies, like moving an item in a linked list: the steps
   that required the moved step take its dependency, then it requires the step it is placed after
   (whose other followers now require it), or takes the dependency of the step it is placed before

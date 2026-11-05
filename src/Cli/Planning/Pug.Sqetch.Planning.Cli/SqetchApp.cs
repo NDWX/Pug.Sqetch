@@ -94,7 +94,16 @@ public static class SqetchApp
 					.WithDescription( "Create a plan; prints the plan's path" );
 
 				plan.AddCommand<PlanUpdateCommand>( "update" )
-					.WithDescription( "Change a plan's description or dependencies" );
+					.WithDescription( "Change a plan's description" );
+
+				plan.AddCommand<PlanSetDependenciesCommand>( "set-dependencies" )
+					.WithDescription( "Replace the plans a plan depends on" );
+
+				plan.AddCommand<PlanAddDependencyCommand>( "add-dependency" )
+					.WithDescription( "Add plans a plan depends on" );
+
+				plan.AddCommand<PlanRemoveDependencyCommand>( "remove-dependency" )
+					.WithDescription( "Remove plans a plan depends on" );
 
 				plan.AddCommand<PlanDeleteCommand>( "delete" )
 					.WithDescription( "Delete a plan" );

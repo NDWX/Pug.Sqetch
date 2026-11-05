@@ -5,7 +5,8 @@ using Spectre.Console.Cli.Testing;
 namespace Pug.Sqetch.Tests.Planning.Cli;
 
 /// <summary>
-/// The edit commands end to end: 'plan update', 'release update', 'plan update-step',
+/// The edit commands end to end: 'plan update', 'plan set-dependencies', 'plan add-dependency',
+/// 'plan remove-dependency', 'release update', 'plan update-step',
 /// 'plan rename-step' and 'plan move-step', on plan <c>orders</c> whose steps a ← b ← c form a
 /// chain, and plan <c>base</c>, on which nothing depends yet.
 /// </summary>
@@ -78,27 +79,42 @@ public sealed class EditCliTests : IDisposable
 			.ToArray();
 
 	[Fact]
-	public void PlanUpdateChangesDescriptionAndDependencies()
+	public void PlanUpdateChangesTheDescriptionOnly()
 	{
-		Succeed( "plan", "create", "--name", "audit" );
-
-		Succeed( "plan", "update", "--name", "orders", "--description", "orders and lines", "--require-plans", "base" );
+		Succeed( "plan", "set-dependencies", "--name", "orders", "--plans", "base" );
+		Succeed( "plan", "update", "--name", "orders", "--description", "orders and lines" );
 
 		Assert.Contains( "orders and lines", Succeed( "plan", "--name", "orders" ) );
 		Assert.Equal( [ "base" ], PlanDependencies( "orders" ) );
+	}
 
-		Succeed( "plan", "update", "--name", "orders", "--add-dependency", "audit", "--remove-dependency", "base" );
-		Assert.Equal( [ "audit" ], PlanDependencies( "orders" ) );
+	[Fact]
+	public void DependencyCommandsSetAddAndRemove()
+	{
+		Succeed( "plan", "create", "--name", "audit" );
+		Succeed( "plan", "create", "--name", "customers" );
 
-		Succeed( "plan", "update", "--name", "orders", "--require-plans", "" );
+		Succeed( "plan", "set-dependencies", "--name", "orders", "--plans", "base,audit" );
+		Assert.Equal( [ "base", "audit" ], PlanDependencies( "orders" ) );
+
+		Succeed( "plan", "add-dependency", "--name", "orders", "--plans", "customers;BASE" );
+		Assert.Equal( [ "base", "audit", "customers" ], PlanDependencies( "orders" ) );
+
+		Succeed( "plan", "remove-dependency", "--name", "orders", "--plans", "Audit,base" );
+		Assert.Equal( [ "customers" ], PlanDependencies( "orders" ) );
+
+		Succeed( "plan", "set-dependencies", "--name", "orders", "--plans", "" );
 		Assert.Empty( PlanDependencies( "orders" ) );
 	}
 
 	[Theory]
-	[InlineData( "nothing to change", "plan", "update", "--name", "orders" )]
-	[InlineData( "cannot be combined", "plan", "update", "--name", "orders", "--require-plans", "base", "--add-dependency", "base" )]
-	[InlineData( "does not depend on 'base'", "plan", "update", "--name", "orders", "--remove-dependency", "base" )]
-	[InlineData( "plan 'missing' does not exist", "plan", "update", "--name", "orders", "--add-dependency", "missing" )]
+	[InlineData( "--description is required", "plan", "update", "--name", "orders" )]
+	[InlineData( "--plans is required", "plan", "set-dependencies", "--name", "orders" )]
+	[InlineData( "--plans is required", "plan", "add-dependency", "--name", "orders" )]
+	[InlineData( "--name is required", "plan", "remove-dependency", "--plans", "base" )]
+	[InlineData( "does not depend on 'base'", "plan", "remove-dependency", "--name", "orders", "--plans", "base" )]
+	[InlineData( "plan 'missing' does not exist", "plan", "add-dependency", "--name", "orders", "--plans", "missing" )]
+	[InlineData( "plan 'missing' does not exist", "plan", "add-dependency", "--name", "missing", "--plans", "base" )]
 	[InlineData( "--description is required", "release", "update", "--name", "1.0" )]
 	[InlineData( "--description is required", "plan", "update-step", "--plan", "orders", "--name", "a" )]
 	[InlineData( "differ from the current name by more than case", "plan", "rename-step", "--plan", "orders", "--name", "a", "--new-name", "A" )]
@@ -113,11 +129,11 @@ public sealed class EditCliTests : IDisposable
 	[Fact]
 	public void PlanUpdateRefusesACycle()
 	{
-		Succeed( "plan", "update", "--name", "orders", "--require-plans", "base" );
+		Succeed( "plan", "set-dependencies", "--name", "orders", "--plans", "base" );
 
 		Refused(
 			"plan 'base' would depend on itself: base -> orders -> base",
-			"plan", "update", "--name", "base", "--add-dependency", "orders"
+			"plan", "add-dependency", "--name", "base", "--plans", "orders"
 		);
 	}
 
@@ -134,6 +150,8 @@ public sealed class EditCliTests : IDisposable
 
 		Refused( "the release is finalized and can no longer be changed", "release", "update", "--name", "1.0", "--description", "x" );
 		Refused( plan, "plan", "update", "--name", "orders", "--description", "x" );
+		Refused( plan, "plan", "set-dependencies", "--name", "orders", "--plans", "" );
+		Refused( plan, "plan", "add-dependency", "--name", "orders", "--plans", "base" );
 		Refused( plan, "plan", "update-step", "--plan", "orders", "--name", "a", "--description", "x" );
 		Refused( plan, "plan", "rename-step", "--plan", "orders", "--name", "a", "--new-name", "z" );
 		Refused( plan, "plan", "move-step", "--plan", "orders", "--name", "a", "--after", "c" );
