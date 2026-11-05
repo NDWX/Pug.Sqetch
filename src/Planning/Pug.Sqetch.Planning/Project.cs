@@ -194,6 +194,10 @@ public class Project : IProject
 
 		step.Validate();
 
+		// one dependency keeps a plan's steps a chain that move-step can splice
+		if( step.Dependencies.Count > 1 )
+			throw new ArgumentException( "A step requires at most one step.", nameof(step) );
+
 		_plansSemaphore.Wait();
 
 		using TransactionScope tx = new();
@@ -467,6 +471,351 @@ public class Project : IProject
 		Visit( plan.Definition.Name );
 
 		return collected;
+	}
+
+	public void UpdatePlan( string plan, string? description, ICollection<string>? dependencies )
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace( plan );
+
+		bool releasesLocked = false;
+
+		_plansSemaphore.Wait();
+
+		using TransactionScope tx = new();
+
+		try
+		{
+			ProjectPlan current = _infoStore.GetPlan( plan ) ?? throw new UnknownPlanException( plan );
+
+			_releasesSemaphore.Wait();
+			releasesLocked = true;
+
+			EnsurePlanNotFinalized( current, null );
+
+			string name = current.Definition.Name;
+			ICollection<string> currentDependencies = ( current.Definition as PlanDefinition )?.Dependencies ?? [ ];
+
+			List<string> newDependencies = dependencies is null ?
+				currentDependencies.ToList() :
+				ResolvePlanDependencies( current, dependencies );
+
+			_infoStore.UpdatePlan(
+				new PlanDefinition( name, description ?? current.Definition.Description, newDependencies )
+			);
+
+			tx.Complete();
+		}
+		finally
+		{
+			if( releasesLocked )
+				_releasesSemaphore.Release();
+
+			_plansSemaphore.Release();
+		}
+	}
+
+	/// <summary>
+	/// The plans <paramref name="names"/> refers to, by their own names and once each, checked as a
+	/// new dependency list of <paramref name="plan"/>: every one exists, none is the plan or leads
+	/// back to it, and for a released plan every one is in its release or an earlier one.
+	/// </summary>
+	private List<string> ResolvePlanDependencies( ProjectPlan plan, IEnumerable<string> names )
+	{
+		string name = plan.Definition.Name;
+
+		List<string> resolved = [ ];
+		Dictionary<string, (ProjectPlan, ICollection<string>)> missing = new( StringComparer.OrdinalIgnoreCase );
+
+		foreach( string dependencyName in names )
+		{
+			ProjectPlan dependency = _infoStore.GetPlan( dependencyName ) ??
+									throw new UnknownPlanException( dependencyName );
+
+			string resolvedName = dependency.Definition.Name;
+
+			if( resolved.Contains( resolvedName, StringComparer.OrdinalIgnoreCase ) )
+				continue;
+
+			IReadOnlyList<string>? path = FindPlanDependencyPath( resolvedName, name );
+
+			if( path is not null )
+				throw new PlanDependencyCycleException( name, path );
+
+			if( plan.Release.Length != 0 && IsMissingFrom( plan.Release, dependency ) )
+				missing.TryAdd( resolvedName, ( dependency, new List<string> { name } ) );
+
+			resolved.Add( resolvedName );
+		}
+
+		if( missing.Count != 0 )
+			throw new MissingPlanDependenciesException( missing );
+
+		return resolved;
+	}
+
+	/// <summary>
+	/// The plans from <paramref name="from"/> to <paramref name="target"/>, each depending on the
+	/// next, or <c>null</c> when <paramref name="from"/> does not depend on
+	/// <paramref name="target"/>, directly or not.
+	/// </summary>
+	private IReadOnlyList<string>? FindPlanDependencyPath( string from, string target )
+	{
+		Dictionary<string, string?> previous = new( StringComparer.OrdinalIgnoreCase ) { [from] = null };
+		Queue<string> pending = new( [ from ] );
+
+		while( pending.Count > 0 )
+		{
+			string current = pending.Dequeue();
+
+			if( string.Equals( current, target, StringComparison.OrdinalIgnoreCase ) )
+			{
+				List<string> path = [ ];
+
+				for( string? at = current; at is not null; at = previous[at] )
+					path.Add( at );
+
+				path.Reverse();
+
+				return path;
+			}
+
+			foreach( string dependency in _infoStore.GetPlanDependencies( current ) )
+				if( previous.TryAdd( dependency, current ) )
+					pending.Enqueue( dependency );
+		}
+
+		return null;
+	}
+
+	public void UpdateRelease( string release, string description )
+	{
+		Project.ValidateReleaseParameter( release );
+		ArgumentNullException.ThrowIfNull( description );
+
+		_releasesSemaphore.Wait();
+
+		using TransactionScope tx = new();
+
+		try
+		{
+			ProjectRelease current = _infoStore.GetRelease( release ) ?? throw new UnknownReleaseException( release );
+
+			if( current.Finalized is not null )
+				throw new ReleaseFinalizedException();
+
+			_infoStore.UpdateRelease( new ObjectDefinition( current.Definition.Name, description ) );
+
+			tx.Complete();
+		}
+		finally
+		{
+			_releasesSemaphore.Release();
+		}
+	}
+
+	public void UpdateStep( string plan, string step, string description )
+	{
+		ArgumentNullException.ThrowIfNull( description );
+
+		EditStep(
+			plan,
+			step,
+			current => _infoStore.UpdateStep( plan, new ObjectDefinition( current.Definition.Name, description ) )
+		);
+	}
+
+	public void RenameStep( string plan, string step, string newName )
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace( newName );
+
+		EditStep(
+			plan,
+			step,
+			current => {
+				string name = current.Definition.Name;
+
+				if( string.Equals( name, newName, StringComparison.Ordinal ) )
+					return;
+
+				// on a file system ignoring case the folder is already "there", and a step's
+				// name is compared ignoring case everywhere else anyway
+				if( string.Equals( name, newName, StringComparison.OrdinalIgnoreCase ) )
+					throw new ArgumentException( $"Step '{name}' cannot be renamed by changing case only.", nameof(newName) );
+
+				if( _infoStore.StepExists( plan, newName ) )
+					throw new DuplicateStepNameException();
+
+				_infoStore.RenameStep( plan, name, newName );
+			}
+		);
+	}
+
+	public IReadOnlyList<StepDependencyChange> MoveStep(
+		string plan,
+		string step,
+		StepPlacement placement,
+		string anchor
+	)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace( anchor );
+
+		IReadOnlyList<StepDependencyChange> changes = [ ];
+
+		EditStep(
+			plan,
+			step,
+			current => {
+				IDictionary<string, ProjectElement> steps = _infoStore.GetSteps( plan );
+
+				if( !steps.TryGetValue( anchor, out ProjectElement? anchorStep ) )
+					throw new UnknownStepException( plan, anchor );
+
+				string x = current.Definition.Name;
+				string y = anchorStep.Definition.Name;
+
+				if( string.Equals( x, y, StringComparison.OrdinalIgnoreCase ) )
+					throw new ArgumentException( $"Step '{x}' cannot be moved next to itself.", nameof(anchor) );
+
+				changes = new StepMove( this, plan, steps.Values ).Move( x, placement, y );
+			}
+		);
+
+		return changes;
+	}
+
+	/// <summary>
+	/// Runs <paramref name="edit"/> on an existing step of a plan that is not finalized, under the
+	/// plans semaphore, after those checks.
+	/// </summary>
+	private void EditStep( string plan, string step, Action<ProjectElement> edit )
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace( plan );
+		ArgumentException.ThrowIfNullOrWhiteSpace( step );
+
+		_plansSemaphore.Wait();
+
+		using TransactionScope tx = new();
+
+		try
+		{
+			ProjectPlan projectPlan = _infoStore.GetPlan( plan ) ?? throw new UnknownPlanException( plan );
+
+			EnsurePlanNotFinalized( projectPlan, null );
+
+			ProjectElement current = _infoStore.GetStep( plan, step ) ?? throw new UnknownStepException( plan, step );
+
+			edit( current );
+
+			tx.Complete();
+		}
+		finally
+		{
+			_plansSemaphore.Release();
+		}
+	}
+
+	/// <summary>
+	/// A step move as in a linked list, written one step's dependency at a time in an order that
+	/// keeps the plan acyclic after every write: first the steps requiring the moved step take its
+	/// dependency, so nothing hangs below it; then it is attached next to the anchor. A move cut
+	/// short therefore leaves a valid plan, and running it again from there ends where it would have.
+	/// </summary>
+	private sealed class StepMove
+	{
+		private readonly Project _project;
+		private readonly string _plan;
+		private readonly List<string> _order;
+		private readonly Dictionary<string, List<string>> _dependencies = new( StringComparer.OrdinalIgnoreCase );
+		private readonly Dictionary<string, List<string>> _original = new( StringComparer.OrdinalIgnoreCase );
+		private readonly List<(string Step, List<string> Dependencies)> _writes = [ ];
+
+		public StepMove( Project project, string plan, IEnumerable<ProjectElement> steps )
+		{
+			_project = project;
+			_plan = plan;
+
+			List<ProjectElement> ordered = DependencyOrdering.Sort(
+				steps,
+				x => x.Definition.Name,
+				x => ( x.Definition as StepDefinition )?.Dependencies ?? [ ],
+				x => x.Registration.Timestamp
+			);
+
+			_order = ordered.Select( x => x.Definition.Name ).ToList();
+
+			foreach( ProjectElement step in ordered )
+			{
+				List<string> dependencies = ( ( step.Definition as StepDefinition )?.Dependencies ?? [ ] ).ToList();
+
+				_dependencies[step.Definition.Name] = dependencies;
+				_original[step.Definition.Name] = dependencies;
+			}
+		}
+
+		public IReadOnlyList<StepDependencyChange> Move( string x, StepPlacement placement, string y )
+		{
+			// detach: the steps requiring x take x's dependency
+			foreach( string step in Requiring( x ) )
+				Set( step, Replace( _dependencies[step], x, _dependencies[x] ) );
+
+			if( placement == StepPlacement.After )
+			{
+				Set( x, [ y ] );
+
+				foreach( string step in Requiring( y ).Where( step => !Same( step, x ) ) )
+					Set( step, Replace( _dependencies[step], y, [ x ] ) );
+			}
+			else
+			{
+				Set( x, _dependencies[y].ToList() );
+				Set( y, [ x ] );
+			}
+
+			List<string> changed = _writes
+				.Select( write => write.Step )
+				.Distinct( StringComparer.OrdinalIgnoreCase )
+				.Where( step => !SameList( _original[step], _dependencies[step] ) )
+				.ToList();
+
+			// nothing to change, nothing written: a move already in place leaves every file alone
+			if( changed.Count == 0 )
+				return [ ];
+
+			foreach( (string step, List<string> dependencies) in _writes )
+				_project._infoStore.SetStepDependencies( _plan, step, dependencies );
+
+			return changed
+				.Select( step => new StepDependencyChange(
+						step,
+						string.Join( ", ", _dependencies[step] ),
+						string.Join( ", ", _original[step] )
+					)
+				)
+				.ToList();
+		}
+
+		private List<string> Requiring( string step )
+			=> _order.Where( other => _dependencies[other].Contains( step, StringComparer.OrdinalIgnoreCase ) ).ToList();
+
+		private void Set( string step, List<string> dependencies )
+		{
+			if( SameList( _dependencies[step], dependencies ) )
+				return;
+
+			_dependencies[step] = dependencies;
+			_writes.Add( ( step, dependencies ) );
+		}
+
+		private static List<string> Replace( List<string> dependencies, string step, IEnumerable<string> replacement )
+			=> dependencies
+				.SelectMany( dependency => Same( dependency, step ) ? replacement : [ dependency ] )
+				.Distinct( StringComparer.OrdinalIgnoreCase )
+				.ToList();
+
+		private static bool Same( string a, string b ) => string.Equals( a, b, StringComparison.OrdinalIgnoreCase );
+
+		private static bool SameList( List<string> a, List<string> b )
+			=> a.Count == b.Count && a.Zip( b ).All( pair => Same( pair.First, pair.Second ) );
 	}
 
 	/// <summary>

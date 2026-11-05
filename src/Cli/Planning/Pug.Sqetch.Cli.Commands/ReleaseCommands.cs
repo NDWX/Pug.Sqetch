@@ -181,3 +181,23 @@ public sealed class ReleaseFinalizeCommand( IAnsiConsole console ) : Command<Rel
 		return 0;
 	}
 }
+public sealed class ReleaseUpdateCommand : Command<ReleaseUpdateCommand.Settings>
+{
+	public sealed class Settings : ReleaseNameSettings
+	{
+		[CommandOption( "-d|--description <TEXT>" )]
+		public string? Description { get; init; }
+
+		public override ValidationResult Validate()
+			=> Description is null ? ValidationResult.Error( "--description is required" ) : base.Validate();
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		session.Project.UpdateRelease( settings.Name!, settings.Description! );
+
+		return 0;
+	}
+}

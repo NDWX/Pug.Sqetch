@@ -47,13 +47,22 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		_session.PlanIndex.Set( new PlanIndexEntry( definition.Name, string.Empty, dependencyNames ) );
 	}
 
-	public void UpdatePlan( ObjectDefinition definition )
+	public void UpdatePlan( PlanDefinition definition )
 	{
 		( PlanIndexEntry entry, string planFile, PlanDocument document ) = RequirePlanDocument( definition.Name );
 
 		_session.EnsureReleaseNotFinalized( entry.Release );
 
-		JsonFiles.Write( planFile, document with { Description = definition.Description } );
+		string[] dependencyNames = definition.Dependencies.ToArray();
+
+		// plan.json is the truth and is written whole, in one step; the index follows and is
+		// rebuilt from plan.json by a reindex if a crash comes between the two
+		JsonFiles.Write(
+			planFile,
+			document with { Description = definition.Description, Dependencies = dependencyNames }
+		);
+
+		_session.PlanIndex.Set( entry with { Dependencies = dependencyNames } );
 	}
 
 	public bool PlanExists( string name ) => _session.PlanIndex.Contains( name );
@@ -93,19 +102,6 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 			.Select( x => x.Name )
 			.ToArray();
 
-	public void SetPlanDependencies( string name, IEnumerable<string> dependencies )
-	{
-		( PlanIndexEntry entry, string planFile, PlanDocument document ) = RequirePlanDocument( name );
-
-		_session.EnsureReleaseNotFinalized( entry.Release );
-
-		string[] dependencyNames = dependencies.ToArray();
-
-		JsonFiles.Write( planFile, document with { Dependencies = dependencyNames } );
-
-		_session.PlanIndex.Set( entry with { Dependencies = dependencyNames } );
-	}
-
 	public void AddStep(
 		string plan,
 		ObjectDefinition definition,
@@ -142,6 +138,70 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		JsonFiles.Write( stepFile, document with { Description = definition.Description } );
 	}
 
+	public void RenameStep( string plan, string name, string newName )
+	{
+		NameRules.Ensure( newName, "Step" );
+
+		PlanIndexEntry entry = _session.RequirePlan( plan );
+
+		_session.EnsureReleaseNotFinalized( entry.Release );
+
+		string stepDirectory = FindStepDirectory( entry, name ) ?? throw new UnknownStepException( entry.Name, name );
+		string oldName = Path.GetFileName( stepDirectory );
+
+		if( FindStepDirectory( entry, newName ) is not null )
+			throw new DuplicateStepNameException();
+
+		string target = _session.Paths.StepDirectory( entry.Release, entry.Name, newName );
+
+		if( Directory.Exists( target ) )
+			throw new ProjectStoreException(
+				$"'{_session.Paths.RelativeToRoot( target )}' already exists but is not a step; remove it first."
+			);
+
+		List<(string StepFile, StepDocument Document)> dependants = EnumerateSteps( entry )
+			.Where( x => x.Document.Dependencies.Contains( oldName, StringComparer.OrdinalIgnoreCase ) )
+			.Select( x => ( Path.Combine( x.Directory, FileNames.StepFile ), x.Document ) )
+			.ToList();
+
+		// 1. dependants name the new step beside the old one: a dependency naming no step is ignored
+		//    by the ordering, so until the folder moves nothing changes
+		foreach( (string stepFile, StepDocument document) in dependants )
+			JsonFiles.Write(
+				stepFile,
+				document with { Dependencies = WithBeside( document.Dependencies, oldName, newName ) }
+			);
+
+		// 2. the commit point: one rename, scripts included, so git sees a rename
+		Directory.Move( stepDirectory, target );
+
+		// 3. and 4. tidy up; a reindex does the same if these are cut short
+		string movedFile = Path.Combine( target, FileNames.StepFile );
+
+		JsonFiles.Write( movedFile, JsonFiles.Read<StepDocument>( movedFile ) with { Name = newName } );
+
+		foreach( (string stepFile, StepDocument document) in dependants )
+			JsonFiles.Write(
+				stepFile,
+				document with
+				{
+					Dependencies = WithBeside( document.Dependencies, oldName, newName )
+						.Where( x => !string.Equals( x, oldName, StringComparison.OrdinalIgnoreCase ) )
+						.ToArray()
+				}
+			);
+	}
+
+	// newName right after oldName, keeping the list's order
+	private static string[] WithBeside( string[] dependencies, string oldName, string newName )
+		=> dependencies.Contains( newName, StringComparer.Ordinal ) ?
+			dependencies :
+			dependencies.SelectMany( x => string.Equals( x, oldName, StringComparison.OrdinalIgnoreCase ) ?
+					new[] { x, newName } :
+					[ x ]
+				)
+				.ToArray();
+
 	public bool StepExists( string plan, string name )
 	{
 		PlanIndexEntry? entry = _session.PlanIndex.Get( plan );
@@ -170,9 +230,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 
 		string? stepDirectory = FindStepDirectory( entry, name );
 
-		return stepDirectory is null ?
-			null :
-			JsonFiles.Read<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) ).ToModel( entry.Name );
+		return stepDirectory is null ? null : ReadStepDocument( stepDirectory ).ToModel( entry.Name );
 	}
 
 	public IEnumerable<string> GetStepDependencies( string plan, string name )
@@ -277,6 +335,16 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 				null
 			)
 		);
+	}
+
+	public void UpdateRelease( ObjectDefinition definition )
+	{
+		ReleaseDocument document = _session.RequireRelease( definition.Name );
+
+		if( document.Finalized is not null )
+			throw new ReleaseFinalizedException();
+
+		JsonFiles.Write( _session.Paths.ReleaseFile( document.Name ), document with { Description = definition.Description } );
 	}
 
 	public void DeleteRelease( string name )
@@ -486,9 +554,7 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 		string? stepDirectory = FindStepDirectory( entry, name ) ??
 								throw new ProjectStoreException( $"Step '{name}' of plan '{plan}' does not exist." );
 
-		string stepFile = Path.Combine( stepDirectory, FileNames.StepFile );
-
-		return ( entry, stepFile, JsonFiles.Read<StepDocument>( stepFile ) );
+		return ( entry, Path.Combine( stepDirectory, FileNames.StepFile ), ReadStepDocument( stepDirectory ) );
 	}
 
 	// a directory only counts as a step once step.json exists; scripts may be written
@@ -507,21 +573,13 @@ public sealed class FileSystemProjectInfoStore : IProjectInfoStore
 	}
 
 	private IEnumerable<StepDocument> EnumerateStepDocuments( PlanIndexEntry entry )
-	{
-		string stepsDirectory = _session.Paths.StepsDirectory( entry.Release, entry.Name );
+		=> EnumerateSteps( entry ).Select( x => x.Document );
 
-		if( !Directory.Exists( stepsDirectory ) )
-			yield break;
+	private IEnumerable<(string Directory, StepDocument Document)> EnumerateSteps( PlanIndexEntry entry )
+		=> StepFolders.Enumerate( _session.Paths.StepsDirectory( entry.Release, entry.Name ) );
 
-		foreach( string stepDirectory in Directory.EnumerateDirectories( stepsDirectory ) )
-		{
-			StepDocument? document =
-				JsonFiles.TryRead<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) );
-
-			if( document is not null )
-				yield return document;
-		}
-	}
+	private static StepDocument ReadStepDocument( string stepDirectory )
+		=> StepFolders.Named( JsonFiles.Read<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) ), stepDirectory );
 
 	private IEnumerable<ReleaseDocument> EnumerateReleaseDocuments( string prefix )
 	{

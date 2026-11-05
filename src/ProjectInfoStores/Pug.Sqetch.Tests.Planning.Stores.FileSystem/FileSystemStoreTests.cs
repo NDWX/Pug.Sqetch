@@ -223,7 +223,7 @@ public class FileSystemStoreTests
 		);
 
 		Assert.Throws<ReleaseFinalizedException>( () =>
-			stores.InfoStore.UpdatePlan( new ObjectDefinition( "customer-email", "new" ) )
+			stores.InfoStore.UpdatePlan( new PlanDefinition( "customer-email", "new", [ ] ) )
 		);
 
 		Assert.Throws<ReleaseFinalizedException>( () => stores.InfoStore.AddStep(
@@ -355,7 +355,7 @@ public class FileSystemStoreTests
 
 		Assert.Equal( [ "base", "dependant-a" ], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
 
-		stores.InfoStore.SetPlanDependencies( "dependant-b", [ "base" ] );
+		stores.InfoStore.UpdatePlan( new PlanDefinition( "dependant-b", "", [ "base" ] ) );
 
 		Assert.Equal( [ "base" ], stores.InfoStore.GetPlanDependencies( "dependant-b" ) );
 		Assert.Empty( stores.InfoStore.GetPlanDependants( "dependant-a" ) );

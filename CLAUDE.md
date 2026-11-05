@@ -97,7 +97,10 @@ root.
 - **`plan-index` is derived data**: plan.json files and folder locations are the source of
   truth; the index is rebuildable (`sqetch project reindex`). For release membership the folder
   wins: reindex also rewrites a plan.json whose `release` field disagrees with the folder it is in
-  (clearing its assignment when that is unreleased), and writes nothing when they agree.
+  (clearing its assignment when that is unreleased), and writes nothing when they agree. Likewise
+  a step's folder is the truth for its name (`StepFolders`): reindex realigns a step.json whose
+  `name` differs from its folder and drops step dependencies naming no step of the plan, which only
+  a rename cut short can leave, since deleting a required step is refused.
 - **Pluggable families** (sharding strategies, bundle types, bundle layouts, database
   drivers): contracts in the area's `*.Abstractions` project (`Pug.Sqetch.Deployment.Bundling.Abstractions`,
   `Pug.Sqetch.DatabaseDriver.Abstractions`; sharding lives inside the file-system store), implementations
@@ -480,6 +483,20 @@ root.
   only; a dependency in a later release is refused, never moved, since moving it could strand
   that release's own plans. `CreateRelease( definition, includeUnreleasedPlans )` needs no check: a
   new release ends the lineage, and every unreleased plan joins it.
+- **Edits are atomic per command** (`UpdatePlan`, `UpdateRelease`, `UpdateStep`, `RenameStep`,
+  `MoveStep`; since 0.2): everything is checked before the first write, and the writes are ordered
+  so that a command cut short leaves a valid project that rerunning it, or a reindex, finishes. An
+  update is one document write (plan.json first, the index after). `RenameStep`'s commit point is the
+  one rename of the step folder, scripts included; before it, dependants name the new step beside
+  the old one, which the ordering ignores, and after it they drop the old one. **A step requires at
+  most one step** (`Add` refuses more; older multi-dependency steps still read), so a plan's steps
+  form chains, and `MoveStep` is a linked-list move done one `step.json` at a time: first the steps
+  requiring the moved step take its dependency, so nothing hangs below it, then it is attached after
+  the anchor (whose other followers then require it) or before it (taking the anchor's dependency,
+  then the anchor requiring it). Every intermediate state is acyclic, a move with nothing to change
+  writes nothing, and the CLI prints each changed dependency. `UpdatePlan` refuses a cycle with
+  `PlanDependencyCycleException` (the path) and checks a released plan's dependencies like
+  `AddPlanToRelease` does. Concurrent processes are not covered (#24).
 - **Names** (`NameRules` in the FileSystem store, surfaced early via CLI `NameValidation`):
   letters, digits and `-_+()@#.`; must start with a letter or digit, must not end with `.`,
   max 128 chars. Names become path segments and git paths.

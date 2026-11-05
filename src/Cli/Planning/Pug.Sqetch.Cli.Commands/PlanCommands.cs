@@ -314,6 +314,86 @@ public sealed class PlanCreateCommand( IAnsiConsole console ) : Command<PlanCrea
 	}
 }
 
+/// <summary>
+/// Changes a plan's description and/or dependencies: a new list, or plans added to and removed
+/// from the current one.
+/// </summary>
+public sealed class PlanUpdateCommand : Command<PlanUpdateCommand.Settings>
+{
+	public sealed class Settings : CommandSettings
+	{
+		[CommandOption( "-n|--name <PLAN>" )] public string? Name { get; init; }
+
+		[CommandOption( "-d|--description <TEXT>" )]
+		public string? Description { get; init; }
+
+		[CommandOption( "--require-plans <PLANS>" )]
+		[Description( "Replace the dependencies: comma- or semicolon-separated plan names; \"\" for none" )]
+		public string? RequirePlans { get; init; }
+
+		[CommandOption( "--add-dependency <PLANS>" )]
+		[Description( "Plans to add to the dependencies" )]
+		public string? AddDependency { get; init; }
+
+		[CommandOption( "--remove-dependency <PLANS>" )]
+		[Description( "Plans to remove from the dependencies" )]
+		public string? RemoveDependency { get; init; }
+
+		public override ValidationResult Validate()
+		{
+			if( string.IsNullOrWhiteSpace( Name ) )
+				return ValidationResult.Error( "--name is required" );
+
+			if( RequirePlans is not null && ( AddDependency is not null || RemoveDependency is not null ) )
+				return ValidationResult.Error(
+					"--require-plans replaces the dependencies and cannot be combined with --add-dependency or --remove-dependency"
+				);
+
+			if( Description is null && RequirePlans is null && AddDependency is null && RemoveDependency is null )
+				return ValidationResult.Error(
+					"nothing to change: give --description, --require-plans, --add-dependency or --remove-dependency"
+				);
+
+			return ValidationResult.Success();
+		}
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		session.Project.UpdatePlan( settings.Name!, settings.Description, Dependencies( session, settings ) );
+
+		return 0;
+	}
+
+	private static List<string>? Dependencies( ProjectSession session, Settings settings )
+	{
+		if( settings.RequirePlans is not null )
+			return OptionParsing.SplitList( settings.RequirePlans ).ToList();
+
+		if( settings.AddDependency is null && settings.RemoveDependency is null )
+			return null;
+
+		ProjectPlan plan = session.Stores.InfoStore.GetPlan( settings.Name! ) ??
+							throw new UnknownPlanException( settings.Name! );
+
+		List<string> dependencies = ( ( plan.Definition as PlanDefinition )?.Dependencies ?? [ ] ).ToList();
+
+		foreach( string removed in OptionParsing.SplitList( settings.RemoveDependency ) )
+			if( dependencies.RemoveAll( x => string.Equals( x, removed, StringComparison.OrdinalIgnoreCase ) ) == 0 )
+				throw new InvalidOperationException(
+					$"plan '{plan.Definition.Name}' does not depend on '{removed}'"
+				);
+
+		foreach( string added in OptionParsing.SplitList( settings.AddDependency ) )
+			if( !dependencies.Contains( added, StringComparer.OrdinalIgnoreCase ) )
+				dependencies.Add( added );
+
+		return dependencies;
+	}
+}
+
 public sealed class PlanDeleteCommand : Command<PlanDeleteCommand.Settings>
 {
 	public sealed class Settings : CommandSettings

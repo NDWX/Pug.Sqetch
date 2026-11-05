@@ -26,6 +26,8 @@ internal static class CliErrors
 			AbandonedPlanDependantsException =>
 				"other plans in the release depend on this plan (use --with-dependants to remove them too)",
 			MissingPlanDependenciesException missing => DescribeMissingDependencies( missing ),
+			PlanDependencyCycleException cycle =>
+				$"plan '{cycle.Plan}' would depend on itself: {string.Join( " -> ", [ cycle.Plan, .. cycle.Path ] )}",
 			StrandedPlanDependantsException stranded =>
 				$"plans in releases before '{stranded.Release}' depend on '{stranded.Plan}': " +
 				string.Join( ", ", stranded.Dependants.Select( x => $"'{x.Plan}' ({x.Release})" ) ) +
