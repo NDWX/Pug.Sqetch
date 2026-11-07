@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using Pug.Sqetch.Cli;
 using Pug.Sqetch.Deployment.Bundling;
 
 using Spectre.Console;
@@ -14,8 +15,14 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 {
 	private readonly IAnsiConsole _console;
 	private readonly StreamWriter? _log;
+	private readonly HashSet<string> _warned = [ ];
+	private IReadOnlySet<string> _unfinalized = new HashSet<string>();
+	private WarningWriter? _warnings;
 
 	public bool UpToDate { get; private set; }
+
+	/// <summary>Whether a rollback found nothing deployed to undo.</summary>
+	public bool NothingRolledBack { get; private set; }
 
 	/// <summary>
 	/// Whether a transaction of this run committed and was not taken back by a compensating
@@ -58,6 +65,18 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 	/// command decides it, and the engine just runs no verify scripts.
 	/// </summary>
 	public void VerificationSkipped() => Report( "step verification skipped (--no-verify)" );
+
+	/// <summary>
+	/// Names the releases of the bundle that are not finalized (the unreleased-plans pseudo-release
+	/// is ""), so rolling one back warns that its rollback scripts may differ from what was
+	/// deployed. Not part of <see cref="IDeploymentListener"/>: only the rollback command knows
+	/// that the scripts it runs are not the ones that deployed.
+	/// </summary>
+	public void WarnWhenRollingBack( IEnumerable<string> unfinalized, WarningWriter warnings )
+	{
+		_unfinalized = unfinalized.ToHashSet();
+		_warnings = warnings;
+	}
 
 	public void ContinuingFrom( string release ) => Report( $"continuing from {Name( release )}" );
 
@@ -110,6 +129,28 @@ public sealed class ConsoleDeploymentListener : IDeploymentListener, IDisposable
 
 	public void RollingBackPlan( string release, string plan )
 		=> Report( $"rolling back plan '{plan}' of {Name( release )}" );
+
+	public void RollingBackRelease( string release )
+	{
+		Report( $"rolling back {Name( release )}" );
+
+		if( _warnings is null || !_unfinalized.Contains( release ) || !_warned.Add( release ) )
+			return;
+
+		string warning =
+			$"{Name( release )} is not finalized in this bundle; its rollback scripts may differ from what was deployed";
+
+		_warnings.Write( warning );
+
+		Log( $"warning: {warning}" );
+	}
+
+	public void NothingToRollBack()
+	{
+		NothingRolledBack = true;
+
+		Report( "nothing to roll back" );
+	}
 
 	public void RolledBack()
 	{

@@ -62,6 +62,30 @@ public abstract class MySqlFamilyDeploymentTests
 		=> _deployment.Value.OnSuccessUndoesTheWholeDeploymentInReverse();
 
 	[DockerFact]
+	public void RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain()
+		=> _deployment.Value.RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain();
+
+	[DockerFact]
+	public void RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan()
+		=> _deployment.Value.RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan();
+
+	[DockerFact]
+	public void RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll()
+		=> _deployment.Value.RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll();
+
+	[DockerFact]
+	public void RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal()
+		=> _deployment.Value.RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal();
+
+	[DockerFact]
+	public void AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt()
+		=> _deployment.Value.AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt();
+
+	[DockerFact]
+	public void ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone()
+		=> _deployment.Value.ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone();
+
+	[DockerFact]
 	public void OnErrorUndoesAPlanTheServerCommittedPartway()
 		=> _deployment.Value.OnErrorUndoesAPlanTheServerCommittedPartway();
 

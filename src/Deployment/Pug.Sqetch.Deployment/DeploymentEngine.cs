@@ -26,12 +26,13 @@ namespace Pug.Sqetch.Deployment;
 /// same transaction as its last plan. On failure the open transaction is rolled back and
 /// the failure rethrown — earlier boundary commits stand.
 ///
-/// Note for the rollback work: rolling a deployment back cannot be "roll back the open
-/// transaction", because a maintainer will be able to ask for rollback regardless of commit level
-/// and the earlier boundary commits are already durable. It has to be a compensating path that
-/// runs the rollback scripts of what this run deployed, in reverse, and journals it through the
-/// <c>RollingBack*</c>/<c>RolledBack*</c> slots — which is why transaction bookkeeping here is
-/// kept separate from any record of what was deployed.
+/// Rolling back is never "roll back the open transaction": the earlier boundary commits are already
+/// durable, whatever the commit level. It is a compensating pass running the rollback scripts in
+/// reverse and journaling through the <c>RollingBack*</c>/<c>RolledBack*</c> slots — either of what
+/// this run committed (<see cref="RollbackTrigger"/>), or, standalone (<see cref="RollBack"/>), of
+/// what the journal says is deployed, as <see cref="RollbackPlanner"/> decides. A standalone
+/// rollback never provisions the journal: a database without one fails the journal read, so naming
+/// the wrong database creates nothing there.
 /// </summary>
 public class DeploymentEngine(
 	IDatabaseDriver driver,
@@ -106,6 +107,122 @@ public class DeploymentEngine(
 		// An empty set resumes at the release's first plan, without journaling its start again.
 		Deploy( groups, journal, verifySteps, latest, deployedPlans );
 	}
+
+	/// <summary>
+	/// Undoes what the journal says <paramref name="project"/> has deployed, as far as
+	/// <paramref name="target"/> asks, running the rollback scripts <paramref name="groups"/> supply —
+	/// releases newest first, their plans and each plan's steps in reverse — and committing at plan or
+	/// release boundaries per the commit level. Like <see cref="Deploy(string, IReadOnlyList{ReleaseGroup}, bool)"/>
+	/// it takes the deployment lock when one is set, then reads the journal in one transaction — but
+	/// never runs <see cref="JournalingSlot.PrepareJournal"/>: undoing presumes a journal, so a database
+	/// without one fails that read (<see cref="JournalingStatementException"/>) rather than gaining one,
+	/// which is what naming the wrong database should do. Nothing to undo is reported to the listener
+	/// and is not a failure.
+	///
+	/// A target or groups that do not fit are refused before anything is undone
+	/// (<see cref="RollbackRefusedException"/>, <see cref="IncompatibleBundleException"/>); a failing
+	/// rollback script is <see cref="RollbackFailedException"/>, with what committed before it standing,
+	/// so running the same rollback again finishes it.
+	/// </summary>
+	public void RollBack( string project, IReadOnlyList<ReleaseGroup> groups, RollbackTarget target )
+	{
+		ArgumentNullException.ThrowIfNull( project );
+		ArgumentNullException.ThrowIfNull( groups );
+		ArgumentNullException.ThrowIfNull( target );
+
+		DeploymentPlanner.EnsureLineage( groups );
+		RollbackPlanner.EnsureTarget( groups, target );
+
+		StatementJournal journal = new( statements, project );
+
+		bool locked = false;
+
+		try
+		{
+			AcquireLock( journal, () => locked = true );
+
+			RollbackForecast forecast = ReadForRollback( journal, groups, target );
+
+			if( forecast.NothingToRollBack )
+			{
+				listener.NothingToRollBack();
+
+				return;
+			}
+
+			// pushed oldest first, so popping undoes the newest release, and its newest plan, first
+			Stack<CommittedRelease> deployed = new(
+				forecast.Releases
+					.Reverse()
+					.Select( planned => new CommittedRelease( planned.Group.Name, new Stack<DeployablePlan>( planned.Plans ) ) )
+			);
+
+			RollBack( journal, deployed, Describe( target, forecast ) );
+		}
+		finally
+		{
+			if( locked )
+				ReleaseLock( journal );
+		}
+	}
+
+	/// <summary>
+	/// Reads where the journal is and the plans it holds for every release the rollback would undo, in
+	/// one transaction, and plans the rollback from them.
+	/// </summary>
+	private RollbackForecast ReadForRollback(
+		StatementJournal journal,
+		IReadOnlyList<ReleaseGroup> groups,
+		RollbackTarget target
+	)
+	{
+		IDatabaseTransaction transaction = driver.BeginTransaction();
+
+		JournaledRelease? latest;
+		Dictionary<string, IReadOnlyCollection<string>> deployedPlans = new( StringComparer.Ordinal );
+
+		try
+		{
+			latest = journal.GetLatestRelease( transaction );
+
+			foreach( ReleaseGroup release in RollbackPlanner.ReleasesToRollBack( groups, latest, target ) )
+				deployedPlans[release.Name] = journal.GetDeployedPlans( release.Name, transaction ).ToList();
+
+			transaction.Commit();
+		}
+		catch
+		{
+			RollBackQuietly( transaction );
+
+			throw;
+		}
+
+		return RollbackPlanner.Plan( groups, latest, deployedPlans, target );
+	}
+
+	/// <summary>Rolls a failed transaction back, keeping the failure being reported if that fails too.</summary>
+	private static void RollBackQuietly( IDatabaseTransaction transaction )
+	{
+		try
+		{
+			transaction.Rollback();
+		}
+		catch
+		{
+			// the failure that led here is the one reported
+		}
+	}
+
+	/// <summary>Why a standalone rollback runs, as the listener reports it.</summary>
+	private static string Describe( RollbackTarget target, RollbackForecast forecast )
+		=> target.Kind switch
+		{
+			RollbackTargetKind.ToRelease => $"everything deployed after {DeploymentPlanner.Describe( target.Release )}",
+			RollbackTargetKind.All => "everything deployed",
+			_ => $"{( forecast.Releases[0].Plans.Count == 1 ? "plan" : "plans" )} " +
+				$"{string.Join( ", ", forecast.Releases[0].Plans.Select( plan => $"'{plan.Name}'" ) )} of " +
+				DeploymentPlanner.Describe( forecast.Releases[0].Group.Name )
+		};
 
 	/// <summary>
 	/// Takes the database's deployment lock, when the journaling SQL sets one, before anything else —
@@ -427,6 +544,7 @@ public class DeploymentEngine(
 			{
 				CommittedRelease release = committed.Pop();
 
+				listener.RollingBackRelease( release.Name );
 				journal.RollingBackRelease( release.Name, Transaction() );
 
 				while( release.Plans.Count > 0 )
@@ -470,7 +588,10 @@ public class DeploymentEngine(
 		}
 		catch
 		{
-			transaction?.Rollback();
+			// a rollback failing too (a connection gone) must not replace what stopped the undoing,
+			// which is what the exit code and the person repairing it go by
+			if( transaction is not null )
+				RollBackQuietly( transaction );
 
 			throw;
 		}

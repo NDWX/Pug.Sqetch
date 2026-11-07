@@ -57,7 +57,7 @@ public static class DeployCliErrors
 			MissingJournalingStatementsException missingJournaling =>
 				"journaling statements are not set for: " +
 				$"{string.Join( ", ", missingJournaling.Slots )}; run 'sqetch journaling set <SLOT> ...' for each " +
-				"(rollback slots are required too, even though rollback deployment is not yet supported)",
+				"(the rollback slots too)",
 			EmptyBundleException => "no plans match the selection; nothing to bundle",
 			DeploymentException deployment => deployment.Message,
 			BundlingException bundling => bundling.Message,

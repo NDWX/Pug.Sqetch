@@ -18,8 +18,20 @@ public sealed record ReleaseGroup(
 	public bool HasDependency => !string.IsNullOrEmpty( Dependency );
 }
 
-/// <summary>A plan to deploy, its steps in deployment order.</summary>
-public sealed record DeployablePlan( string Name, string Description, IReadOnlyList<DeployableStep> Steps );
+/// <summary>
+/// A plan to deploy, its steps in deployment order. <paramref name="Dependencies"/> names the plans it
+/// requires; deploying never reads them — the groups' order already honours them — but rolling back
+/// only some plans of a release does, to refuse leaving a deployed dependant behind. Null is none.
+/// </summary>
+public sealed record DeployablePlan(
+	string Name,
+	string Description,
+	IReadOnlyList<DeployableStep> Steps,
+	IReadOnlyList<string>? Dependencies = null
+)
+{
+	public IReadOnlyList<string> Dependencies { get; init; } = Dependencies ?? [ ];
+}
 
 /// <summary>
 /// A step to deploy. Its scripts are not carried here: the engine asks an

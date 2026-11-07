@@ -57,6 +57,30 @@ public class SqlServerDeploymentTests : IClassFixture<SqlServerDatabase>
 		=> _deployment.Value.OnSuccessUndoesTheWholeDeploymentInReverse();
 
 	[DockerAmd64Fact]
+	public void RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain()
+		=> _deployment.Value.RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain();
+
+	[DockerAmd64Fact]
+	public void RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan()
+		=> _deployment.Value.RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan();
+
+	[DockerAmd64Fact]
+	public void RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll()
+		=> _deployment.Value.RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll();
+
+	[DockerAmd64Fact]
+	public void RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal()
+		=> _deployment.Value.RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal();
+
+	[DockerAmd64Fact]
+	public void AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt()
+		=> _deployment.Value.AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt();
+
+	[DockerAmd64Fact]
+	public void ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone()
+		=> _deployment.Value.ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone();
+
+	[DockerAmd64Fact]
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 		=> _deployment.Value.AFailingRollbackScriptLeavesNoHalfFinishedCompensation();
 

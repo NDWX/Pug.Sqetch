@@ -67,6 +67,22 @@ public interface IDeploymentListener
 
 	void RollingBackPlan( string release, string plan );
 
+	/// <summary>
+	/// Fired when a rollback starts undoing a release, before its plans; it may have none left to
+	/// undo, when only its start was journaled. A default member, so older listeners compile.
+	/// </summary>
+	void RollingBackRelease( string release )
+	{
+	}
+
+	/// <summary>
+	/// Fired when a standalone rollback finds nothing to undo: nothing the target names is deployed.
+	/// A default member, so older listeners compile.
+	/// </summary>
+	void NothingToRollBack()
+	{
+	}
+
 	/// <summary>Fired once when every deployed plan has been rolled back.</summary>
 	void RolledBack();
 }

@@ -54,8 +54,8 @@ root.
 | `Pug.Sqetch.Deployment.Bundling.Layouts` | `DefaultBundleLayout` + `RegisterLayouts()`; references only the bundling contracts |
 | `Pug.Sqetch.Deployment.Bundling` | `BundleBuilder` (assembles from an `IReadOnlyProject`) and `BundlePackager` (writes `META-DATA`, then the layout) + registry implementations; the one bundling project that also references the planning contracts |
 | `Pug.Sqetch.Deployment.Abstractions` (net8.0) | The deployment contracts: what the engine deploys (`ReleaseGroup`/`DeployablePlan`/`DeployableStep`), where it gets the SQL (`IScriptContentReader`: each step's deploy, verify and rollback script), `JournaledRelease` and the deployment exceptions (`DeploymentException` and its subclasses, `StepVerificationFailedException` deriving from `StepScriptFailedException`). References nothing |
-| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `DeploymentPlanner` (the pure resume decision, `DeploymentForecast`), `DeploymentForecaster` (the read-only forecast `status` prints), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
-| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `status`, `rollback`, `drivers`) and their helpers: `DeploymentTarget` (bundle type and driver creation, shared by `deploy` and `status`), `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DeploymentSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
+| `Pug.Sqetch.Deployment` (net8.0) | `DeploymentEngine` (deploy flow), `DeploymentPlanner` (the pure resume decision, `DeploymentForecast`), `RollbackPlanner` (the pure standalone-rollback decision, `RollbackForecast`), `DeploymentForecaster` (the read-only forecast `status` prints), `StatementJournal`, `IDeploymentListener`. References the deployment and driver contracts and `Planning.Models` (for the journaling statements) — **neither bundling nor the planning contracts**: the engine deploys release groups it is handed and reads scripts through `IScriptContentReader`, so a caller can deploy from any source |
+| `Pug.Sqetch.Deployment.Cli.Commands` (net10.0) | The 'sqetch-deploy' commands (`bundle`, `deploy`, `status`, `rollback`, `drivers`) and their helpers: `DeploymentTarget` (bundle type and driver creation, shared by `deploy` and `status`), `BundleValidator`/`ValidatedBundle`, `BundleReleaseGroups` (manifest → release groups), `BundleScriptContentReader` (the bundle-backed `IScriptContentReader`), `BundlerIdentity`, `DatabaseTargetSettings` (what `deploy` and `rollback` share)/`DeploymentSettings`/`RollbackSettings`, `DriverParameters`, `RemainingArguments`, `ConsoleDeploymentListener`, `DeployCliErrors`, `DeployExitCodes`. Everything that ties deployment to bundles lives here |
 | `Pug.Sqetch.Deployment.Cli` | The 'sqetch-deploy' host: `Program`, the command tree and default composition (`SqetchDeployApp`, one of the two hosts referencing the concrete drivers) |
 | **Database drivers** | |
 | `Pug.Sqetch.DatabaseDriver.Abstractions` (net8.0) | The driver contract: `IDatabaseDriverFactory`/`IDatabaseDriver`/`IDatabaseTransaction`, `JournalingParameter`, the parameter definitions, registry interface, `IDatabaseDriver.CommitsDdlImplicitly` (a default member, false), the optional `IJournalingTemplateProvider` (a factory's built-in journaling template, keyed by slot name), driver exceptions (based on `DatabaseDriverException`, not `DeploymentException`). References nothing, so a driver depends on neither domain |
@@ -67,7 +67,7 @@ root.
 | **Shared** | |
 | `Pug.Sqetch.Shared` (net8.0) | Implementations both CLIs' back ends use, so neither depends on the other's: `DatabaseDriverRegistry`. References only the driver contract |
 | **Shared CLI** | |
-| `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present and open projects with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter`; `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `UserIdentity`, `Defaults`; `TypeRegistrar` (both hosts' DI seam), `WarningWriter` (warnings on standard error), `JournalingTemplateSources`. The only layer touching `ProjectPaths` for output |
+| `Pug.Sqetch.Cli.Common` (net10.0) | What both CLIs present and open projects with: `OutputFormat`/`OutputFormats`, `OutputSettings` (`-o|--output`), `ResultWriter`; `ProjectSession` (also opened read-only by `bundle`), `NameValidation`, `UserIdentity`, `Defaults`; `TypeRegistrar` (both hosts' DI seam), `OptionLists` (how both split list options), `WarningWriter` (warnings on standard error), `JournalingTemplateSources`. The only layer touching `ProjectPaths` for output |
 | **Tests** | xunit, one project per tier: `Pug.Sqetch.Planning.Tests` (engine), `Pug.Sqetch.Tests.Planning.Stores.FileSystem`, `Pug.Sqetch.Tests.Planning.Cli`, `Pug.Sqetch.Tests.Deployment.Bundling`, `Pug.Sqetch.Tests.Deployment`, `Pug.Sqetch.Tests.DatabaseDrivers`, `Pug.Sqetch.Tests.Deployment.Cli`, `Pug.Sqetch.Tests.Cli.Common`, `Pug.Sqetch.Tests.Shared` |
 | `Installers/` | Release packaging (GPL): `Publish.props` (self-contained single-file when a RID is set, imported by both hosts), `build/` (`build.ps1` + `Common.ps1` + `Image.ps1` + one of `Windows.ps1`/`Linux.ps1`/`MacOS.ps1`), `Wix/` (MSIs), `nfpm/` (deb/rpm), `chocolatey/`, `docker/` (the `sqetch-deploy` image), `smoke/` (project and bundle fixtures + `New-SmokeBundle.ps1`) |
 | `actions/` | GitHub Actions for users (GPL): `install-sqetch-deploy` (composite; `install.sh` in bash, since some arm64 runner images lack pwsh) |
@@ -253,7 +253,7 @@ root.
   database's state); `InvalidBundleException` stays for malformed manifests, which the CLI's
   grouping now raises, not the engine. "Bundle" here reads as "the groups the engine was handed":
   the exception names and messages predate the engine taking groups from any source.
-- **The deployment lock** (`AcquireLock`/`ReleaseLock`, optional): when `AcquireLock` is set, it
+- **The deployment lock** (`AcquireLock`/`ReleaseLock`, optional; `rollback` takes it too): when `AcquireLock` is set, it
   runs before anything else — even `PrepareJournal`, whose DDL two deployments must not race on — in
   a transaction committed alone and not reported; a false or empty answer is
   `DeploymentLockedException`, exit `34`, with nothing else run and no release. The lock counts as
@@ -272,7 +272,8 @@ root.
   server-wide); SQLite has none and sets neither. Session locks need a session: behind a
   transaction-mode pooler (PgBouncer) they guard nothing, which the skills say. `status` takes no lock. The lock is a guard, not a queue: a refused deployment is the
   caller's to retry.
-- **Transaction order** (`DeploymentEngine`): every deployment (after the lock, when set) opens `PrepareJournal` in a
+- **Transaction order** (`DeploymentEngine`; a standalone rollback takes the same lock and read
+  transaction but never runs `PrepareJournal`, then undoes at plan or release boundaries): every deployment (after the lock, when set) opens `PrepareJournal` in a
   transaction committed **alone** (the journal's schema must exist before it can be read, and DDL
   auto-commits on some engines), then **both** journal queries in one transaction (so the resume
   decision comes from one consistent view), then the deployment itself — committed at plan or
@@ -311,8 +312,30 @@ root.
   engines must therefore tolerate a deploy that applied only partly or not at all. A
   failing rollback script throws `RollbackFailedException` and replaces the failure that triggered
   it: a half-compensated database is worse than either end state, and the reason was already
-  reported to the listener. The standalone `sqetch-deploy rollback` command is still a stub;
-  rollback today is a mode of `deploy`.
+  reported to the listener.
+  **Standalone rollback** (`DeploymentEngine.RollBack( project, groups, RollbackTarget )`,
+  `sqetch-deploy rollback --to <release> | --all | --plans <list>`) undoes what the *journal* says is
+  deployed, through the same compensating pass: `RollbackPlanner` (pure, like `DeploymentPlanner`)
+  takes membership from the journal — the latest release and `GetDeployedPlans` of each release to
+  undo, read in one transaction after the lock, **never** after `PrepareJournal`: undoing presumes a
+  journal, so a database without one fails that read (`42`) instead of gaining one, which is what a
+  wrong database name should do, with no optional slot required — and the order from the groups,
+  reversed, since a bundle's order is a dependency order and plans with none between them are
+  independent; no journaling slot records an order and none was added. The bundle supplies the
+  rollback scripts (the journal stores none; a finalized release's cannot have changed, and the CLI
+  warns for an unfinalized one), so it must hold every release and journaled plan undone
+  (`IncompatibleBundleException`, `23`). `--plans` touches only the latest release, refuses a
+  deployed plan left behind that requires one undone (`DeployablePlan.Dependencies`), and still
+  journals `RollingBackRelease`/`RolledBackRelease`, so the templates read the release as partly
+  deployed and redeploying redeploys those plans. The templates' `completed` compares
+  `ReleaseDeployed` with the latest `RollingBackRelease`, not `RolledBackRelease`: a rollback cut
+  short inside a release (plan commit level, or MySQL's implicit commits) has committed undone
+  plans before its `RolledBackRelease`, and must not read as complete, or a deploy would pass over
+  them. `--plans` names no group holds, or of a release before the latest, are refused up front;
+  names only of later releases are nothing to undo, so rerunning a finished `--plans` is a no-op. A target that does not fit is
+  `RollbackRefusedException` (`62`), before anything runs; nothing to undo is success, so a rerun
+  finishes a rollback a failing script cut short. A plan a MySQL deployment left partway has no
+  `PlanDeployed`, so rollback never sees it.
 - **Database drivers are ADO.NET wrappers, not SQL translators**: `AdoDatabaseDriver` holds the
   connection, the transactions on it and the command plumbing; a provider project supplies only a
   connection factory and a factory implementing `IDatabaseDriverFactory`. Journaling parameters are
@@ -447,11 +470,11 @@ root.
   statements the command needs (one code for every such command: set them, rebuild), `31`/`32`/`33`/`34` unknown driver / driver creation / database unreachable / database busy (another
   deployment holds the lock; like `33`, retrying later is safe), `41`/`42`/`43` journal
   prepare / query / write, `51`/`52` deployment failed with the database unchanged / left partway,
-  `61` rollback failed, `71`/`72`/`73` for `bundle`: project unreadable (missing, damaged, newer
+  `61` rollback failed, `62` rollback refused (the target does not fit what is deployed; nothing ran), `71`/`72`/`73` for `bundle`: project unreadable (missing, damaged, newer
   format) / not bundleable (unset journaling, missing scripts, a `--since` with nothing after it,
   an unknown release) / output not writable (`BundleOutputException`, wrapped by the command so
   no `IOException` elsewhere lands on it), `81` `status --exit-code` found something to deploy (a
-  forecast, not a failure; opt-in so `set -e` never trips on a plain `status`), `91` not implemented. Two precedence rules carry the operational meaning:
+  forecast, not a failure; opt-in so `set -e` never trips on a plain `status`), `91` not implemented (unused since `rollback` exists). Two precedence rules carry the operational meaning:
   a half-compensated database (`61`) outranks the failure that started the rollback, and a database
   left partway (`52`) outranks the cause of it — the cause stays in the message for whoever fixes
   it, the code tells a pipeline whether it may retry. `52` therefore needs to know whether anything

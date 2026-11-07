@@ -540,47 +540,6 @@ public class DeployCliTests : IDisposable
 	}
 
 	[Fact]
-	public void RollbackParsesItsSwitchesButIsNotYetSupported()
-	{
-		string bundle = WriteBundle( "demo.zip" );
-
-		CommandAppResult result = Run(
-			"rollback",
-			bundle,
-			"--driver",
-			"pg",
-			"--pg-host",
-			"h",
-			"--pg-database",
-			"d",
-			"--until-release",
-			"2026.07"
-		);
-
-		Assert.Equal( DeployExitCodes.NotSupported, result.ExitCode );
-		Assert.Contains( "rollback is not yet supported", result.Output );
-
-		CommandAppResult both = Run(
-			"rollback",
-			bundle,
-			"--driver",
-			"pg",
-			"--after-release",
-			"a",
-			"--until-release",
-			"b"
-		);
-
-		Assert.Equal( DeployExitCodes.UsageError, both.ExitCode );
-		Assert.Contains( "not both", both.Output );
-
-		CommandAppResult neither = Run( "rollback", bundle, "--driver", "pg" );
-
-		Assert.Equal( DeployExitCodes.UsageError, neither.ExitCode );
-		Assert.Contains( "--after-release or --until-release", neither.Output );
-	}
-
-	[Fact]
 	public void AMissingBundleIsItsOwnFailure()
 	{
 		CommandAppResult result = Run(

@@ -2,7 +2,7 @@ select top (1) d.release,
 	case when exists ( select 1 from sqetch_journal c
 		where c.project = @project and c.release = d.release and c.slot = 'ReleaseDeployed'
 			and c.id > coalesce( ( select max( u.id ) from sqetch_journal u
-				where u.project = @project and u.release = d.release and u.slot = 'RolledBackRelease' ), 0 ) )
+				where u.project = @project and u.release = d.release and u.slot = 'RollingBackRelease' ), 0 ) )
 		then 1 else 0 end
 from sqetch_journal d
 where d.project = @project and d.slot = 'DeployingRelease'

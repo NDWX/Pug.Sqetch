@@ -336,6 +336,209 @@ public sealed class RealDatabaseDeployment(
 		Assert.Empty( Journal().Where( row => row.Contains( "RollingBack" ) || row.Contains( "RolledBack" ) ) );
 	}
 
+	// ------------------------------------------------------------------ standalone rollback
+
+	/// <summary>
+	/// Undoing a deployment that finished, to a release: what the journal says is deployed decides what
+	/// is undone, and the template's own queries must read the result back as the earlier release,
+	/// completed — so the next deployment carries on from there, as if the later release never ran.
+	/// </summary>
+	public void RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		Deploy( releases, Scripts() );
+		RollBack( releases, Scripts(), RollbackTarget.ToRelease( "r1" ) );
+
+		Assert.Equal( [ "a_s1", "b_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r1", Completed: true ), JournalLatest() );
+		Assert.Empty( JournalPlans( "r2" ) );
+		Assert.Equal( [ "a", "b" ], JournalPlans( "r1" ) );
+
+		RecordingListener again = new();
+
+		Deploy( releases, Scripts(), listener: again );
+
+		Assert.Contains( "release r2", again.Events );
+		Assert.Contains( "plan r2/c", again.Events );
+		Assert.DoesNotContain( "release r1", again.Events );
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r2", Completed: true ), JournalLatest() );
+		Assert.Equal( [ "c" ], JournalPlans( "r2" ) );
+	}
+
+	/// <summary>
+	/// Undoing one plan of a release leaves the release deployed only in part: the journal reads it as
+	/// not completed with the other plan still held, and deploying again resumes inside it, deploying
+	/// just the plan that was undone.
+	/// </summary>
+	public void RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan()
+	{
+		IReadOnlyList<ReleaseGroup> releases = [
+			new ReleaseGroup(
+				"r1",
+				"",
+				"",
+				[
+					new DeployablePlan( "a", "", [ new DeployableStep( "s1", "" ) ] ),
+					new DeployablePlan( "b", "", [ new DeployableStep( "s1", "" ) ], [ "a" ] )
+				]
+			)
+		];
+
+		Deploy( releases, Scripts() );
+		RollBack( releases, Scripts(), RollbackTarget.OfPlans( [ "b" ] ) );
+
+		Assert.Equal( [ "a_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r1", Completed: false ), JournalLatest() );
+		Assert.Equal( [ "a" ], JournalPlans( "r1" ) );
+
+		RecordingListener again = new();
+
+		Deploy( releases, Scripts(), listener: again );
+
+		Assert.Contains( "skip-plan r1/a", again.Events );
+		Assert.Contains( "plan r1/b", again.Events );
+		Assert.DoesNotContain( "plan r1/a", again.Events );
+		Assert.Equal( [ "a_s1", "b_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r1", Completed: true ), JournalLatest() );
+		Assert.Equal( [ "a", "b" ], JournalPlans( "r1" ) );
+	}
+
+	/// <summary>
+	/// Undoing everything: the journal then reports nothing deployed at all, which is what a database
+	/// never deployed to reports, so a redeploy starts from the first release.
+	/// </summary>
+	public void RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		Deploy( releases, Scripts() );
+		RollBack( releases, Scripts(), RollbackTarget.All );
+
+		Assert.Empty( StepTables() );
+		Assert.Null( JournalLatest() );
+
+		RecordingListener again = new();
+
+		Deploy( releases, Scripts(), listener: again );
+
+		Assert.Equal(
+			[ "plan r1/a", "plan r1/b", "plan r2/c" ],
+			again.Events.Where( e => e.StartsWith( "plan " ) )
+		);
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r2", Completed: true ), JournalLatest() );
+	}
+
+	/// <summary>
+	/// Rolling back a database never deployed to is refused by the journal read failing, and the
+	/// rollback, unlike a deployment, does not create the journal to be able to read it.
+	/// </summary>
+	public void RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal()
+	{
+		Assert.False( JournalTableExists() );
+
+		JournalingStatementException error = Assert.Throws<JournalingStatementException>(
+			() => RollBack( TwoReleases(), Scripts(), RollbackTarget.All )
+		);
+
+		Assert.Equal( nameof(JournalingSlot.GetLatestRelease), error.Slot );
+		Assert.False( JournalTableExists() );
+		Assert.Empty( StepTables() );
+	}
+
+	/// <summary>
+	/// A rollback script that fails stops the rollback with what committed before it standing, and the
+	/// journal says exactly that, so running the same rollback again finishes it.
+	/// </summary>
+	public void AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt()
+	{
+		IReadOnlyList<ReleaseGroup> releases = TwoReleases();
+
+		Deploy( releases, Scripts() );
+
+		InMemoryScripts broken = Scripts();
+
+		broken.Rollback( "b", "s1", "drop table nowhere_at_all" );
+
+		RollbackFailedException error = Assert.Throws<RollbackFailedException>( () => RollBack(
+				releases,
+				broken,
+				RollbackTarget.All
+			)
+		);
+
+		Assert.Equal( ( "r1", "b", "s1" ), ( error.Release, error.Plan, error.Step ) );
+
+		// r2 was undone and committed before r1 began; nothing of r1 was. Where the failing DROP commits
+		// implicitly the journal rows before it stand, 'RollingBackRelease r1' among them, so r1 reads as
+		// begun to be undone, which is not completed
+		Assert.Equal( [ "a_s1", "b_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r1", Completed: !CommitsDdlImplicitly() ), JournalLatest() );
+		Assert.Empty( JournalPlans( "r2" ) );
+		Assert.Equal( [ "a", "b" ], JournalPlans( "r1" ) );
+
+		RollBack( releases, Scripts(), RollbackTarget.All );
+
+		Assert.Empty( StepTables() );
+		Assert.Null( JournalLatest() );
+	}
+
+	/// <summary>
+	/// A plan-level rollback cut short inside a release holding two plans: the second plan's rollback
+	/// script fails after the first plan was undone and committed, together with the release's
+	/// <c>RollingBackRelease</c> but not its <c>RolledBackRelease</c>. The template must read that release
+	/// as not completed — its <c>ReleaseDeployed</c> predates the rollback — so a deployment resumes into
+	/// it and redeploys the undone plan, and the rollback rerun then finishes.
+	/// </summary>
+	public void ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone()
+	{
+		IReadOnlyList<ReleaseGroup> releases = Lineage(
+			[ Release( "r1" ), Release( "r2", "r1" ) ],
+			[ Plan( "a", "r1", "s1" ), Plan( "b", "r2", "s1" ), Plan( "c", "r2", "s1" ) ]
+		);
+
+		Deploy( releases, Scripts() );
+
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+
+		InMemoryScripts broken = Scripts();
+
+		broken.Rollback( "b", "s1", "drop table nowhere_at_all" );
+
+		// plans are undone newest first: c, then b, whose script fails
+		RollbackFailedException error = Assert.Throws<RollbackFailedException>( () => RollBack(
+				releases,
+				broken,
+				RollbackTarget.ToRelease( "r1" ),
+				DeploymentCommitLevel.Plan
+			)
+		);
+
+		Assert.Equal( ( "r2", "b", "s1" ), ( error.Release, error.Plan, error.Step ) );
+		Assert.Equal( [ "a_s1", "b_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r2", Completed: false ), JournalLatest() );
+		Assert.Equal( [ "b" ], JournalPlans( "r2" ) );
+
+		RecordingListener again = new();
+
+		Deploy( releases, Scripts(), listener: again );
+
+		Assert.Contains( "skip-plan r2/b", again.Events );
+		Assert.Contains( "plan r2/c", again.Events );
+		Assert.DoesNotContain( "plan r2/b", again.Events );
+		Assert.Equal( [ "a_s1", "b_s1", "c_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r2", Completed: true ), JournalLatest() );
+		Assert.Equal( [ "b", "c" ], JournalPlans( "r2" ) );
+
+		RollBack( releases, Scripts(), RollbackTarget.ToRelease( "r1" ), DeploymentCommitLevel.Plan );
+
+		Assert.Equal( [ "a_s1" ], StepTables() );
+		Assert.Equal( new JournaledRelease( "r1", Completed: true ), JournalLatest() );
+		Assert.Empty( JournalPlans( "r2" ) );
+	}
+
 	// ------------------------------------------------------------------ step verification
 
 	/// <summary>
@@ -725,6 +928,49 @@ public sealed class RealDatabaseDeployment(
 				rollback
 			)
 			.Deploy( Project, releases );
+	}
+
+	private void RollBack(
+		IReadOnlyList<ReleaseGroup> releases,
+		IScriptContentReader scripts,
+		RollbackTarget target,
+		DeploymentCommitLevel level = DeploymentCommitLevel.Release
+	)
+	{
+		using IDatabaseDriver owned = driver();
+
+		new DeploymentEngine( owned, journaling, scripts, level, new RecordingListener() )
+			.RollBack( Project, releases, target );
+	}
+
+	/// <summary>What the template's GetLatestRelease answers now, read as a deployment would.</summary>
+	private JournaledRelease? JournalLatest()
+	{
+		using IDatabaseDriver owned = driver();
+
+		IDatabaseTransaction transaction = owned.BeginTransaction();
+
+		JournaledRelease? latest = new StatementJournal( journaling, Project ).GetLatestRelease( transaction );
+
+		transaction.Commit();
+
+		return latest;
+	}
+
+	/// <summary>What the template's GetDeployedPlans answers now for a release, in name order.</summary>
+	private List<string> JournalPlans( string release )
+	{
+		using IDatabaseDriver owned = driver();
+
+		IDatabaseTransaction transaction = owned.BeginTransaction();
+
+		List<string> plans = new StatementJournal( journaling, Project ).GetDeployedPlans( release, transaction )
+			.OrderBy( plan => plan, StringComparer.Ordinal )
+			.ToList();
+
+		transaction.Commit();
+
+		return plans;
 	}
 
 	/// <summary>

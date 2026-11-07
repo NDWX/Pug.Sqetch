@@ -63,6 +63,13 @@ public sealed class FakeDatabaseDriver : IDatabaseDriver
 	public Dictionary<string, DataTable> QueryResults { get; } = new();
 
 	/// <summary>
+	/// Result sets computed from the bound parameters, keyed by the exact query text, consulted before
+	/// <see cref="QueryResults"/>. For a query whose answer depends on what it is asked, such as the
+	/// plans of one release.
+	/// </summary>
+	public Dictionary<string, Func<IReadOnlyList<JournalingParameter>, DataTable>> QueryResultFactories { get; } = new();
+
+	/// <summary>
 	/// Interprets the marker journaling statements a deployment runs, so the durable journal state
 	/// can be asserted. Attached by <see cref="FakeJournal.Attach"/>; null when a test drives
 	/// journaling statements directly and does not care about their meaning.
@@ -156,7 +163,14 @@ public sealed class FakeTransaction( FakeDatabaseDriver driver, int number ) : I
 		if( driver.FailingJournalingQueries.Contains( query ) )
 			throw new InvalidOperationException( $"journaling query rejected: {query}" );
 
-		if( !driver.QueryResults.TryGetValue( query, out DataTable? table ) )
+		DataTable? table;
+
+		if( driver.QueryResultFactories.TryGetValue( query, out Func<IReadOnlyList<JournalingParameter>, DataTable>? factory ) )
+			table = factory( parameters );
+		else
+			driver.QueryResults.TryGetValue( query, out table );
+
+		if( table is null )
 			throw new InvalidOperationException( $"no canned result seeded for query: {query}" );
 
 		IDataReader reader = table.CreateDataReader();
@@ -248,6 +262,10 @@ public sealed class RecordingListener : IDeploymentListener
 
 	public void RollingBackPlan( string release, string plan ) => Events.Add( $"rollback-plan {release}/{plan}" );
 
+	public void RollingBackRelease( string release ) => Events.Add( $"rollback-release {release}" );
+
+	public void NothingToRollBack() => Events.Add( "nothing-to-roll-back" );
+
 	public void RolledBack() => Events.Add( "rolled-back" );
 
 	/// <summary>Makes <see cref="LockAcquired"/> throw, as a misbehaving host listener could.</summary>
@@ -336,27 +354,33 @@ public sealed class FakeJournal
 
 		driver.QueryResults[Marker( JournalingSlot.AcquireLock )] = acquired;
 
-		DataTable latest = new();
+		// from the live state, so a rollback after a deployment through the same journal reads it back
+		driver.QueryResultFactories[Marker( JournalingSlot.GetLatestRelease )] = _ => {
+			DataTable latest = new();
 
-		latest.Columns.Add( "release", typeof(string) );
-		latest.Columns.Add( "completed", typeof(bool) );
+			latest.Columns.Add( "release", typeof(string) );
+			latest.Columns.Add( "completed", typeof(bool) );
 
-		if( Latest is not null )
-			latest.Rows.Add( Latest.Name, Latest.Completed );
+			if( Latest is not null )
+				latest.Rows.Add( Latest.Name, Latest.Completed );
 
-		driver.QueryResults[Marker( JournalingSlot.GetLatestRelease )] = latest;
+			return latest;
+		};
 
-		DataTable plans = new();
+		// answered by the release asked about, from the live state: a rollback asks for several
+		driver.QueryResultFactories[Marker( JournalingSlot.GetDeployedPlans )] = parameters => {
+			string release = parameters.Single( p => p.Name == JournalingSlots.Parameters.Release ).Value.ToString() ?? "";
 
-		plans.Columns.Add( "plan", typeof(string) );
+			DataTable plans = new();
 
-		// only a release that is incompletely deployed is ever asked about, so the seeded plans of
-		// the latest release are the only ones the engine can request
-		if( Latest is not null && DeployedPlans.TryGetValue( Latest.Name, out List<string>? held ) )
-			foreach( string plan in held )
-				plans.Rows.Add( plan );
+			plans.Columns.Add( "plan", typeof(string) );
 
-		driver.QueryResults[Marker( JournalingSlot.GetDeployedPlans )] = plans;
+			if( DeployedPlans.TryGetValue( release, out List<string>? held ) )
+				foreach( string plan in held )
+					plans.Rows.Add( plan );
+
+			return plans;
+		};
 	}
 
 	internal void Observe(
@@ -405,8 +429,21 @@ public sealed class FakeJournal
 
 			break;
 
+			// the templates' completed rule: ReleaseDeployed counts only after the latest RollingBackRelease,
+			// so a rollback cut short inside the latest release leaves it incomplete. A rollback works newest
+			// first, so the release being undone is the template's latest (the newer ones are rolled back)
+			case nameof(JournalingSlot.RollingBackRelease):
+				transaction.OnCommit( () => Latest = new JournaledRelease( release, Completed: false ) );
+
+			break;
+
 			case nameof(JournalingSlot.PlanDeployed):
 				transaction.OnCommit( () => Plans( release ).Add( plan ) );
+
+			break;
+
+			case nameof(JournalingSlot.RolledBackPlan):
+				transaction.OnCommit( () => Plans( release ).Remove( plan ) );
 
 			break;
 		}

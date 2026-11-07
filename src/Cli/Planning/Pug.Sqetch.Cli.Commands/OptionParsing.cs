@@ -8,8 +8,7 @@ internal static class OptionParsing
 {
 	/// <summary>Splits a comma- or semicolon-separated option value.</summary>
 	public static string[] SplitList( string? value )
-		=> value is null ? [ ] :
-			value.Split( [ ',', ';' ], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries );
+		=> OptionLists.Split( value );
 
 	public static bool TryParseDate( string? value, out DateTime? date )
 	{

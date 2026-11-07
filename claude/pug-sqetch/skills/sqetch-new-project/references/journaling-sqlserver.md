@@ -64,7 +64,11 @@ Returns the release the database last reached and whether it was completed. It s
 that a rollback undid entirely. It keeps a release that a rollback undid only in part, which
 happens when an earlier run had already committed some of its plans, since those plans are
 still in place. A release counts as completed only when its `ReleaseDeployed` came after its
-latest rollback; T-SQL has no boolean expression in a select list, so the second column is
+latest rollback *started* (`RollingBackRelease`), so a rollback cut short partway through a
+release, which commits its first undone plans before its `RolledBackRelease`, leaves the release
+reading as partly deployed and a deployment then redeploys what was undone. Templates written
+before 0.2 compared against `RolledBackRelease`; update `GetLatestRelease` before using
+`sqetch-deploy rollback` or `--commit-level plan` with `--rollback`. T-SQL has no boolean expression in a select list, so the second column is
 `case when exists ( … ) then 1 else 0 end`.
 
 ```sql
@@ -72,7 +76,7 @@ select top (1) d.release,
 	case when exists ( select 1 from sqetch_journal c
 		where c.project = @project and c.release = d.release and c.slot = 'ReleaseDeployed'
 			and c.id > coalesce( ( select max( u.id ) from sqetch_journal u
-				where u.project = @project and u.release = d.release and u.slot = 'RolledBackRelease' ), 0 ) )
+				where u.project = @project and u.release = d.release and u.slot = 'RollingBackRelease' ), 0 ) )
 		then 1 else 0 end
 from sqetch_journal d
 where d.project = @project and d.slot = 'DeployingRelease'

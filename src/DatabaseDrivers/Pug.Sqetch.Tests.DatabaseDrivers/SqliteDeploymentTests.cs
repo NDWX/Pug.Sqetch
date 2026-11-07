@@ -45,6 +45,30 @@ public class SqliteDeploymentTests : IDisposable
 		=> _deployment.OnSuccessUndoesTheWholeDeploymentInReverse();
 
 	[Fact]
+	public void RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain()
+		=> _deployment.RollingBackToAReleaseUndoesTheLaterOnesAndTheyCanBeDeployedAgain();
+
+	[Fact]
+	public void RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan()
+		=> _deployment.RollingBackAPlanLeavesTheReleaseIncompleteAndRedeployingDeploysOnlyThatPlan();
+
+	[Fact]
+	public void RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll()
+		=> _deployment.RollingBackEverythingLeavesAJournalThatReportsNothingDeployedAndRedeployingDeploysAll();
+
+	[Fact]
+	public void RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal()
+		=> _deployment.RollingBackAFreshDatabaseFailsTheJournalReadAndDoesNotCreateTheJournal();
+
+	[Fact]
+	public void AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt()
+		=> _deployment.AFailingRollbackScriptStopsAStandaloneRollbackAndRunningItAgainFinishesIt();
+
+	[Fact]
+	public void ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone()
+		=> _deployment.ARollbackCutShortInsideAReleaseLeavesItIncompleteAndRedeployingRestoresWhatWasUndone();
+
+	[Fact]
 	public void AFailingRollbackScriptLeavesNoHalfFinishedCompensation()
 		=> _deployment.AFailingRollbackScriptLeavesNoHalfFinishedCompensation();
 

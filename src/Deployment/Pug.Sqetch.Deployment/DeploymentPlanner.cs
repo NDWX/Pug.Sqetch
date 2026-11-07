@@ -92,7 +92,7 @@ public static class DeploymentPlanner
 
 				// a journaled plan the bundle's copy of the release lacks means the release changed
 				// since, and the database should be restored from a clean backup
-				EnsureDeployedPlansAreInBundleRelease( latest, deployedPlans!, group );
+				EnsureDeployedPlansAreInBundleRelease( latest, latest.Name, deployedPlans!, group, "deploy" );
 
 				releases.Add(
 					new PlannedRelease( group, new HashSet<string>( deployedPlans!, StringComparer.Ordinal ), Resumed: true )
@@ -188,10 +188,17 @@ public static class DeploymentPlanner
 	internal static string Describe( string release )
 		=> release.Length == 0 ? "the unreleased-plans pseudo-release" : $"release '{release}'";
 
-	private static void EnsureDeployedPlansAreInBundleRelease(
-		JournaledRelease journaledRelease,
+	/// <summary>
+	/// A journaled plan of <paramref name="release"/> that the groups' copy of it lacks means the release
+	/// changed since it was deployed: the groups can neither resume it nor undo it faithfully.
+	/// <paramref name="verb"/> names what the caller wanted a bundle for ("deploy", "roll back").
+	/// </summary>
+	internal static void EnsureDeployedPlansAreInBundleRelease(
+		JournaledRelease journaled,
+		string release,
 		IReadOnlyCollection<string> deployedPlans,
-		ReleaseGroup bundlePlanGroup
+		ReleaseGroup bundlePlanGroup,
+		string verb
 	)
 	{
 		List<string> missingDeployedPlans =
@@ -199,10 +206,10 @@ public static class DeploymentPlanner
 
 		if( missingDeployedPlans.Count > 0 )
 			throw new IncompatibleBundleException(
-				journaledRelease,
-				$"the database has deployed plans of {Describe( journaledRelease.Name )} that this bundle does " +
-				$"not contain: {string.Join( ", ", missingDeployedPlans.Select( plan => $"'{plan}'" ) )}; deploy a " +
-				"bundle that contains them, or restore the database."
+				journaled,
+				$"the database has deployed plans of {Describe( release )} that this bundle does " +
+				$"not contain: {string.Join( ", ", missingDeployedPlans.Select( plan => $"'{plan}'" ) )}; {verb} " +
+				"with a bundle that contains them, or restore the database."
 			);
 	}
 }
