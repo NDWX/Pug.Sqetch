@@ -11,8 +11,4 @@
         <ProjectReference Include="..\Pug.Sqetch.Planning.Models\Pug.Sqetch.Planning.Models.csproj"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Folder Include="DatabaseDriver\"/>
-    </ItemGroup>
-
 </Project>
