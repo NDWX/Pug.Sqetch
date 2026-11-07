@@ -49,6 +49,11 @@ public static class SqetchApp
 		// '--version' prints the version the release was built as (the tag's, plus any pre-release suffix)
 		config.UseAssemblyInformationalVersion();
 
+		// an option no command defines is refused rather than collected and ignored, which would let a
+		// typo ('--requires-plans') succeed without its effect. sqetch takes no pass-through switches,
+		// unlike sqetch-deploy, whose driver switches must reach the command as leftovers
+		config.Settings.StrictParsing = true;
+
 		config.SetExceptionHandler( ( exception, resolver ) => {
 				IAnsiConsole console = resolver?.Resolve( typeof(IAnsiConsole) ) as IAnsiConsole ?? AnsiConsole.Console;
 

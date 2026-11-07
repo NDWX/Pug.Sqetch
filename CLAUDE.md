@@ -574,6 +574,15 @@ root.
   `Pug.Sqetch.Planning.ProjectInfoStore`. Each
   project's `RootNamespace` encodes the rule, so Rider's *Adjust Namespaces* keeps files in line. The
   sqetch CLI imports its `Rows` helpers through an alias because `Spectre.Console.Rows` shares the name.
+- **Unknown options are refused by both CLIs, in two different ways.** `sqetch` sets
+  `StrictParsing` (`SqetchApp.Configure`): it takes no pass-through switches — it never connects,
+  and the only driver it is told about is a name (`journaling init [<driver>]`, `--engine`) — so
+  Spectre refuses anything undeclared before a command runs. `sqetch-deploy` cannot: a driver's
+  `--<driver>-<parameter>` switches depend on the driver chosen at run time, so strict parsing is
+  off there and they arrive as leftovers, which `DriverParameters.Parse` validates (`deploy`,
+  `rollback`, `status`) and `RemainingArguments.RejectAll` refuses everywhere else. The setting is
+  per `CommandApp`, so neither host affects the other. A `sqetch` command that ever needs
+  pass-through switches would have to take `sqetch-deploy`'s approach.
 - Exceptions: plain classes with get-only properties and an optional message via `base(...)`
   (see `UnknownPlanException`); mapped to friendly CLI messages in `CliErrors.Describe`,
   surfaced by the central `SetExceptionHandler` in `SqetchApp` with exit code 1.

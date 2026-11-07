@@ -1,7 +1,7 @@
 {
   "name": "pug-sqetch",
   "description": "Skills for Sqetch, the database schema upgrader for DevOps pipelines: installing sqetch and sqetch-deploy, mapping steps, plans and releases onto tasks and software releases, starting a project with its journaling SQL, bundling and deploying, wiring it into CI, and getting help from the CLIs. Written for the latest releases and aware of older pinned versions.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": {
 	"name": "Andrian",
 	"email": "andrian@astraliscaelum.net"
