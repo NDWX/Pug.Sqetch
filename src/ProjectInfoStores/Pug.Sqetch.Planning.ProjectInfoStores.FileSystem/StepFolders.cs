@@ -34,21 +34,59 @@ internal static class StepFolders
 	}
 
 	/// <summary>
-	/// Rewrites each <c>step.json</c> whose name differs from its folder or whose dependencies name a
-	/// step the plan does not have, and writes nothing when everything agrees. Dropping such a
-	/// dependency is safe: deleting a step is refused while others depend on it, so only a rename cut
-	/// short leaves one, and the ordering ignores it anyway.
+	/// A step folder with a <c>step.json</c>: the document as stored, as it would be after
+	/// <see cref="Realign"/>, and the dependencies it names that no step folder of the plan matches.
 	/// </summary>
-	public static void Realign( string stepsDirectory )
+	public sealed record Inspection(
+		string Directory,
+		StepDocument Stored,
+		StepDocument Aligned,
+		bool NameMismatch,
+		string[] UnknownDependencies
+	)
+	{
+		public string FolderName => Path.GetFileName( Directory );
+
+		public bool NeedsRealign => NameMismatch || UnknownDependencies.Length > 0;
+	}
+
+	/// <summary>
+	/// Reports, without writing, what <see cref="Realign"/> would rewrite: each step whose name
+	/// differs from its folder or whose dependencies name no step folder of the plan (compared
+	/// case-insensitively). Every step is listed, rewritten or not. A <c>step.json</c> that cannot be
+	/// parsed throws, unless <paramref name="onUnreadable"/> is given, which is told the step folder
+	/// and the failure instead, and the step is left out.
+	/// </summary>
+	public static IReadOnlyList<Inspection> Inspect(
+		string stepsDirectory,
+		Action<string, ProjectStoreException>? onUnreadable = null
+	)
 	{
 		if( !Directory.Exists( stepsDirectory ) )
-			return;
+			return [ ];
 
 		List<(string Directory, StepDocument Stored)> steps = [ ];
 
 		foreach( string stepDirectory in Directory.EnumerateDirectories( stepsDirectory ) )
 		{
-			StepDocument? document = JsonFiles.TryRead<StepDocument>( Path.Combine( stepDirectory, FileNames.StepFile ) );
+			StepDocument? document;
+
+			try
+			{
+				string file = Path.Combine( stepDirectory, FileNames.StepFile );
+
+				document = JsonFiles.TryRead<StepDocument>( file );
+
+				// only the check asks for completeness, so realign reads exactly as before
+				if( document is not null && onUnreadable is not null )
+					DocumentCompleteness.Ensure( document, file );
+			}
+			catch( ProjectStoreException exception ) when( onUnreadable is not null )
+			{
+				onUnreadable( stepDirectory, exception );
+
+				continue;
+			}
 
 			if( document is not null )
 				steps.Add( ( stepDirectory, document ) );
@@ -56,18 +94,35 @@ internal static class StepFolders
 
 		HashSet<string> names = new( steps.Select( x => Path.GetFileName( x.Directory ) ), StringComparer.OrdinalIgnoreCase );
 
+		List<Inspection> inspections = [ ];
+
 		foreach( (string stepDirectory, StepDocument stored) in steps )
 		{
-			StepDocument aligned = Named( stored, stepDirectory );
-			string[] dependencies = aligned.Dependencies.Where( names.Contains ).ToArray();
+			StepDocument named = Named( stored, stepDirectory );
 
-			if( ReferenceEquals( aligned, stored ) && dependencies.Length == stored.Dependencies.Length )
-				continue;
-
-			JsonFiles.Write(
-				Path.Combine( stepDirectory, FileNames.StepFile ),
-				aligned with { Dependencies = dependencies }
+			inspections.Add(
+				new Inspection(
+					stepDirectory,
+					stored,
+					named with { Dependencies = named.Dependencies.Where( names.Contains ).ToArray() },
+					!ReferenceEquals( named, stored ),
+					named.Dependencies.Where( x => !names.Contains( x ) ).ToArray()
+				)
 			);
 		}
+
+		return inspections;
+	}
+
+	/// <summary>
+	/// Rewrites each <c>step.json</c> whose name differs from its folder or whose dependencies name a
+	/// step the plan does not have, and writes nothing when everything agrees. Dropping such a
+	/// dependency is safe: deleting a step is refused while others depend on it, so only a rename cut
+	/// short leaves one, and the ordering ignores it anyway.
+	/// </summary>
+	public static void Realign( string stepsDirectory )
+	{
+		foreach( Inspection step in Inspect( stepsDirectory ).Where( x => x.NeedsRealign ) )
+			JsonFiles.Write( Path.Combine( step.Directory, FileNames.StepFile ), step.Aligned );
 	}
 }

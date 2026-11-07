@@ -1,6 +1,6 @@
 ---
 name: sqetch-plans-and-releases
-description: Use when making a database schema change in a Sqetch project, i.e. turning a task, ticket or pull request into a plan, splitting it into steps and writing their deploy, verify and rollback scripts, declaring dependencies between plans or steps, assembling plans into a release for a software version, finalizing it when the version ships, fixing something after a release shipped, inspecting plans, steps and releases, or resolving a plan-index merge conflict.
+description: Use when making a database schema change in a Sqetch project, i.e. turning a task, ticket or pull request into a plan, splitting it into steps and writing their deploy, verify and rollback scripts, declaring dependencies between plans or steps, assembling plans into a release for a software version, finalizing it when the version ships, fixing something after a release shipped, inspecting plans, steps and releases, resolving a plan-index merge conflict, or checking a project for inconsistent data (sqetch project check).
 ---
 
 # Plans, steps and releases
@@ -205,3 +205,37 @@ Since 0.2, `reindex` also repairs a plan whose folder and `plan.json` disagree a
 (the folder wins), which a `sqetch` command interrupted mid-move can leave behind, and a step whose
 folder and `step.json` disagree about its name, which an interrupted `rename-step` can leave. Run
 it, then check `sqetch plan --name <plan>` or `sqetch plan list-steps -p <plan>`.
+
+## Checking a project (since 0.2)
+
+```sh
+sqetch project check            # report, change nothing
+sqetch project check --fix      # rebuild the plan index first, then report what is left
+sqetch project check -o json    # for a pipeline
+```
+
+It needs no user identity and changes nothing without `--fix`. It exits `0` when it finds nothing,
+`2` when it finds something (one row per finding: check, release, plan, step, problem), and `1` when
+it could not run. Run it after a merge, after hand edits, before finalizing a release, and in CI.
+
+| Check | Means | Fix |
+|---|---|---|
+| `index-missing`, `index-unreadable`, `index-drift`, `plan-release-mismatch` | `plan-index` or a `plan.json` disagrees with the plan folders | `--fix` (or `project reindex`) |
+| `step-name-mismatch`, `step-dependency-unknown` | left by an interrupted `rename-step` | `--fix` |
+| `plan-name-mismatch` | a `plan.json` names a plan other than its folder | rename the folder or fix the file by hand |
+| `plan-duplicate`, `release-duplicate` | the same plan or release in two folders (or two release names differing only in case), as a mangled merge or a copied folder leaves | keep one; ask the user which |
+| `release-name-mismatch` | a `release.json` names a release other than its folder | fix by hand; ask the user |
+| `document-unreadable` | a `plan.json`, `step.json` or `release.json` cannot be parsed, often merge-conflict markers | resolve the conflict in that file |
+| `orphan-folder` | a plan folder without `plan.json`, or a release folder without `release.json`: every command ignores it and what is in it | restore the file, or remove the folder if it is debris |
+| `invalid-name` | a project, release, plan or step name the naming rules reject | recreate it under a valid name |
+| `released-plan-missing-dependency` | a released plan's dependency is unreleased or in a later release (0.1.0 allowed this) | `plan set-release` the dependency into the release or an earlier one; in a finalized release, a new plan |
+| `plan-dependency-unknown`, `plan-dependency-cycle` | a plan depends on a plan that does not exist, or plans depend on each other in a circle | `plan set-dependencies` / `remove-dependency` |
+| `release-lineage` | the releases do not form one line: two dependants, a missing predecessor, two starts, a cycle, or an open release before a finalized one | needs a person; ask the user |
+| `step-scripts-missing` | a step lacks `deploy.sql`, `verify.sql` or `rollback.sql` | create the file (an empty `verify.sql` is fine) |
+| `step-multiple-dependencies` | a step requires more than one step (allowed before 0.2) | `plan move-step` |
+| `journaling-unset` | a required journaling slot has no SQL; `bundle` would refuse | skill `sqetch-new-project` |
+| `checks-skipped` | something the rule checks read cannot be trusted yet (a stale index, a plan's release, a duplicate, an unreadable or mismatched document), so they did not run | what the row says: `--fix`, or resolve those findings first |
+
+`--fix` repairs only the findings marked `fixedByReindex` in `-o json`: the index, a `plan.json`'s
+release, and the step-folder ones. Fix the rest deliberately and explain each change to the user;
+never edit files inside a finalized release.

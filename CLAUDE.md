@@ -506,6 +506,23 @@ root.
   only; a dependency in a later release is refused, never moved, since moving it could strand
   that release's own plans. `CreateRelease( definition, includeUnreleasedPlans )` needs no check: a
   new release ends the lineage, and every unreleased plan joins it.
+- **`sqetch project check`** (since 0.2) reports inconsistent project data and changes nothing
+  unless `--fix` rebuilds the index first. Two halves, by layer: `FileSystemProjectStores.Check()`
+  (the project on disk — index drift, plan.json/step.json/release.json disagreeing with their
+  folders, duplicate plans or releases, unreadable documents, orphan folders, dangling step
+  dependencies, `NameRules` violations — collected, never thrown, so a mangled merge is reported
+  rather than failing the command) and `IReadOnlyProject.Check()` (the rules — released
+  plans missing dependencies, unknown or cyclic plan dependencies, the release lineage, missing step
+  scripts, steps with more than one dependency, unset journaling slots), both returning
+  `ProjectFinding`s with the stable codes in `ProjectChecks`. The store's check and `Reindex` share
+  one compute step (`PlanIndex` computes what it would write; `StepFolders.Inspect` what `Realign`
+  would rewrite), so a finding marked `FixedByReindex` is exactly what reindex repairs. The engine
+  reads through the plan index and the documents, so the command runs it only when no store finding
+  is blocking (`ProjectChecks.IsBlocking`: anything making the index, a plan's release, which copy is
+  meant, or a document untrustworthy) and otherwise reports `checks-skipped`, saying whether `--fix`
+  would unblock it. The engine's check must still never throw on such data. It opens the project
+  read-only (no user identity) and exits `2` on findings, keeping `1` for the command failing — the
+  only sqetch command with a code beyond 0 and 1.
 - **Edits are atomic per command** (`UpdatePlan`, `UpdateRelease`, `UpdateStep`, `RenameStep`,
   `MoveStep`; since 0.2): everything is checked before the first write, and the writes are ordered
   so that a command cut short leaves a valid project that rerunning it, or a reindex, finishes. An

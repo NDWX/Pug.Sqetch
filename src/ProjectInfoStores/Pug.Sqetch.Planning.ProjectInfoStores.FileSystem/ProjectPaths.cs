@@ -122,6 +122,36 @@ public sealed class ProjectPaths
 		}
 	}
 
+	/// <summary>
+	/// Folders where a release should be but <c>release.json</c> is not: those at the level releases
+	/// sit at, which <see cref="EnumerateReleaseDirectories"/> skips for that very reason. Only for
+	/// <c>project check</c>, which reports them; nothing else may treat such a folder as a release.
+	/// With a sharded strategy a folder directly under 'releases' lacking <c>release.json</c> cannot
+	/// be told from a shard, so only those inside the shards are found.
+	/// </summary>
+	public IEnumerable<string> EnumerateReleaseDirectoriesWithoutReleaseFile()
+		=> Directory.Exists( ReleasesDirectory ) ?
+			EnumerateOrphanReleaseDirectories( ReleasesDirectory, _sharding.ShardDepth ) :
+			[ ];
+
+	private static IEnumerable<string> EnumerateOrphanReleaseDirectories( string directory, int remainingDepth )
+	{
+		foreach( string child in Directory.EnumerateDirectories( directory ) )
+		{
+			// a release found on the way is a release, not a shard to look into
+			if( File.Exists( Path.Combine( child, FileNames.ReleaseFile ) ) )
+				continue;
+
+			if( remainingDepth == 0 )
+				yield return child;
+			else
+			{
+				foreach( string orphan in EnumerateOrphanReleaseDirectories( child, remainingDepth - 1 ) )
+					yield return orphan;
+			}
+		}
+	}
+
 	private static IEnumerable<string> MatchingReleaseDirectoriesIn( string directory, string prefix )
 	{
 		foreach( string releaseDirectory in Directory.EnumerateDirectories( directory ) )

@@ -27,6 +27,14 @@ it at least as new as the `sqetch` the team uses.
    Use a fresh database every run (a service container, or a SQLite file for a SQLite project).
    Test databases are single-use; never point this at a shared database.
 
+   Where the pipeline also has `sqetch` (skill `sqetch-install`), check the project first: since 0.2
+   `sqetch project check` exits `2` on inconsistent project data (a released plan missing a
+   dependency, a missing script, a stale plan index…) and needs no user identity:
+
+   ```sh
+   (cd db && sqetch project check)
+   ```
+
 2. **Release: build the bundle once.** When the application's version ships, its release is
    finalized in the project (skill `sqetch-plans-and-releases`), and the pipeline builds the bundle
    from that commit and keeps it as an artifact:
