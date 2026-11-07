@@ -38,8 +38,8 @@ sqetch plan add-step -p add-orders -n orders-customer-index --requires orders-ta
   drivers).
   Do not add `begin`/`commit`.
 - **`rollback.sql`** undoes exactly what `deploy.sql` did, in reverse order (drop what was created,
-  restore what was changed). `sqetch-deploy deploy --rollback` runs it, so it must work against
-  the state `deploy.sql` leaves. Where data would be lost, say so in the script's comments and to the
+  restore what was changed). `sqetch-deploy deploy --rollback` and, since 0.2,
+  `sqetch-deploy rollback` run it, so it must work against the state `deploy.sql` leaves. Where data would be lost, say so in the script's comments and to the
   user.
 - **`verify.sql`** checks the change is in place. Since `sqetch-deploy` 0.2 it runs right after
   `deploy.sql`, in the same transaction, and **fails the step only by raising an error**: Sqetch

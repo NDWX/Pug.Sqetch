@@ -88,8 +88,17 @@ public static class DeployExitCodes
 
 	public const int RollbackError = 60;
 
-	/// <summary>Compensation itself failed, so the database is neither deployed nor undone.</summary>
+	/// <summary>
+	/// A rollback script failed, so the database is neither deployed nor undone: after 'deploy
+	/// --rollback' it needs a person; after 'rollback' what committed stays partly undone, and
+	/// running the same rollback again continues it.
+	/// </summary>
 	public const int RollbackFailed = 61;
+
+	/// <summary>
+	/// The rollback asked for does not fit what the database has deployed; nothing ran.
+	/// </summary>
+	public const int RollbackRefused = 62;
 
 	public const int BundleBuildError = 70;
 
@@ -138,6 +147,7 @@ public static class DeployExitCodes
 
 			// a database left half-compensated outranks the failure that started the rollback
 			RollbackFailedException => RollbackFailed,
+			RollbackRefusedException => RollbackRefused,
 
 			// ...and a database left partway outranks the cause of it. The cause is in the message
 			// for whoever has to fix it; the code is for a pipeline deciding whether it may retry.

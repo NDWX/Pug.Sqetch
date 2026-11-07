@@ -48,6 +48,7 @@ public static class SqetchDeployApp
 		registrar.RegisterInstance( typeof(IDatabaseDriverRegistry), drivers );
 		registrar.RegisterInstance( typeof(IBundleTypeRegistry), bundleTypes );
 		registrar.RegisterInstance( typeof(IBundleLayoutRegistry), layouts );
+		registrar.RegisterInstance( typeof(WarningWriter), WarningWriter.ToStandardError() );
 		registrar.RegisterInstance( typeof(BundlerIdentity), CreateBundlerIdentity() );
 
 		return registrar;
@@ -122,6 +123,6 @@ public static class SqetchDeployApp
 			.WithDescription( "Bundle a project's plans and their steps into a deployment archive or directory" );
 
 		config.AddCommand<RollbackCommand>( "rollback" )
-			.WithDescription( "Roll back deployed releases (not yet supported)" );
+			.WithDescription( "Undo deployed releases or plans with the bundle's rollback scripts" );
 	}
 }

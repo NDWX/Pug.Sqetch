@@ -58,7 +58,9 @@ Columns are read by position; extra columns are ignored.
   2. whether that release was completed: a boolean, any number (non-zero is true), or text
      `1`/`y`/`yes`/`t`/`true`.
 
-  More than one row is an error.
+  More than one row is an error. A release a rollback undid entirely is not the one reached; one a
+  rollback has started undoing (`RollingBackRelease`) is not completed until it is deployed again,
+  even when the rollback stopped partway.
 - **`GetDeployedPlans`**: the names of the plans of `@release` that are in place, one per row, in
   any order.
 - **`JournalExists`** (optional, since 0.2): one row whose first column says whether the journal

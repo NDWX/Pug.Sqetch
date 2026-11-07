@@ -76,6 +76,7 @@ public static class BundleReleaseGroups
 		=> new(
 			plan.Name,
 			plan.Description,
-			plan.Steps.Select( step => new DeployableStep( step.Name, step.Description ) ).ToList()
+			plan.Steps.Select( step => new DeployableStep( step.Name, step.Description ) ).ToList(),
+			plan.Dependencies
 		);
 }
