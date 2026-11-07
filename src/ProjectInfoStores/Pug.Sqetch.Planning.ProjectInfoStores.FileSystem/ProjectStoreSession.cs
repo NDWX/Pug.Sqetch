@@ -39,7 +39,13 @@ internal sealed class ProjectStoreSession
 
 	public PlanIndex PlanIndex => _planIndex ??= PlanIndex.Load( Paths.PlanIndexFile );
 
-	public void Reindex() => _planIndex = PlanIndex.Rebuild( Paths );
+	public void Reindex()
+	{
+		_planIndex = PlanIndex.Rebuild( Paths );
+
+		foreach( PlanIndexEntry entry in _planIndex.Entries )
+			StepFolders.Realign( Paths.StepsDirectory( entry.Release, entry.Name ) );
+	}
 
 	public PlanIndexEntry RequirePlan( string name )
 		=> PlanIndex.Get( name ) ?? throw new UnknownPlanException( name );

@@ -93,6 +93,18 @@ public static class SqetchApp
 				plan.AddCommand<PlanCreateCommand>( "create" )
 					.WithDescription( "Create a plan; prints the plan's path" );
 
+				plan.AddCommand<PlanUpdateCommand>( "update" )
+					.WithDescription( "Change a plan's description" );
+
+				plan.AddCommand<PlanSetDependenciesCommand>( "set-dependencies" )
+					.WithDescription( "Replace the plans a plan depends on" );
+
+				plan.AddCommand<PlanAddDependencyCommand>( "add-dependency" )
+					.WithDescription( "Add plans a plan depends on" );
+
+				plan.AddCommand<PlanRemoveDependencyCommand>( "remove-dependency" )
+					.WithDescription( "Remove plans a plan depends on" );
+
 				plan.AddCommand<PlanDeleteCommand>( "delete" )
 					.WithDescription( "Delete a plan" );
 
@@ -101,6 +113,15 @@ public static class SqetchApp
 
 				plan.AddCommand<PlanListStepsCommand>( "list-steps" )
 					.WithDescription( "List a plan's steps in dependency order" );
+
+				plan.AddCommand<PlanUpdateStepCommand>( "update-step" )
+					.WithDescription( "Change a step's description" );
+
+				plan.AddCommand<PlanRenameStepCommand>( "rename-step" )
+					.WithDescription( "Rename a step; prints its new path" );
+
+				plan.AddCommand<PlanMoveStepCommand>( "move-step" )
+					.WithDescription( "Move a step before or after another; prints the dependencies it changed" );
 
 				plan.AddCommand<PlanDeleteStepCommand>( "delete-step" )
 					.WithDescription( "Delete a step from a plan" );
@@ -120,6 +141,9 @@ public static class SqetchApp
 
 				release.AddCommand<ReleaseListCommand>( "list" )
 					.WithDescription( "List releases; open ones by default" );
+
+				release.AddCommand<ReleaseUpdateCommand>( "update" )
+					.WithDescription( "Change an open release's description" );
 
 				release.AddCommand<ReleaseDeleteCommand>( "delete" )
 					.WithDescription( "Delete an open release, unassigning its plans" );

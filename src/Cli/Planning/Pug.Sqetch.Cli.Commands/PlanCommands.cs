@@ -314,6 +314,120 @@ public sealed class PlanCreateCommand( IAnsiConsole console ) : Command<PlanCrea
 	}
 }
 
+public class PlanNameSettings : CommandSettings
+{
+	[CommandOption( "-n|--name <PLAN>" )] public string? Name { get; init; }
+
+	public override ValidationResult Validate()
+		=> string.IsNullOrWhiteSpace( Name ) ? ValidationResult.Error( "--name is required" ) : ValidationResult.Success();
+}
+
+/// <summary>The plan and a list of plans, for the commands changing a plan's dependencies.</summary>
+public class PlanDependencySettings : PlanNameSettings
+{
+	[CommandOption( "--plans <PLANS>" )]
+	[Description( "Comma- or semicolon-separated plan names" )]
+	public string? Plans { get; init; }
+
+	public override ValidationResult Validate()
+		=> Plans is null ? ValidationResult.Error( "--plans is required" ) : base.Validate();
+}
+
+/// <summary>Changes a plan's description.</summary>
+public sealed class PlanUpdateCommand : Command<PlanUpdateCommand.Settings>
+{
+	public sealed class Settings : PlanNameSettings
+	{
+		[CommandOption( "-d|--description <TEXT>" )]
+		public string? Description { get; init; }
+
+		public override ValidationResult Validate()
+			=> Description is null ? ValidationResult.Error( "--description is required" ) : base.Validate();
+	}
+
+	protected override int Execute( CommandContext context, Settings settings, CancellationToken cancellationToken )
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		session.Project.UpdatePlan( settings.Name!, settings.Description!, null );
+
+		return 0;
+	}
+}
+
+/// <summary>Replaces a plan's dependencies; <c>--plans ""</c> leaves it with none.</summary>
+public sealed class PlanSetDependenciesCommand : Command<PlanDependencySettings>
+{
+	protected override int Execute(
+		CommandContext context,
+		PlanDependencySettings settings,
+		CancellationToken cancellationToken
+	)
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		session.Project.UpdatePlan( settings.Name!, null, OptionParsing.SplitList( settings.Plans ) );
+
+		return 0;
+	}
+}
+
+/// <summary>Adds plans to a plan's dependencies; one it already has is left as it is.</summary>
+public sealed class PlanAddDependencyCommand : Command<PlanDependencySettings>
+{
+	protected override int Execute(
+		CommandContext context,
+		PlanDependencySettings settings,
+		CancellationToken cancellationToken
+	)
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		List<string> dependencies = CurrentDependencies( session, settings.Name! );
+
+		foreach( string added in OptionParsing.SplitList( settings.Plans ) )
+			if( !dependencies.Contains( added, StringComparer.OrdinalIgnoreCase ) )
+				dependencies.Add( added );
+
+		session.Project.UpdatePlan( settings.Name!, null, dependencies );
+
+		return 0;
+	}
+
+	internal static List<string> CurrentDependencies( ProjectSession session, string name )
+	{
+		ProjectPlan plan = session.Stores.InfoStore.GetPlan( name ) ?? throw new UnknownPlanException( name );
+
+		return ( ( plan.Definition as PlanDefinition )?.Dependencies ?? [ ] ).ToList();
+	}
+}
+
+/// <summary>
+/// Removes plans from a plan's dependencies; naming one it does not depend on is refused, so a typo
+/// is not taken for success.
+/// </summary>
+public sealed class PlanRemoveDependencyCommand : Command<PlanDependencySettings>
+{
+	protected override int Execute(
+		CommandContext context,
+		PlanDependencySettings settings,
+		CancellationToken cancellationToken
+	)
+	{
+		using ProjectSession session = ProjectSession.Open();
+
+		List<string> dependencies = PlanAddDependencyCommand.CurrentDependencies( session, settings.Name! );
+
+		foreach( string removed in OptionParsing.SplitList( settings.Plans ) )
+			if( dependencies.RemoveAll( x => string.Equals( x, removed, StringComparison.OrdinalIgnoreCase ) ) == 0 )
+				throw new InvalidOperationException( $"plan '{settings.Name}' does not depend on '{removed}'" );
+
+		session.Project.UpdatePlan( settings.Name!, null, dependencies );
+
+		return 0;
+	}
+}
+
 public sealed class PlanDeleteCommand : Command<PlanDeleteCommand.Settings>
 {
 	public sealed class Settings : CommandSettings

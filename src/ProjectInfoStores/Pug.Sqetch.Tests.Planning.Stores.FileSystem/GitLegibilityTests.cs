@@ -104,6 +104,36 @@ public class GitLegibilityTests
 	}
 
 	[Fact]
+	public void RenamingAStepIsOneRenameScriptsIncluded()
+	{
+		using TempProject project = TempProject.Create();
+		using FileSystemProjectStores stores = project.Open();
+
+		Git.Run( project.Root, "init" );
+
+		stores.InfoStore.AddPlan( new ObjectDefinition( "customer-email", "" ), [ ], TestData.Context() );
+		stores.InfoStore.AddStep( "customer-email", new ObjectDefinition( "add-column", "" ), [ ], TestData.Context() );
+
+		File.WriteAllText(
+			Path.Combine( project.Root, "plans", "customer-email", "steps", "add-column", "deploy.sql" ),
+			"alter table customer add column email text;\n"
+		);
+
+		Git.Commit( project.Root, "add step" );
+
+		stores.InfoStore.RenameStep( "customer-email", "add-column", "add-email" );
+
+		string diff = Git.StagedChanges( project.Root );
+
+		Assert.Matches(
+			@"R\d+\tplans/customer-email/steps/add-column/deploy\.sql\tplans/customer-email/steps/add-email/deploy\.sql",
+			diff
+		);
+
+		Assert.DoesNotContain( "D\tplans/customer-email/steps/add-column/deploy.sql", diff );
+	}
+
+	[Fact]
 	public void JournalingStatementsAppearAsPlainFileEdits()
 	{
 		using TempProject project = TempProject.Create();

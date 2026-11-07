@@ -8,7 +8,11 @@ public interface IProjectInfoStore : IDisposable
 
 	void AddPlan( ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context );
 
-	void UpdatePlan( ObjectDefinition definition );
+	/// <summary>
+	/// Replaces the description and dependencies of plan <paramref name="definition"/> names in one
+	/// write; the plan's release must not be finalized.
+	/// </summary>
+	void UpdatePlan( PlanDefinition definition );
 
 	bool PlanExists( string name );
 
@@ -20,11 +24,17 @@ public interface IProjectInfoStore : IDisposable
 
 	IEnumerable<string> GetPlanDependants( string name );
 
-	void SetPlanDependencies( string name, IEnumerable<string> dependencies );
-
 	void AddStep( string plan, ObjectDefinition definition, IEnumerable<string> dependencies, ActionContext context );
 
 	void UpdateStep( string plan, ObjectDefinition definition );
+
+	/// <summary>
+	/// Renames step <paramref name="name"/> of <paramref name="plan"/> to <paramref name="newName"/>,
+	/// its scripts included, and points the steps depending on it at the new name. The step's folder
+	/// is renamed in one step, which is the commit point: cut short before it, the step keeps its
+	/// name; after it, the step is renamed and a reindex clears what is left over.
+	/// </summary>
+	void RenameStep( string plan, string name, string newName );
 
 	bool StepExists( string plan, string name );
 
@@ -65,6 +75,9 @@ public interface IProjectInfoStore : IDisposable
 	ProjectRelease? GetRelease( string name );
 
 	void AddRelease( ObjectDefinition definition, ActionContext context );
+
+	/// <summary>Replaces the description of an open release in one write.</summary>
+	void UpdateRelease( ObjectDefinition definition );
 
 	/// <summary>
 	/// Removes an open, empty release. The release must not be finalized and must no longer

@@ -73,7 +73,9 @@ Keep verify scripts read-only: they run in the deployment's transaction.
 
 ## Dependencies
 
-- **Between steps** of one plan: `--requires a,b` on `add-step`. Steps deploy in dependency order.
+- **Between steps** of one plan: `--requires <step>` on `add-step`. Steps deploy in dependency order.
+  Since 0.2 a step requires at most one step, so a plan's steps form a chain that `move-step` can
+  reorder (see Editing); `sqetch` 0.1.x accepted a list.
 - **Between plans**: `--require-plans a,b` on `plan create`, when a plan builds on another (a
   foreign key to a table another plan creates). Plans deploy in dependency order.
 - **A release must contain its plans' dependencies**, or a release before it must. Since 0.1.1,
@@ -145,6 +147,36 @@ outside the selection drawn dashed. `-r` and `--unreleased` combine; `--from-rel
 To show the graph in a pull request or issue, paste the Mermaid output inside a ```` ```mermaid ````
 fenced block, which GitHub renders.
 
+## Editing
+
+Since 0.2, plans, steps and releases can be changed in place, keeping their history and creation
+details (with 0.1.x, delete and recreate instead):
+
+```sh
+sqetch plan update -n add-orders -d "Orders, their lines and index"   # the description
+sqetch plan set-dependencies -n add-orders --plans add-customers       # replace them ("" for none)
+sqetch plan add-dependency -n add-orders --plans add-products
+sqetch plan remove-dependency -n add-orders --plans add-customers     # refused if not a dependency
+sqetch release update -n 1.5 -d "Ordering"
+sqetch plan update-step -p add-orders -n orders-table -d "Creates the table"
+sqetch plan rename-step -p add-orders -n orders-table --new-name create-orders   # prints the new path
+sqetch plan move-step -p add-orders -n orders-customer-index --after orders-lines
+sqetch plan move-step -p add-orders -n orders-customer-index --before orders-lines
+```
+
+- **`set-dependencies`, `add-dependency` and `remove-dependency`** check a new dependency as
+  `plan create` does: it must exist, must not lead back to the plan (refused, naming the loop), and
+  for a released plan must be in its release or an earlier one.
+- **`move-step`** reorders through dependencies, like moving an item in a linked list: the steps
+  that required the moved step take its dependency, then it requires the step it is placed after
+  (whose other followers now require it), or takes the dependency of the step it is placed before
+  (which then requires it). It prints each step whose dependency changed
+  (`c: requires a (was b)`); read it, since a move can take a dependency away from a step.
+- **`rename-step`** moves the step's folder, scripts included, and the steps requiring it follow.
+- Every edit is checked in full before anything is written, and a command cut short leaves a valid
+  project: rerun it, or run `sqetch project reindex` after an interrupted `rename-step`.
+- Edits are refused in a finalized release. A change there is a new plan in a later release.
+
 ## Deleting
 
 `sqetch plan delete -n <plan>` and `sqetch plan delete-step -p <plan> -n <step>` remove work that
@@ -170,5 +202,6 @@ git add plan-index
 Conflicts inside a plan's own files are ordinary SQL merges.
 
 Since 0.2, `reindex` also repairs a plan whose folder and `plan.json` disagree about its release
-(the folder wins), which a `sqetch` command interrupted mid-move can leave behind. Run it, then
-check `sqetch plan --name <plan>`.
+(the folder wins), which a `sqetch` command interrupted mid-move can leave behind, and a step whose
+folder and `step.json` disagree about its name, which an interrupted `rename-step` can leave. Run
+it, then check `sqetch plan --name <plan>` or `sqetch plan list-steps -p <plan>`.
