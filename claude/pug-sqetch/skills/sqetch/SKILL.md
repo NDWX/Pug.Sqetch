@@ -78,6 +78,10 @@ sqetch-deploy --help             # bundle, deploy, drivers
 sqetch-deploy deploy --help
 ```
 
+Both refuse an option they do not know. `sqetch` before 0.2 ignored one silently and carried on
+without it, so with an older `sqetch` check the result (for example `sqetch plan --name <plan>`
+after creating one).
+
 Some answers `--help` cannot give:
 
 - `sqetch-deploy drivers list` lists the database drivers, and
