@@ -58,4 +58,13 @@ public interface IReadOnlyProject : IDisposable
 	/// <see cref="VerifyStepScripts"/> which stops at the first failing step.
 	/// </summary>
 	void VerifyJournalingStatements();
+
+	/// <summary>
+	/// Reports what in the project breaks the rules its content must follow, changing nothing:
+	/// released plans missing dependencies, unknown or cyclic plan dependencies, a broken release
+	/// lineage, steps missing scripts or requiring more than one step, and unset required journaling
+	/// slots (see <see cref="ProjectChecks"/>). Reads through the plan index, so it is meaningful only
+	/// when the store's own check finds nothing blocking (<see cref="ProjectChecks.IsBlocking"/>).
+	/// </summary>
+	IReadOnlyList<ProjectFinding> Check();
 }

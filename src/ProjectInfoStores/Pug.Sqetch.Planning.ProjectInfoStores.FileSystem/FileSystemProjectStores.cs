@@ -96,6 +96,15 @@ public sealed class FileSystemProjectStores : IDisposable
 	/// </summary>
 	public void Reindex() => _session.Reindex();
 
+	/// <summary>
+	/// Reports what is inconsistent in the project on disk, writing nothing: plan-index drift (what
+	/// <see cref="Reindex"/> would change), plan.json and step.json files disagreeing with their
+	/// folders, step dependencies naming no step, and names the naming rules reject. Findings
+	/// <see cref="Reindex"/> repairs are marked <see cref="ProjectFinding.FixedByReindex"/>; the rest
+	/// need a person.
+	/// </summary>
+	public IReadOnlyList<ProjectFinding> Check() => _session.Check();
+
 	public void Dispose()
 	{
 		InfoStore.Dispose();

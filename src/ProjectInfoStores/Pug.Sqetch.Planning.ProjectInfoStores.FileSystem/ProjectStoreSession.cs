@@ -1,3 +1,5 @@
+using Pug.Sqetch.Planning.Models;
+
 namespace Pug.Sqetch.Planning.ProjectInfoStores.FileSystem;
 
 /// <summary>
@@ -41,11 +43,17 @@ internal sealed class ProjectStoreSession
 
 	public void Reindex()
 	{
-		_planIndex = PlanIndex.Rebuild( Paths );
+		PlanIndexComputation computation = PlanIndex.Compute( Paths );
 
-		foreach( PlanIndexEntry entry in _planIndex.Entries )
-			StepFolders.Realign( Paths.StepsDirectory( entry.Release, entry.Name ) );
+		_planIndex = PlanIndex.Apply( Paths, computation );
+
+		// by plan folder, as Check inspects them, not by index entry: a plan.json naming a plan other
+		// than its folder keys the index by that name, where the steps are not
+		foreach( PlanFolder folder in computation.Folders )
+			StepFolders.Realign( Path.Combine( folder.Directory, FileNames.StepsDirectory ) );
 	}
+
+	public IReadOnlyList<ProjectFinding> Check() => ProjectChecker.Check( Project, Paths );
 
 	public PlanIndexEntry RequirePlan( string name )
 		=> PlanIndex.Get( name ) ?? throw new UnknownPlanException( name );

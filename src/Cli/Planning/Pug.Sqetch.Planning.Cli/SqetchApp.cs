@@ -79,6 +79,11 @@ public static class SqetchApp
 
 				project.AddCommand<ProjectReindexCommand>( "reindex" )
 					.WithDescription( "Rebuild the derived plan index from the plan folders" );
+
+				project.AddCommand<ProjectCheckCommand>( "check" )
+					.WithDescription(
+						"Report inconsistent project data, changing nothing; exits 2 when anything is found"
+					);
 			}
 		);
 

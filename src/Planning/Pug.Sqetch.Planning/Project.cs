@@ -303,16 +303,7 @@ public class Project : IProject
 
 			StepScripts? scripts = _scriptsStore.GetStepScripts( plan, step );
 
-			List<string> missing = new();
-
-			if( scripts?.DeployScript is null )
-				missing.Add( "deploy" );
-
-			if( scripts?.VerifyScript is null )
-				missing.Add( "verify" );
-
-			if( scripts?.RollbackScript is null )
-				missing.Add( "rollback" );
+			List<string> missing = MissingScripts( scripts );
 
 			if( missing.Count > 0 )
 			{
@@ -330,6 +321,22 @@ public class Project : IProject
 		{
 			_plansSemaphore.Release();
 		}
+	}
+
+	private static List<string> MissingScripts( StepScripts? scripts )
+	{
+		List<string> missing = new();
+
+		if( scripts?.DeployScript is null )
+			missing.Add( "deploy" );
+
+		if( scripts?.VerifyScript is null )
+			missing.Add( "verify" );
+
+		if( scripts?.RollbackScript is null )
+			missing.Add( "rollback" );
+
+		return missing;
 	}
 
 	public void VerifyStepScripts( string plan )
@@ -1444,6 +1451,414 @@ public class Project : IProject
 		{
 			_journalingSemaphore.Release();
 		}
+	}
+
+	/// <inheritdoc />
+	public IReadOnlyList<ProjectFinding> Check()
+	{
+		_plansSemaphore.Wait();
+
+		try
+		{
+			_releasesSemaphore.Wait();
+
+			try
+			{
+				_journalingSemaphore.Wait();
+
+				try
+				{
+					return RunChecks();
+				}
+				finally
+				{
+					_journalingSemaphore.Release();
+				}
+			}
+			finally
+			{
+				_releasesSemaphore.Release();
+			}
+		}
+		finally
+		{
+			_plansSemaphore.Release();
+		}
+	}
+
+	/// <summary>
+	/// Every check reads the store directly rather than through the public reads, which take the
+	/// semaphores <see cref="Check"/> already holds. Groups come in the order of
+	/// <see cref="ProjectChecks"/>' engine codes, each in lineage and plan order.
+	/// </summary>
+	private List<ProjectFinding> RunChecks()
+	{
+		List<ProjectFinding> findings = [ ];
+
+		// a release listed twice (or two differing only in case) must not stop the check: duplicates are the store check's to report
+		List<ProjectRelease> releases = DependencyOrdering.Sort(
+			_infoStore.ListReleases( new ReleaseSearchCriteria() )
+				.Concat( _infoStore.ListReleases( new ReleaseSearchCriteria( Finalized: true ) ) )
+				.DistinctBy( x => x.Definition.Name, StringComparer.Ordinal ),
+			x => x.Definition.Name,
+			x => string.IsNullOrEmpty( x.Definition.Dependency ) ? [ ] : [ x.Definition.Dependency ],
+			x => x.Registration.Timestamp
+		);
+
+		// plans in release order, then the unreleased ones, each group in dependency order
+		Dictionary<string, ProjectPlan> planIndex = new( StringComparer.OrdinalIgnoreCase );
+
+		foreach( KeyValuePair<string, ProjectPlan> entry in _infoStore.GetPlans() )
+			planIndex.TryAdd( entry.Key, entry.Value );
+
+		ILookup<string, ProjectPlan> byRelease = planIndex.Values.ToLookup( x => x.Release, StringComparer.OrdinalIgnoreCase );
+
+		List<ProjectPlan> plans = [ ];
+
+		foreach( string releaseName in releases.Select( x => x.Definition.Name ).Distinct( StringComparer.OrdinalIgnoreCase ).Append( string.Empty ) )
+			plans.AddRange(
+				DependencyOrdering.Sort(
+					byRelease[releaseName],
+					x => x.Definition.Name,
+					x => _infoStore.GetPlanDependencies( x.Definition.Name ),
+					x => x.Registration.Timestamp
+				)
+			);
+
+		// a plan in a release the project lacks follows the rest
+		HashSet<string> listed = new( releases.Select( x => x.Definition.Name ).Append( string.Empty ), StringComparer.OrdinalIgnoreCase );
+
+		plans.AddRange( planIndex.Values.Where( x => !listed.Contains( x.Release ) ).OrderBy( x => x.Definition.Name, StringComparer.OrdinalIgnoreCase ) );
+
+		Dictionary<string, string[]> dependencies = new( StringComparer.OrdinalIgnoreCase );
+
+		foreach( ProjectPlan plan in plans )
+			dependencies.TryAdd( plan.Definition.Name, _infoStore.GetPlanDependencies( plan.Definition.Name ).ToArray() );
+
+		CheckReleasedPlanDependencies( releases, plans, planIndex, dependencies, findings );
+		CheckUnknownPlanDependencies( plans, planIndex, dependencies, findings );
+		CheckPlanDependencyCycles( plans, planIndex, dependencies, findings );
+		CheckReleaseLineage( releases, findings );
+		CheckSteps( plans, findings );
+		CheckJournaling( findings );
+
+		return findings;
+	}
+
+	/// <summary>
+	/// The rule of <see cref="IsMissingFrom"/> (a dependency that is unreleased or in a later release),
+	/// answered from the plans and the lineage position of each release already loaded rather than from
+	/// the store, which would read every dependency's plan.json and release chain again.
+	/// </summary>
+	private static void CheckReleasedPlanDependencies(
+		List<ProjectRelease> releases,
+		List<ProjectPlan> plans,
+		Dictionary<string, ProjectPlan> planIndex,
+		Dictionary<string, string[]> dependencies,
+		List<ProjectFinding> findings
+	)
+	{
+		Dictionary<string, int> position = new( StringComparer.OrdinalIgnoreCase );
+
+		for( int index = 0; index < releases.Count; index++ )
+			position.TryAdd( releases[index].Definition.Name, index );
+
+		foreach( ProjectRelease release in releases )
+		{
+			string releaseName = release.Definition.Name;
+
+			if( !position.TryGetValue( releaseName, out int releasePosition ) )
+				continue;
+
+			foreach( ProjectPlan member in plans.Where( x => string.Equals( x.Release, releaseName, StringComparison.OrdinalIgnoreCase ) ) )
+			foreach( string dependencyName in dependencies[member.Definition.Name] )
+			{
+				if( !planIndex.TryGetValue( dependencyName, out ProjectPlan? dependency ) )
+					continue;
+
+				string where;
+
+				if( string.IsNullOrEmpty( dependency.Release ) )
+					where = "is unreleased";
+				else if( position.TryGetValue( dependency.Release, out int dependencyPosition ) && dependencyPosition > releasePosition )
+					where = $"is in release '{dependency.Release}', which comes later";
+				else
+					continue;
+
+				findings.Add(
+					new ProjectFinding(
+						ProjectChecks.ReleasedPlanMissingDependency,
+						releaseName,
+						member.Definition.Name,
+						string.Empty,
+						$"Plan '{member.Definition.Name}' depends on plan '{dependency.Definition.Name}', which {where}."
+					)
+				);
+			}
+		}
+	}
+
+	private static void CheckUnknownPlanDependencies(
+		List<ProjectPlan> plans,
+		Dictionary<string, ProjectPlan> planIndex,
+		Dictionary<string, string[]> dependencies,
+		List<ProjectFinding> findings
+	)
+	{
+		foreach( ProjectPlan plan in plans )
+		foreach( string dependencyName in dependencies[plan.Definition.Name] )
+			if( !planIndex.ContainsKey( dependencyName ) )
+				findings.Add(
+					new ProjectFinding(
+						ProjectChecks.PlanDependencyUnknown,
+						plan.Release,
+						plan.Definition.Name,
+						string.Empty,
+						$"Plan '{plan.Definition.Name}' depends on plan '{dependencyName}', which the project does not have."
+					)
+				);
+	}
+
+	private static void CheckPlanDependencyCycles(
+		List<ProjectPlan> plans,
+		Dictionary<string, ProjectPlan> planIndex,
+		Dictionary<string, string[]> dependencies,
+		List<ProjectFinding> findings
+	)
+	{
+		// 1 = on the current path, 2 = finished
+		Dictionary<string, int> state = new( StringComparer.OrdinalIgnoreCase );
+		List<string> path = [ ];
+		HashSet<string> reported = new( StringComparer.Ordinal );
+
+		void Visit( string name )
+		{
+			state[name] = 1;
+			path.Add( name );
+
+			foreach( string dependencyName in dependencies[name] )
+			{
+				if( !planIndex.TryGetValue( dependencyName, out ProjectPlan? dependency ) )
+					continue;
+
+				string dependencyKey = dependency.Definition.Name;
+
+				if( !state.TryGetValue( dependencyKey, out int seen ) )
+				{
+					Visit( dependencyKey );
+				}
+				else if( seen == 1 )
+				{
+					List<string> cycle = NormalizeCycle( path.Skip( path.FindIndex( x => string.Equals( x, dependencyKey, StringComparison.OrdinalIgnoreCase ) ) ).ToList() );
+
+					if( reported.Add( string.Join( "\n", cycle ) ) )
+						findings.Add(
+							new ProjectFinding(
+								ProjectChecks.PlanDependencyCycle,
+								planIndex[cycle[0]].Release,
+								cycle[0],
+								string.Empty,
+								$"Plans depend on each other in a cycle: {string.Join( " -> ", cycle.Append( cycle[0] ) )}."
+							)
+						);
+				}
+			}
+
+			path.RemoveAt( path.Count - 1 );
+			state[name] = 2;
+		}
+
+		foreach( ProjectPlan plan in plans )
+			if( !state.ContainsKey( plan.Definition.Name ) )
+				Visit( plan.Definition.Name );
+	}
+
+	/// <summary>The cycle rotated to start at its smallest name, so one cycle always reads the same.</summary>
+	private static List<string> NormalizeCycle( List<string> cycle )
+	{
+		int start = 0;
+
+		for( int index = 1; index < cycle.Count; index++ )
+			if( StringComparer.OrdinalIgnoreCase.Compare( cycle[index], cycle[start] ) < 0 )
+				start = index;
+
+		return cycle.Skip( start ).Concat( cycle.Take( start ) ).ToList();
+	}
+
+	private static void CheckReleaseLineage( List<ProjectRelease> releases, List<ProjectFinding> findings )
+	{
+		Dictionary<string, ProjectRelease> byName = new( StringComparer.OrdinalIgnoreCase );
+
+		foreach( ProjectRelease release in releases )
+			byName.TryAdd( release.Definition.Name, release );
+
+		void Add( string release, string message )
+			=> findings.Add( new ProjectFinding( ProjectChecks.ReleaseLineage, release, string.Empty, string.Empty, message ) );
+
+		// a release with more than one dependant
+		foreach( ProjectRelease release in releases )
+		{
+			List<string> dependants = releases
+				.Where( x => string.Equals( x.Definition.Dependency, release.Definition.Name, StringComparison.OrdinalIgnoreCase ) )
+				.Select( x => $"'{x.Definition.Name}'" )
+				.ToList();
+
+			if( dependants.Count > 1 )
+				Add(
+					release.Definition.Name,
+					$"Release '{release.Definition.Name}' has more than one dependant: {string.Join( ", ", dependants )}."
+				);
+		}
+
+		// a predecessor that is no release
+		foreach( ProjectRelease release in releases )
+			if( !string.IsNullOrEmpty( release.Definition.Dependency ) && !byName.ContainsKey( release.Definition.Dependency ) )
+				Add(
+					release.Definition.Name,
+					$"Release '{release.Definition.Name}' follows release '{release.Definition.Dependency}', which the project does not have."
+				);
+
+		// more than one start of the lineage
+		List<string> starts = releases
+			.Where( x => string.IsNullOrEmpty( x.Definition.Dependency ) )
+			.Select( x => $"'{x.Definition.Name}'" )
+			.ToList();
+
+		if( starts.Count > 1 )
+			Add( string.Empty, $"More than one release starts the lineage: {string.Join( ", ", starts )}." );
+
+		// releases following each other in a circle: one predecessor each, so a walk finds them all
+		HashSet<string> walked = new( StringComparer.OrdinalIgnoreCase );
+		HashSet<string> reported = new( StringComparer.Ordinal );
+
+		foreach( ProjectRelease release in releases )
+		{
+			List<string> path = [ ];
+			HashSet<string> onPath = new( StringComparer.OrdinalIgnoreCase );
+			string? current = release.Definition.Name;
+
+			while( current is not null && byName.TryGetValue( current, out ProjectRelease? at ) && !walked.Contains( at.Definition.Name ) )
+			{
+				if( !onPath.Add( at.Definition.Name ) )
+				{
+					List<string> cycle = NormalizeCycle( path.Skip( path.FindIndex( x => string.Equals( x, at.Definition.Name, StringComparison.OrdinalIgnoreCase ) ) ).ToList() );
+
+					if( reported.Add( string.Join( "\n", cycle ) ) )
+						Add( cycle[0], $"Releases follow each other in a cycle: {string.Join( " -> ", cycle.Append( cycle[0] ) )}." );
+
+					break;
+				}
+
+				path.Add( at.Definition.Name );
+				current = string.IsNullOrEmpty( at.Definition.Dependency ) ? null : at.Definition.Dependency;
+			}
+
+			walked.UnionWith( path );
+		}
+
+		// an unfinalized release a finalized one follows
+		Dictionary<string, string> followedBy = new( StringComparer.OrdinalIgnoreCase );
+
+		foreach( ProjectRelease release in releases.Where( x => x.Finalized is not null ) )
+		{
+			HashSet<string> visited = new( StringComparer.OrdinalIgnoreCase ) { release.Definition.Name };
+			string dependency = release.Definition.Dependency;
+
+			while( !string.IsNullOrEmpty( dependency ) && byName.TryGetValue( dependency, out ProjectRelease? before ) && visited.Add( before.Definition.Name ) )
+			{
+				if( before.Finalized is null )
+					followedBy.TryAdd( before.Definition.Name, release.Definition.Name );
+
+				dependency = before.Definition.Dependency;
+			}
+		}
+
+		foreach( ProjectRelease release in releases )
+			if( followedBy.TryGetValue( release.Definition.Name, out string? finalized ) )
+				Add(
+					release.Definition.Name,
+					$"Release '{release.Definition.Name}' is not finalized, but finalized release '{finalized}' follows it."
+				);
+	}
+
+	private void CheckSteps( List<ProjectPlan> plans, List<ProjectFinding> findings )
+	{
+		List<ProjectFinding> missingScripts = [ ];
+		List<ProjectFinding> multipleDependencies = [ ];
+
+		foreach( ProjectPlan plan in plans )
+		{
+			string planName = plan.Definition.Name;
+
+			List<ProjectElement> stepList = _infoStore.GetSteps( planName ).Values.ToList();
+			HashSet<string> stepNames = new( stepList.Select( x => x.Definition.Name ), StringComparer.OrdinalIgnoreCase );
+
+			List<ProjectElement> steps = DependencyOrdering.Sort(
+				stepList,
+				x => x.Definition.Name,
+				x => ( x.Definition as StepDefinition )?.Dependencies ?? [ ],
+				x => x.Registration.Timestamp
+			);
+
+			foreach( ProjectElement step in steps )
+			{
+				string stepName = step.Definition.Name;
+
+				using( StepScripts? scripts = _scriptsStore.GetStepScripts( planName, stepName ) )
+				{
+					List<string> missing = MissingScripts( scripts );
+
+					if( missing.Count > 0 )
+						missingScripts.Add(
+							new ProjectFinding(
+								ProjectChecks.StepScriptsMissing,
+								plan.Release,
+								planName,
+								stepName,
+								$"Step '{stepName}' of plan '{planName}' is missing scripts: {string.Join( ", ", missing )}."
+							)
+						);
+				}
+
+				// a dependency naming no step of the plan is the store check's (a rename cut short leaves one)
+				List<string> required = ( ( step.Definition as StepDefinition )?.Dependencies ?? [ ] )
+					.Where( stepNames.Contains )
+					.ToList();
+
+				if( required.Count > 1 )
+					multipleDependencies.Add(
+						new ProjectFinding(
+							ProjectChecks.StepMultipleDependencies,
+							plan.Release,
+							planName,
+							stepName,
+							$"Step '{stepName}' of plan '{planName}' requires more than one step ({string.Join( ", ", required )}); 'sqetch plan move-step' can make it one."
+						)
+					);
+			}
+		}
+
+		findings.AddRange( missingScripts );
+		findings.AddRange( multipleDependencies );
+	}
+
+	private void CheckJournaling( List<ProjectFinding> findings )
+	{
+		Dictionary<JournalingSlot, string?> text = JournalingSlots.All.ToDictionary(
+			slot => slot,
+			slot => _infoStore.GetJournalingStatement( slot )
+		);
+
+		foreach( JournalingSlot slot in JournalingStatements.Missing( text ) )
+			findings.Add(
+				new ProjectFinding(
+					ProjectChecks.JournalingUnset,
+					string.Empty,
+					string.Empty,
+					string.Empty,
+					$"Journaling statement '{slot}' is not set."
+				)
+			);
 	}
 
 	public void VerifyJournalingStatements()
